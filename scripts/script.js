@@ -1,23 +1,27 @@
-// Load tooltips
+// 全局播放器列表与计数器
+let playerCount = 0;
+const allYouTubePlayers = [];
+
+// 加载 tooltip 数据
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
   return await res.json();
 }
 
-// Load chapters
+// 加载章节数据
 async function loadChapters() {
   const res = await fetch('data/chapters.json');
   return await res.json();
 }
 
-// Convert Markdown with tooltip links to HTML
+// 将带 tooltip 的 Markdown 转为 HTML
 function renderMarkdownWithTooltips(md) {
   const html = marked.parse(md);
   return html.replace(/<a href="tooltip:(.+?)">(.+?)<\/a>/g,
     (_, id, text) => `<span class="word" data-tooltip-id="${id}">${text}</span>`);
 }
 
-// Show tooltips
+// 初始化 tooltip 显示
 function setupTooltips() {
   const words = document.querySelectorAll('.word');
   words.forEach(word => {
@@ -44,7 +48,33 @@ function setupTooltips() {
   });
 }
 
-// Build page
+// 创建 YouTube 播放器
+function createYouTubePlayer(videoId, container) {
+  const playerId = `youtube-player-${playerCount++}`;
+  const div = document.createElement('div');
+  div.id = playerId;
+  container.appendChild(div);
+
+  const player = new YT.Player(playerId, {
+    videoId: videoId,
+    events: {
+      onStateChange: (event) => {
+        if (event.data === 1) { // 播放时
+          container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          allYouTubePlayers.forEach(p => {
+            if (p !== player && p.pauseVideo) {
+              p.pauseVideo();
+            }
+          });
+        }
+      }
+    }
+  });
+
+  allYouTubePlayers.push(player);
+}
+
+// 初始化页面
 async function init() {
   const tooltipData = await loadTooltips();
   const chapterData = await loadChapters();
@@ -54,19 +84,19 @@ async function init() {
   const tooltipContainer = document.getElementById('tooltips');
 
   chapterData.chapters.forEach(ch => {
-    // Add TOC entry
+    // TOC
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
-    // Chapter title
+    // 标题
     const title = document.createElement('h2');
     title.id = ch.id;
     title.textContent = ch.title;
     chapters.appendChild(title);
 
-    // Paragraphs
+    // 内容
     ch.paragraphs.forEach(item => {
       if (typeof item === 'string') {
         const para = document.createElement('p');
@@ -77,30 +107,23 @@ async function init() {
         div.className = 'media-block';
 
         let videoUrl = item.video;
+        let videoId = '';
 
-        // Convert youtu.be short link to embed URL
+        // 处理 youtu.be 短链接
         if (videoUrl.includes('youtu.be')) {
-          const videoId = videoUrl.split('/').pop().split('?')[0];
-          videoUrl = `https://www.youtube.com/embed/${videoId}`;
-        } 
-        // Convert youtube.com/watch?v= to embed URL
-        else if (videoUrl.includes('youtube.com/watch')) {
+          videoId = videoUrl.split('/').pop().split('?')[0];
+        } else if (videoUrl.includes('youtube.com/watch')) {
           const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-          const videoId = urlParams.get('v');
-          if (videoId) {
-            videoUrl = `https://www.youtube.com/embed/${videoId}`;
-          }
+          videoId = urlParams.get('v');
         }
 
-        const iframe = document.createElement('iframe');
-        iframe.src = videoUrl;
-        iframe.width = '560';
-        iframe.height = '315';
-        iframe.frameBorder = '0';
-        iframe.setAttribute('allowfullscreen', '');
+        if (videoId) {
+          const playerContainer = document.createElement('div');
+          div.appendChild(playerContainer);
+          chapters.appendChild(div);
 
-        div.appendChild(iframe);
-        chapters.appendChild(div);
+          createYouTubePlayer(videoId, playerContainer);
+        }
       } else if (item.audio) {
         const audio = document.createElement('audio');
         audio.controls = true;
@@ -115,7 +138,6 @@ async function init() {
       }
     });
 
-    // Back link
     const back = document.createElement('a');
     back.href = '#top';
     back.className = 'back-link';
@@ -123,7 +145,7 @@ async function init() {
     chapters.appendChild(back);
   });
 
-  // Tooltips
+  // tooltip 显示
   for (const id in tooltipData) {
     const div = document.createElement('div');
     div.id = 'tooltip-' + id;
