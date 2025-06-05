@@ -4,14 +4,20 @@
   <meta charset="UTF-8">
   <title>Interactive eBook</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 16px; }
-   .word {
+    body {
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.word {
   color: blue;
   cursor: pointer;
   position: relative;
   user-select: none;
-  display: inline-block;
-  font-size: inherit; /* 保证字体一致 */
+  display: inline;          /* 保持与正文完全一致 */
+  font-size: inherit;       /* 继承父元素字体大小 */
+  line-height: inherit;     /* 保证对齐 */
+  font-family: inherit;     /* 保证字体样式一致 */
 }
     .word.active .tooltip { display: block; }
     .tooltip {
