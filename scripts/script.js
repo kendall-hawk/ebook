@@ -2,7 +2,7 @@ let tooltip = document.getElementById('tooltip');
 let wordData = {};
 
 // Load JSON data
-fetch('data.json')
+fetch('data/data.json')
   .then(response => response.json())
   .then(data => {
     wordData = data;
