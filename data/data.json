@@ -6,5 +6,17 @@
   "sun": {
     "definition": "The star at the center of the solar system.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+  },
+  "light": {
+    "definition": "A form of energy that makes things visible.",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+  },
+  "computers": {
+    "definition": "Machines used for processing information.",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+  },
+  "connect": {
+    "definition": "To link or join together.",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
   }
 }
