@@ -5,7 +5,8 @@
   <title>Interactive eBook</title>
   <style>
     body { font-family: Arial; padding: 20px; line-height: 1.6; }
-    .word { color: blue; cursor: pointer; position: relative; user-select: none; }
+    .word { color: blue; cursor: pointer; position: relative; user-select: none; display: inline-block; }
+    .word:focus { outline: 2px dashed #888; }
     .tooltip {
       display: none;
       position: absolute;
@@ -23,11 +24,22 @@
     h2 { margin-top: 40px; }
     .back-link { display: block; margin-top: 20px; }
     nav a { display: block; margin: 4px 0; color: darkgreen; text-decoration: none; }
+    .controls { margin: 20px 0; }
+    .controls input, .controls button { margin: 5px; padding: 6px 12px; }
+    #progress { font-weight: bold; margin-bottom: 10px; color: darkred; }
   </style>
 </head>
 <body>
 
 <h1 id="top">📚 Interactive English eBook</h1>
+<div id="progress">Progress: 0 / 0 words learned</div>
+
+<div class="controls">
+  🔍 Search word: <input type="text" id="searchInput" placeholder="Type a word...">
+  <button onclick="searchWord()">Search</button>
+  <button onclick="showBookmarks()">📑 Show Bookmarks</button>
+  <button onclick="reviewWords()">🧠 Review Words</button>
+</div>
 
 <h2>📌 Table of Contents</h2>
 <nav>
@@ -36,8 +48,8 @@
   <a href="#chapter3">Chapter 3: Technology</a>
 </nav>
 
-  </div>
-  <span class="word">hello
+<p>
+  <span class="word" tabindex="0" role="tooltip">hello
     <span class="tooltip">
       <strong>Hello</strong>: A greeting used when meeting someone.
       <br><br>
@@ -50,10 +62,10 @@
 
 <hr>
 
-<h2 id="chapter2">🌳 Chapter 2: Nature</h2>
+<h2 id="chapter2">🌳 Chapter 2: Nature <button onclick="bookmarkChapter('chapter2')">🔖 Bookmark</button></h2>
 <p>
   The 
-  <span class="word">sun
+  <span class="word" tabindex="0" role="tooltip">sun
     <span class="tooltip">
       <strong>Sun</strong>: The star at the center of the solar system.
       <br><br>
@@ -61,7 +73,7 @@
     </span>
   </span>
   shines brightly in the sky. Trees need 
-  <span class="word">light
+  <span class="word" tabindex="0" role="tooltip">light
     <span class="tooltip">
       <strong>Light</strong>: A form of energy that makes things visible.
       <br><br>
@@ -70,14 +82,11 @@
   </span>
   to grow.
 </p>
-<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
 
-<hr>
-
-<h2 id="chapter3">💻 Chapter 3: Technology</h2>
+<h2 id="chapter3">💻 Chapter 3: Technology <button onclick="bookmarkChapter('chapter3')">🔖 Bookmark</button></h2>
 <p>
   We use 
-  <span class="word">computers
+  <span class="word" tabindex="0" role="tooltip">computers
     <span class="tooltip">
       <strong>Computers</strong>: Machines used for processing information.
       <br><br>
@@ -85,7 +94,7 @@
     </span>
   </span>
   every day. The internet helps us learn and 
-  <span class="word">connect
+  <span class="word" tabindex="0" role="tooltip">connect
     <span class="tooltip">
       <strong>Connect</strong>: To link or join together.
       <br><br>
@@ -94,21 +103,85 @@
   </span>
   with others.
 </p>
+
 <a class="back-link" href="#top">🔙 Back to Table of Contents</a>
 
+<!-- JavaScript 功能区 -->
 <script>
-  document.querySelectorAll('.word').forEach(word => {
-    word.addEventListener('click', () => {
-      document.querySelectorAll('.word.active').forEach(active => {
-        if (active !== word) active.classList.remove('active');
-      });
+  const words = document.querySelectorAll('.word');
+  const progressDisplay = document.getElementById('progress');
+  const learnedWords = new Set(JSON.parse(localStorage.getItem('learnedWords') || '[]'));
+
+  function updateProgress() {
+    progressDisplay.textContent = `Progress: ${learnedWords.size} / ${words.length} words learned`;
+  }
+
+  words.forEach(word => {
+    const text = word.textContent.trim();
+    
+    word.addEventListener('click', e => {
+      e.stopPropagation();
+      words.forEach(w => { if (w !== word) w.classList.remove('active'); });
       word.classList.toggle('active');
+      
+      // 添加到已学习单词列表
+      learnedWords.add(text);
+      localStorage.setItem('learnedWords', JSON.stringify([...learnedWords]));
+      updateProgress();
     });
 
-    document.addEventListener('click', e => {
-      if (!word.contains(e.target)) word.classList.remove('active');
+    word.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        word.click();
+      }
+    });
+
+    // 手机端触摸支持
+    word.addEventListener('touchstart', () => {
+      word.click();
     });
   });
+
+  document.addEventListener('click', () => {
+    words.forEach(w => w.classList.remove('active'));
+  });
+
+  function searchWord() {
+    const input = document.getElementById('searchInput').value.trim().toLowerCase();
+    words.forEach(word => {
+      if (word.textContent.trim().toLowerCase() === input) {
+        word.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        word.classList.add('active');
+      }
+    });
+  }
+
+  function reviewWords() {
+    alert("Words you’ve learned:\n\n" + [...learnedWords].join(', '));
+  }
+
+  function bookmarkChapter(id) {
+    let bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
+    if (!bookmarks.includes(id)) {
+      bookmarks.push(id);
+      localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+      alert("✅ Chapter bookmarked!");
+    } else {
+      alert("🔖 Already bookmarked.");
+    }
+  }
+
+  function showBookmarks() {
+    let bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
+    if (bookmarks.length === 0) {
+      alert("No bookmarks yet.");
+    } else {
+      alert("📌 Bookmarked chapters:\n" + bookmarks.join('\n'));
+    }
+  }
+
+  updateProgress(); // 初始加载进度
 </script>
 
 </body>
