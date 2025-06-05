@@ -75,7 +75,15 @@ ch.paragraphs.forEach(item => {
   } else if (item.video) {
     const div = document.createElement('div');
     div.className = 'media-block';
-    div.innerHTML = item.video;
+
+    const iframe = document.createElement('iframe');
+    iframe.src = item.video;
+    iframe.width = '560';
+    iframe.height = '315';
+    iframe.frameBorder = '0';
+    iframe.allowFullscreen = true;
+
+    div.appendChild(iframe);
     chapters.appendChild(div);
   } else if (item.audio) {
     const audio = document.createElement('audio');
