@@ -1,32 +1,22 @@
-[
-  {
-    "id": "tooltip-hello",
-    "title": "Hello",
-    "description": "A greeting used when meeting someone.",
+{
+  "hello": {
+    "definition": "A greeting used when meeting someone.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
   },
-  {
-    "id": "tooltip-sun",
-    "title": "Sun",
-    "description": "The star at the center of the solar system.",
+  "sun": {
+    "definition": "The star at the center of the solar system.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
   },
-  {
-    "id": "tooltip-light",
-    "title": "Light",
-    "description": "A form of energy that makes things visible.",
+  "light": {
+    "definition": "A form of energy that makes things visible.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
   },
-  {
-    "id": "tooltip-computers",
-    "title": "Computers",
-    "description": "Machines used for processing information.",
+  "computers": {
+    "definition": "Machines used for processing information.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
   },
-  {
-    "id": "tooltip-connect",
-    "title": "Connect",
-    "description": "To link or join together.",
+  "connect": {
+    "definition": "To link or join together.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
   }
-]
+}
