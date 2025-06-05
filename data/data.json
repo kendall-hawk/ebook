@@ -1,0 +1,10 @@
+{
+  "hello": {
+    "definition": "A greeting used when meeting someone.",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+  },
+  "sun": {
+    "definition": "The star at the center of the solar system.",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+  }
+}
