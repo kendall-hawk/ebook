@@ -41,4 +41,20 @@ nav a {
   margin: 4px 0;
   color: darkgreen;
   text-decoration: none;
+  
+.media-block {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.media-block iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+.media-image {
+  display: block;
+  max-width: 100%;
+  margin: 20px auto;
+}
 }
