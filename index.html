@@ -1,150 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Interactive eBook</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      line-height: 1.6;
-      font-size: 16px;
-    }
-
-    .word {
-      color: blue;
-      cursor: pointer;
-      user-select: none;
-      position: relative;
-      font-size: 1em;
-      line-height: inherit;
-    }
-
-    .tooltip {
-      display: none;
-      position: absolute;
-      background: #f0f0f0;
-      border: 1px solid #ccc;
-      padding: 10px;
-      border-radius: 8px;
-      width: 280px;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-      font-size: 0.95em;
-      z-index: 1000;
-    }
-
-    h2 {
-      margin-top: 40px;
-    }
-
-    .back-link {
-      display: block;
-      margin-top: 20px;
-    }
-
-    nav a {
-      display: block;
-      margin: 4px 0;
-      color: darkgreen;
-      text-decoration: none;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <h1>eBook</h1>
 
-<h1 id="top">📚 Interactive English eBook</h1>
+  <p>
+    <span class="word" data-word="hello">hello</span> and welcome to this <span class="word" data-word="sun">sun</span>-lit world.
+  </p>
 
-<h2>📌 Table of Contents</h2>
-<nav>
-  <a href="#chapter1">BBC 6 Minute English – Crunchy Food</a>
-  <a href="#chapter2">Chapter 2: Nature</a>
-  <a href="#chapter3">Chapter 3: Technology</a>
-</nav>
+  <div id="tooltip" class="tooltip"></div>
 
-<!-- Chapter 1 -->
-<h2 id="chapter1">🍪 Chapter 1: Crunchy Food</h2>
-<p>
-  <span class="word" data-tooltip-id="tooltip-hello">hello</span> to learn more.
-</p>
-<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
-
-<!-- Chapter 2 -->
-<h2 id="chapter2">🌳 Chapter 2: Nature</h2>
-<p>
-  The <span class="word" data-tooltip-id="tooltip-sun">sun</span> shines brightly in the sky. 
-  Trees need <span class="word" data-tooltip-id="tooltip-light">light</span> to grow.
-</p>
-<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
-
-<!-- Chapter 3 -->
-<h2 id="chapter3">💻 Chapter 3: Technology</h2>
-<p>
-  We use <span class="word" data-tooltip-id="tooltip-computers">computers</span> every day. 
-  The internet helps us learn and <span class="word" data-tooltip-id="tooltip-connect">connect</span> with others.
-</p>
-<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
-
-<!-- Tooltips -->
-<div id="tooltip-hello" class="tooltip">
-  <strong>Hello</strong>: A greeting used when meeting someone.<br><br>
-  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" preload="none"></audio>
-</div>
-
-<div id="tooltip-sun" class="tooltip">
-  <strong>Sun</strong>: The star at the center of the solar system.<br><br>
-  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" preload="none"></audio>
-</div>
-
-<div id="tooltip-light" class="tooltip">
-  <strong>Light</strong>: A form of energy that makes things visible.<br><br>
-  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" preload="none"></audio>
-</div>
-
-<div id="tooltip-computers" class="tooltip">
-  <strong>Computers</strong>: Machines used for processing information.<br><br>
-  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" preload="none"></audio>
-</div>
-
-<div id="tooltip-connect" class="tooltip">
-  <strong>Connect</strong>: To link or join together.<br><br>
-  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" preload="none"></audio>
-</div>
-
-<!-- JS -->
-<script>
-  const words = document.querySelectorAll('.word');
-
-  words.forEach(word => {
-    word.addEventListener('click', e => {
-      e.stopPropagation(); // Prevent document click handler
-
-      const id = word.dataset.tooltipId;
-      const tooltip = document.getElementById(id);
-
-      // Hide all tooltips
-      document.querySelectorAll('.tooltip').forEach(t => {
-        if (t !== tooltip) t.style.display = 'none';
-      });
-
-      // Toggle selected tooltip
-      if (tooltip.style.display === 'block') {
-        tooltip.style.display = 'none';
-      } else {
-        tooltip.style.display = 'block';
-
-        // Position it below the word
-        const rect = word.getBoundingClientRect();
-        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
-        tooltip.style.left = `${window.scrollX + rect.left}px`;
-      }
-    });
-  });
-
-  // Hide tooltip when clicking elsewhere
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
-  });
-</script>
-
+  <script src="script.js"></script>
 </body>
 </html>
