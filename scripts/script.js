@@ -8,21 +8,17 @@ Promise.all([
 
   // Render chapters and TOC
   chapterData.chapters.forEach(ch => {
-    // TOC link
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
-    // Chapter block
     const chapterEl = document.createElement('div');
     chapterEl.id = ch.id;
 
-    // Chapter title
     const title = document.createElement('h2');
     title.innerHTML = ch.title;
 
-    // Chapter content container
     const content = document.createElement('div');
     content.className = 'chapter-content';
     ch.paragraphs.forEach(p => {
@@ -31,7 +27,6 @@ Promise.all([
       content.appendChild(para);
     });
 
-    // Toggle button
     const toggle = document.createElement('div');
     toggle.className = 'toggle-btn';
     toggle.textContent = '[ Show / Hide ]';
@@ -46,38 +41,48 @@ Promise.all([
     chaptersContainer.appendChild(chapterEl);
   });
 
-  // Render tooltips
+  // Create tooltip elements
   for (const [id, data] of Object.entries(tooltipData)) {
     const tip = document.createElement('div');
     tip.id = `tooltip-${id}`;
     tip.className = 'tooltip';
-    tip.innerHTML = `<strong>${id}</strong>: ${data.text}<br><br>
+    tip.style.position = 'absolute';
+    tip.style.display = 'none';
+    tip.style.zIndex = 1000;
+    tip.innerHTML = `
+      <strong>${id}</strong>: ${data.text}<br><br>
       <audio controls src="${data.audio}" preload="none"></audio>`;
     tooltipsContainer.appendChild(tip);
   }
 
-  // Hide all tooltips on click outside
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+  // Hide tooltips on body click
+  document.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('word')) {
+      document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+    }
   });
 
-  // Show tooltip on word click
-  document.addEventListener('click', e => {
+  // Show tooltip near clicked word
+  document.addEventListener('click', (e) => {
     if (e.target.classList.contains('word')) {
       e.stopPropagation();
+
       const id = e.target.dataset.tooltipId;
-      const tooltip = document.getElementById(`tooltip-${id}`);
+      const tooltip = document.getElementById(`tooltip-${id]}`);
+      const rect = e.target.getBoundingClientRect();
+
+      // Hide others
       document.querySelectorAll('.tooltip').forEach(t => {
         if (t !== tooltip) t.style.display = 'none';
       });
 
+      // Toggle this one
       if (tooltip.style.display === 'block') {
         tooltip.style.display = 'none';
       } else {
-        const rect = e.target.getBoundingClientRect();
         tooltip.style.display = 'block';
-        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
-        tooltip.style.left = `${window.scrollX + rect.left}px`;
+        tooltip.style.top = `${window.scrollY + rect.top - tooltip.offsetHeight - 8}px`;
+        tooltip.style.left = `${window.scrollX + rect.left + e.target.offsetWidth + 8}px`;
       }
     }
   });
