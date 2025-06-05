@@ -66,46 +66,54 @@ async function init() {
     title.textContent = ch.title;
     chapters.appendChild(title);
 
-// Paragraphs
-ch.paragraphs.forEach(item => {
-  if (typeof item === 'string') {
-    const para = document.createElement('p');
-    para.innerHTML = renderMarkdownWithTooltips(item);
-    chapters.appendChild(para);
-  } else if (item.video) {
-    const div = document.createElement('div');
-    div.className = 'media-block';
+    // Paragraphs
+    ch.paragraphs.forEach(item => {
+      if (typeof item === 'string') {
+        const para = document.createElement('p');
+        para.innerHTML = renderMarkdownWithTooltips(item);
+        chapters.appendChild(para);
+      } else if (item.video) {
+        const div = document.createElement('div');
+        div.className = 'media-block';
 
-    let videoUrl = item.video;
+        let videoUrl = item.video;
 
-    // Convert youtu.be to youtube embed link
-    if (videoUrl.includes('youtu.be')) {
-      const videoId = videoUrl.split('/').pop().split('?')[0];
-      videoUrl = `https://www.youtube.com/embed/${videoId}`;
-    }
+        // Convert youtu.be short link to embed URL
+        if (videoUrl.includes('youtu.be')) {
+          const videoId = videoUrl.split('/').pop().split('?')[0];
+          videoUrl = `https://www.youtube.com/embed/${videoId}`;
+        } 
+        // Convert youtube.com/watch?v= to embed URL
+        else if (videoUrl.includes('youtube.com/watch')) {
+          const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
+          const videoId = urlParams.get('v');
+          if (videoId) {
+            videoUrl = `https://www.youtube.com/embed/${videoId}`;
+          }
+        }
 
-    const iframe = document.createElement('iframe');
-    iframe.src = videoUrl;
-    iframe.width = '560';
-    iframe.height = '315';
-    iframe.frameBorder = '0';
-    iframe.allowFullscreen = true;
+        const iframe = document.createElement('iframe');
+        iframe.src = videoUrl;
+        iframe.width = '560';
+        iframe.height = '315';
+        iframe.frameBorder = '0';
+        iframe.setAttribute('allowfullscreen', '');
 
-    div.appendChild(iframe);
-    chapters.appendChild(div);
-  } else if (item.audio) {
-    const audio = document.createElement('audio');
-    audio.controls = true;
-    audio.src = item.audio;
-    chapters.appendChild(audio);
-  } else if (item.image) {
-    const img = document.createElement('img');
-    img.src = item.image;
-    img.alt = 'Image';
-    img.className = 'media-image';
-    chapters.appendChild(img);
-  }
-});
+        div.appendChild(iframe);
+        chapters.appendChild(div);
+      } else if (item.audio) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = item.audio;
+        chapters.appendChild(audio);
+      } else if (item.image) {
+        const img = document.createElement('img');
+        img.src = item.image;
+        img.alt = 'Image';
+        img.className = 'media-image';
+        chapters.appendChild(img);
+      }
+    });
 
     // Back link
     const back = document.createElement('a');
