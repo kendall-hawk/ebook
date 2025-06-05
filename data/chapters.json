@@ -1,17 +1,27 @@
-[
-  {
-    "id": "chapter1",
-    "title": "🍪 Chapter 1: Crunchy Food",
-    "content": "<p><span class=\"word\" data-tooltip-id=\"tooltip-hello\">hello</span> to learn more.</p>"
-  },
-  {
-    "id": "chapter2",
-    "title": "🌳 Chapter 2: Nature",
-    "content": "<p>The <span class=\"word\" data-tooltip-id=\"tooltip-sun\">sun</span> shines brightly in the sky. Trees need <span class=\"word\" data-tooltip-id=\"tooltip-light\">light</span> to grow.</p>"
-  },
-  {
-    "id": "chapter3",
-    "title": "💻 Chapter 3: Technology",
-    "content": "<p>We use <span class=\"word\" data-tooltip-id=\"tooltip-computers\">computers</span> every day. The internet helps us learn and <span class=\"word\" data-tooltip-id=\"tooltip-connect\">connect</span> with others.</p>"
-  }
-]
+{
+  "chapters": [
+    {
+      "id": "chapter1",
+      "title": "🍪 Chapter 1: Crunchy Food",
+      "paragraphs": [
+        "Click **[hello](tooltip:hello)** to learn more."
+      ]
+    },
+    {
+      "id": "chapter2",
+      "title": "🌳 Chapter 2: Nature",
+      "paragraphs": [
+        "The **[sun](tooltip:sun)** shines in the sky.",
+        "Trees need **[light](tooltip:light)** to grow."
+      ]
+    },
+    {
+      "id": "chapter3",
+      "title": "💻 Chapter 3: Technology",
+      "paragraphs": [
+        "We use **[computers](tooltip:computers)** daily.",
+        "The internet helps us learn and **[connect](tooltip:connect)** with others."
+      ]
+    }
+  ]
+}
