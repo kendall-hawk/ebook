@@ -22,7 +22,7 @@ body {
   width: 280px;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
   font-size: 0.95em;
-  z-index: 1000;
+  z-index: 9999;
 }
 
 .chapter-content {
@@ -34,4 +34,6 @@ body {
   font-size: 0.9em;
   color: darkred;
   margin-bottom: 10px;
+  
+
 }
