@@ -76,8 +76,16 @@ ch.paragraphs.forEach(item => {
     const div = document.createElement('div');
     div.className = 'media-block';
 
+    let videoUrl = item.video;
+
+    // Convert youtu.be to youtube embed link
+    if (videoUrl.includes('youtu.be')) {
+      const videoId = videoUrl.split('/').pop().split('?')[0];
+      videoUrl = `https://www.youtube.com/embed/${videoId}`;
+    }
+
     const iframe = document.createElement('iframe');
-    iframe.src = item.video;
+    iframe.src = videoUrl;
     iframe.width = '560';
     iframe.height = '315';
     iframe.frameBorder = '0';
