@@ -1,0 +1,25 @@
+{
+  "chapters": [
+    {
+      "id": "chapter1",
+      "title": "🍪 Chapter 1: Crunchy Food",
+      "paragraphs": [
+        "Click <span class='word' data-tooltip-id='hello'>hello</span> to learn more."
+      ]
+    },
+    {
+      "id": "chapter2",
+      "title": "🌳 Chapter 2: Nature",
+      "paragraphs": [
+        "The <span class='word' data-tooltip-id='sun'>sun</span> shines in the sky."
+      ]
+    },
+    {
+      "id": "chapter3",
+      "title": "💻 Chapter 3: Technology",
+      "paragraphs": [
+        "We use <span class='word' data-tooltip-id='computers'>computers</span> daily."
+      ]
+    }
+  ]
+}
