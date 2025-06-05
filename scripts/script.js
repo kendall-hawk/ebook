@@ -1,27 +1,23 @@
-// 全局播放器列表与计数器
-let playerCount = 0;
-const allYouTubePlayers = [];
-
-// 加载 tooltip 数据
+// Load tooltips
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
   return await res.json();
 }
 
-// 加载章节数据
+// Load chapters
 async function loadChapters() {
   const res = await fetch('data/chapters.json');
   return await res.json();
 }
 
-// 将带 tooltip 的 Markdown 转为 HTML
+// Convert Markdown with tooltip links to HTML
 function renderMarkdownWithTooltips(md) {
   const html = marked.parse(md);
   return html.replace(/<a href="tooltip:(.+?)">(.+?)<\/a>/g,
     (_, id, text) => `<span class="word" data-tooltip-id="${id}">${text}</span>`);
 }
 
-// 初始化 tooltip 显示
+// Setup tooltips
 function setupTooltips() {
   const words = document.querySelectorAll('.word');
   words.forEach(word => {
@@ -48,33 +44,36 @@ function setupTooltips() {
   });
 }
 
-// 创建 YouTube 播放器
-function createYouTubePlayer(videoId, container) {
-  const playerId = `youtube-player-${playerCount++}`;
-  const div = document.createElement('div');
-  div.id = playerId;
-  container.appendChild(div);
-
-  const player = new YT.Player(playerId, {
-    videoId: videoId,
-    events: {
-      onStateChange: (event) => {
-        if (event.data === 1) { // 播放时
-          container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          allYouTubePlayers.forEach(p => {
-            if (p !== player && p.pauseVideo) {
-              p.pauseVideo();
-            }
-          });
-        }
-      }
+// Auto pause other videos using postMessage API
+function setupVideoAutoPause() {
+  const iframes = document.querySelectorAll('iframe');
+  iframes.forEach(iframe => {
+    if (iframe.src.includes('youtube.com/embed')) {
+      iframe.addEventListener('load', () => {
+        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+      });
     }
   });
 
-  allYouTubePlayers.push(player);
+  window.addEventListener('message', (e) => {
+    if (typeof e.data === 'string' && e.data.includes('info')) {
+      // Optional: log or debug message
+    }
+  });
+
+  // Pause other iframes when one starts playing
+  window.addEventListener('message', (e) => {
+    if (typeof e.data === 'object' || !e.data.includes('play')) return;
+    const playingIframe = e.source;
+    document.querySelectorAll('iframe').forEach(iframe => {
+      if (iframe.contentWindow !== playingIframe) {
+        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+      }
+    });
+  });
 }
 
-// 初始化页面
+// Initialize
 async function init() {
   const tooltipData = await loadTooltips();
   const chapterData = await loadChapters();
@@ -84,19 +83,19 @@ async function init() {
   const tooltipContainer = document.getElementById('tooltips');
 
   chapterData.chapters.forEach(ch => {
-    // TOC
+    // TOC link
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
-    // 标题
+    // Chapter title
     const title = document.createElement('h2');
     title.id = ch.id;
     title.textContent = ch.title;
     chapters.appendChild(title);
 
-    // 内容
+    // Paragraphs and media
     ch.paragraphs.forEach(item => {
       if (typeof item === 'string') {
         const para = document.createElement('p');
@@ -109,20 +108,26 @@ async function init() {
         let videoUrl = item.video;
         let videoId = '';
 
-        // 处理 youtu.be 短链接
+        // Handle youtu.be short URL
         if (videoUrl.includes('youtu.be')) {
           videoId = videoUrl.split('/').pop().split('?')[0];
-        } else if (videoUrl.includes('youtube.com/watch')) {
+        }
+        // Handle youtube.com/watch?v=
+        else if (videoUrl.includes('youtube.com/watch')) {
           const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
           videoId = urlParams.get('v');
         }
 
         if (videoId) {
-          const playerContainer = document.createElement('div');
-          div.appendChild(playerContainer);
+          const iframe = document.createElement('iframe');
+          iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+          iframe.width = '560';
+          iframe.height = '315';
+          iframe.frameBorder = '0';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('allow', 'autoplay; encrypted-media');
+          div.appendChild(iframe);
           chapters.appendChild(div);
-
-          createYouTubePlayer(videoId, playerContainer);
         }
       } else if (item.audio) {
         const audio = document.createElement('audio');
@@ -138,6 +143,7 @@ async function init() {
       }
     });
 
+    // Back to top
     const back = document.createElement('a');
     back.href = '#top';
     back.className = 'back-link';
@@ -145,7 +151,7 @@ async function init() {
     chapters.appendChild(back);
   });
 
-  // tooltip 显示
+  // Create tooltip blocks
   for (const id in tooltipData) {
     const div = document.createElement('div');
     div.id = 'tooltip-' + id;
@@ -159,6 +165,7 @@ async function init() {
   }
 
   setupTooltips();
+  setupVideoAutoPause();
 }
 
 init();
