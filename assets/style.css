@@ -24,3 +24,19 @@ body {
   font-size: 0.95em;
   z-index: 1000;
 }
+
+h2 {
+  margin-top: 40px;
+}
+
+.back-link {
+  display: block;
+  margin-top: 20px;
+}
+
+nav a {
+  display: block;
+  margin: 4px 0;
+  color: darkgreen;
+  text-decoration: none;
+}
