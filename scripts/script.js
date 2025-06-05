@@ -1,72 +1,100 @@
-async function loadJSON(url) {
-  const res = await fetch(url);
-  return res.json();
+// Load tooltips
+async function loadTooltips() {
+  const res = await fetch('data/tooltips.json');
+  return await res.json();
 }
 
-function createWordElements() {
-  const words = document.querySelectorAll('.word');
+// Load chapters
+async function loadChapters() {
+  const res = await fetch('data/chapters.json');
+  return await res.json();
+}
 
+// Convert Markdown with tooltip links to HTML
+function renderMarkdownWithTooltips(md) {
+  const html = marked.parse(md);
+  return html.replace(/<a href="tooltip:(.+?)">(.+?)<\/a>/g,
+    (_, id, text) => `<span class="word" data-tooltip-id="${id}">${text}</span>`);
+}
+
+// Show tooltips
+function setupTooltips() {
+  const words = document.querySelectorAll('.word');
   words.forEach(word => {
     word.addEventListener('click', e => {
       e.stopPropagation();
-
       const id = word.dataset.tooltipId;
-      const tooltip = document.getElementById(id);
-
+      const tooltip = document.getElementById('tooltip-' + id);
       document.querySelectorAll('.tooltip').forEach(t => {
         if (t !== tooltip) t.style.display = 'none';
       });
-
       if (tooltip.style.display === 'block') {
         tooltip.style.display = 'none';
       } else {
         tooltip.style.display = 'block';
-
         const rect = word.getBoundingClientRect();
         tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
         tooltip.style.left = `${window.scrollX + rect.left}px`;
       }
     });
   });
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+  });
 }
 
-document.addEventListener('click', () => {
-  document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
-});
-
+// Build page
 async function init() {
-  const chapters = await loadJSON('data/chapters.json');
-  const tooltips = await loadJSON('data/tooltips.json');
+  const tooltipData = await loadTooltips();
+  const chapterData = await loadChapters();
 
-  // Render TOC
   const toc = document.getElementById('toc');
-  chapters.forEach(ch => {
-    const a = document.createElement('a');
-    a.href = `#${ch.id}`;
-    a.textContent = ch.title;
-    toc.appendChild(a);
+  const chapters = document.getElementById('chapters');
+  const tooltipContainer = document.getElementById('tooltips');
+
+  chapterData.chapters.forEach(ch => {
+    // Add TOC entry
+    const link = document.createElement('a');
+    link.href = `#${ch.id}`;
+    link.textContent = ch.title;
+    toc.appendChild(link);
+
+    // Chapter title
+    const title = document.createElement('h2');
+    title.id = ch.id;
+    title.textContent = ch.title;
+    chapters.appendChild(title);
+
+    // Paragraphs
+    ch.paragraphs.forEach(md => {
+      const para = document.createElement('p');
+      para.innerHTML = renderMarkdownWithTooltips(md);
+      chapters.appendChild(para);
+    });
+
+    // Back link
+    const back = document.createElement('a');
+    back.href = '#top';
+    back.className = 'back-link';
+    back.textContent = '🔙 Back to Table of Contents';
+    chapters.appendChild(back);
   });
 
-  // Render chapters
-  const chaptersDiv = document.getElementById('chapters');
-  chapters.forEach(ch => {
-    const section = document.createElement('section');
-    section.id = ch.id;
-    section.innerHTML = `<h2>${ch.title}</h2>${ch.content}<a class="back-link" href="#top">🔙 Back to Table of Contents</a>`;
-    chaptersDiv.appendChild(section);
-  });
-
-  // Render tooltips
-  const tooltipsDiv = document.getElementById('tooltips');
-  tooltips.forEach(tp => {
+  // Tooltips
+  for (const id in tooltipData) {
     const div = document.createElement('div');
+    div.id = 'tooltip-' + id;
     div.className = 'tooltip';
-    div.id = tp.id;
-    div.innerHTML = `<strong>${tp.title}</strong>: ${tp.description}<br><br><audio controls src="${tp.audio}" preload="none"></audio>`;
-    tooltipsDiv.appendChild(div);
-  });
+    div.innerHTML = `
+      <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong>: ${tooltipData[id].definition}
+      <br><br>
+      <audio controls src="${tooltipData[id].audio}" preload="none"></audio>
+    `;
+    tooltipContainer.appendChild(div);
+  }
 
-  createWordElements();
+  setupTooltips();
 }
 
 init();
