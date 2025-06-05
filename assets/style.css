@@ -1,15 +1,15 @@
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
-  line-height: 1.6;
   font-size: 16px;
+  line-height: 1.6;
 }
 
 .word {
   color: blue;
   cursor: pointer;
-  user-select: none;
   position: relative;
+  user-select: none;
 }
 
 .tooltip {
@@ -25,18 +25,13 @@ body {
   z-index: 1000;
 }
 
-h2 {
-  margin-top: 40px;
+.chapter-content {
+  margin-top: 10px;
 }
 
-.back-link {
-  display: block;
-  margin-top: 20px;
-}
-
-nav a {
-  display: block;
-  margin: 4px 0;
-  color: darkgreen;
-  text-decoration: none;
+.toggle-btn {
+  cursor: pointer;
+  font-size: 0.9em;
+  color: darkred;
+  margin-bottom: 10px;
 }
