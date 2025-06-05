@@ -110,15 +110,6 @@
   const words = document.querySelectorAll('.word');
   const learnedWords = new Set();
 
-  words.forEach(word => {
-    word.addEventListener('click', (e) => {
-      e.stopPropagation();
-      words.forEach(w => w.classList.remove('active'));
-      word.classList.add('active');
-      learnedWords.add(word.getAttribute('data-word'));
-      updateProgress();
-    });
-  });
 
   // 点击空白关闭 tooltip（只注册一次）
   document.addEventListener('click', () => {
@@ -130,18 +121,46 @@
       `Progress: ${learnedWords.size} / ${words.length} words learned`;
   }
 
-  function searchWord() {
-    const input = document.getElementById('searchInput').value.trim().toLowerCase();
-    for (let word of words) {
-      const w = word.getAttribute('data-word').toLowerCase();
-      if (w === input) {
-        word.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        word.classList.add('active');
-        return;
-      }
+words.forEach(word => {
+  const text = word.childNodes[0].nodeValue.trim(); // ✅ 正确获取单词
+
+  word.addEventListener('click', e => {
+    e.stopPropagation();
+    words.forEach(w => { if (w !== word) w.classList.remove('active'); });
+    word.classList.toggle('active');
+
+    // 添加到已学习
+    learnedWords.add(text);
+    localStorage.setItem('learnedWords', JSON.stringify([...learnedWords]));
+    updateProgress();
+  });
+
+function searchWord() {
+  const input = document.getElementById('searchInput').value.trim().toLowerCase();
+  let found = false;
+
+  words.forEach(word => {
+    const text = word.childNodes[0].nodeValue.trim().toLowerCase();
+    if (text === input) {
+      word.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      word.classList.add('active');
+      found = true;
     }
-    alert("Word not found.");
-  }
+  });
+
+  if (!found) alert("❌ Word not found.");
+}
+  word.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      word.click();
+    }
+  });
+
+  word.addEventListener('touchstart', () => {
+    word.click();
+  });
+});
 
   function bookmarkChapter(id) {
     localStorage.setItem(`bookmark-${id}`, true);
