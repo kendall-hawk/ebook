@@ -1,25 +1,17 @@
-{
-  "chapters": [
-    {
-      "id": "chapter1",
-      "title": "🍪 Chapter 1: Crunchy Food",
-      "paragraphs": [
-        "Click <span class='word' data-tooltip-id='hello'>hello</span> to learn more."
-      ]
-    },
-    {
-      "id": "chapter2",
-      "title": "🌳 Chapter 2: Nature",
-      "paragraphs": [
-        "The <span class='word' data-tooltip-id='sun'>sun</span> shines in the sky."
-      ]
-    },
-    {
-      "id": "chapter3",
-      "title": "💻 Chapter 3: Technology",
-      "paragraphs": [
-        "We use <span class='word' data-tooltip-id='computers'>computers</span> daily."
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": "chapter1",
+    "title": "🍪 Chapter 1: Crunchy Food",
+    "content": "<p><span class=\"word\" data-tooltip-id=\"tooltip-hello\">hello</span> to learn more.</p>"
+  },
+  {
+    "id": "chapter2",
+    "title": "🌳 Chapter 2: Nature",
+    "content": "<p>The <span class=\"word\" data-tooltip-id=\"tooltip-sun\">sun</span> shines brightly in the sky. Trees need <span class=\"word\" data-tooltip-id=\"tooltip-light\">light</span> to grow.</p>"
+  },
+  {
+    "id": "chapter3",
+    "title": "💻 Chapter 3: Technology",
+    "content": "<p>We use <span class=\"word\" data-tooltip-id=\"tooltip-computers\">computers</span> every day. The internet helps us learn and <span class=\"word\" data-tooltip-id=\"tooltip-connect\">connect</span> with others.</p>"
+  }
+]
