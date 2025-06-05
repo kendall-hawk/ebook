@@ -1,37 +1,77 @@
-// Load vocab data from JSON
-let vocabData = {};
+Promise.all([
+  fetch('data/chapters.json').then(res => res.json()),
+  fetch('data/tooltips.json').then(res => res.json())
+]).then(([chapterData, tooltipData]) => {
+  const toc = document.getElementById('toc');
+  const chaptersContainer = document.getElementById('chapters');
+  const tooltipsContainer = document.getElementById('tooltips');
 
-fetch('data/data.json')
-  .then(response => response.json())
-  .then(data => {
-    vocabData = data;
+  // Render chapters and TOC
+  chapterData.chapters.forEach(ch => {
+    const link = document.createElement('a');
+    link.href = `#${ch.id}`;
+    link.textContent = ch.title;
+    toc.appendChild(link);
+
+    const chapterEl = document.createElement('div');
+    chapterEl.id = ch.id;
+
+    const title = document.createElement('h2');
+    title.innerHTML = ch.title;
+
+    const toggle = document.createElement('div');
+    toggle.className = 'toggle-btn';
+    toggle.textContent = '[ Show / Hide ]';
+    toggle.onclick = () => {
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    };
+
+    const content = document.createElement('div');
+    content.className = 'chapter-content';
+    ch.paragraphs.forEach(p => {
+      const para = document.createElement('p');
+      para.innerHTML = p;
+      content.appendChild(para);
+    });
+
+    chapterEl.appendChild(title);
+    chapterEl.appendChild(toggle);
+    chapterEl.appendChild(content);
+    chaptersContainer.appendChild(chapterEl);
   });
 
-const tooltip = document.getElementById('tooltip');
+  // Render tooltips
+  for (const [id, data] of Object.entries(tooltipData)) {
+    const tip = document.createElement('div');
+    tip.id = `tooltip-${id}`;
+    tip.className = 'tooltip';
+    tip.innerHTML = `<strong>${id}</strong>: ${data.text}<br><br>
+      <audio controls src="${data.audio}" preload="none"></audio>`;
+    tooltipsContainer.appendChild(tip);
+  }
 
-document.querySelectorAll('.word').forEach(word => {
-  word.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const wordKey = word.dataset.word;
-    const info = vocabData[wordKey];
-
-    if (!info) return;
-
-    // Fill tooltip
-    tooltip.innerHTML = `
-      <strong>${wordKey}</strong>: ${info.definition}<br><br>
-      <audio controls src="${info.audio}" preload="none"></audio>
-    `;
-
-    // Position tooltip
-    const rect = word.getBoundingClientRect();
-    tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
-    tooltip.style.left = `${window.scrollX + rect.left}px`;
-    tooltip.style.display = 'block';
+  // Tooltip event
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
-});
 
-// Hide tooltip when clicking elsewhere
-document.addEventListener('click', () => {
-  tooltip.style.display = 'none';
+  document.addEventListener('click', e => {
+    if (e.target.classList.contains('word')) {
+      e.stopPropagation();
+      const id = e.target.dataset.tooltipId;
+      const tooltip = document.getElementById(`tooltip-${id}`);
+      document.querySelectorAll('.tooltip').forEach(t => {
+        if (t !== tooltip) t.style.display = 'none';
+      });
+
+      if (tooltip.style.display === 'block') {
+        tooltip.style.display = 'none';
+      } else {
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.display = 'block';
+        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
+        tooltip.style.left = `${window.scrollX + rect.left}px`;
+      }
+    }
+  });
 });
