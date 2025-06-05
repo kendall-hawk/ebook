@@ -1,0 +1,26 @@
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+.word {
+  color: blue;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  width: 280px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  font-size: 0.95em;
+  z-index: 1000;
+}
