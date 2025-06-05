@@ -2,62 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Interactive eBook</title>
-  <link rel="stylesheet" href="assets/style.css" />
+  <title>📚 Interactive eBook</title>
+  <link rel="stylesheet" href="styles/style.css" />
 </head>
 <body>
 
-  <h1 id="top">📘 Interactive eBook</h1>
+<h1>📘 Interactive English eBook</h1>
 
-  <h2>📚 Table of Contents</h2>
-  <nav>
-    <a href="#chapter1">Chapter 1: Introduction</a>
-    <a href="#chapter2">Chapter 2: Nature</a>
-    <a href="#chapter3">Chapter 3: Technology</a>
-    <a href="#chapter4">Chapter 4: (Empty)</a>
-    <a href="#chapter5">Chapter 5: (Empty)</a>
-    <a href="#chapter6">Chapter 6: (Empty)</a>
-  </nav>
+<h2>📌 Table of Contents</h2>
+<nav id="toc"></nav>
 
-  <!-- Chapter 1 -->
-  <h2 id="chapter1">📖 Chapter 1: Introduction</h2>
-  <p>
-    <span class="word" data-word="hello">hello</span> and welcome to this <span class="word" data-word="sun">sun</span>-lit world.
-  </p>
-  <a class="back-link" href="#top">🔝 Back to top</a>
+<div id="chapters"></div>
 
-  <!-- Chapter 2 -->
-  <h2 id="chapter2">🌳 Chapter 2: Nature</h2>
-  <p>
-    The <span class="word" data-word="light">light</span> of the <span class="word" data-word="sun">sun</span> helps plants grow.
-  </p>
-  <a class="back-link" href="#top">🔝 Back to top</a>
+<!-- Tooltip container -->
+<div id="tooltips"></div>
 
-  <!-- Chapter 3 -->
-  <h2 id="chapter3">💻 Chapter 3: Technology</h2>
-  <p>
-    We use <span class="word" data-word="computers">computers</span> to <span class="word" data-word="connect">connect</span> with others.
-  </p>
-  <a class="back-link" href="#top">🔝 Back to top</a>
-
-  <!-- Chapter 4 -->
-  <h2 id="chapter4">🌀 Chapter 4: [Empty]</h2>
-  <p>(This chapter is reserved for future content.)</p>
-  <a class="back-link" href="#top">🔝 Back to top</a>
-
-  <!-- Chapter 5 -->
-  <h2 id="chapter5">🌈 Chapter 5: [Empty]</h2>
-  <p>(This chapter is reserved for future content.)</p>
-  <a class="back-link" href="#top">🔝 Back to top</a>
-
-  <!-- Chapter 6 -->
-  <h2 id="chapter6">🚀 Chapter 6: [Empty]</h2>
-  <p>(This chapter is reserved for future content.)</p>
-  <a class="back-link" href="#top">🔝 Back to top</a>
-
-  <!-- Tooltip -->
-  <div id="tooltip" class="tooltip"></div>
-
-  <script src="scripts/script.js"></script>
+<script src="scripts/script.js"></script>
 </body>
 </html>
