@@ -3,7 +3,7 @@
     {
       "id": "chapter1",
       "title": "What's your favourite kind of noodle?",
-      "video": "<iframe width=\\\"560\\\" height=\\\"315\\\" src=\\\"https://www.youtube.com/embed/aOiuSsnWEik?si=b15vIyFaaK1MsIKc\\\" frameborder=\\\"0\\\" allow=\\\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture\\\" allowfullscreen></iframe>",
+      "video": "https://www.youtube.com/embed/aOiuSsnWEik?si=b15vIyFaaK1MsIKc",
       "paragraphs": [  
       
           "**Introduction**",
