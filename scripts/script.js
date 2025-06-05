@@ -8,24 +8,21 @@ Promise.all([
 
   // Render chapters and TOC
   chapterData.chapters.forEach(ch => {
+    // TOC link
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
+    // Chapter block
     const chapterEl = document.createElement('div');
     chapterEl.id = ch.id;
 
+    // Chapter title
     const title = document.createElement('h2');
     title.innerHTML = ch.title;
 
-    const toggle = document.createElement('div');
-    toggle.className = 'toggle-btn';
-    toggle.textContent = '[ Show / Hide ]';
-    toggle.onclick = () => {
-      content.style.display = content.style.display === 'none' ? 'block' : 'none';
-    };
-
+    // Chapter content container
     const content = document.createElement('div');
     content.className = 'chapter-content';
     ch.paragraphs.forEach(p => {
@@ -33,6 +30,15 @@ Promise.all([
       para.innerHTML = p;
       content.appendChild(para);
     });
+
+    // Toggle button
+    const toggle = document.createElement('div');
+    toggle.className = 'toggle-btn';
+    toggle.textContent = '[ Show / Hide ]';
+    toggle.style.cursor = 'pointer';
+    toggle.onclick = () => {
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    };
 
     chapterEl.appendChild(title);
     chapterEl.appendChild(toggle);
@@ -50,11 +56,12 @@ Promise.all([
     tooltipsContainer.appendChild(tip);
   }
 
-  // Tooltip event
+  // Hide all tooltips on click outside
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
 
+  // Show tooltip on word click
   document.addEventListener('click', e => {
     if (e.target.classList.contains('word')) {
       e.stopPropagation();
