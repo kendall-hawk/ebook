@@ -5,7 +5,13 @@
   <title>Interactive eBook</title>
   <style>
     body { font-family: Arial; padding: 20px; line-height: 1.6; }
-    .word { color: blue; cursor: pointer; position: relative; user-select: none; display: inline-block; }
+    .word { color: blue;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  display: inline-block;
+  font-size: 1em; /* 保持与正文相同 */
+  line-height: inherit; /* 避免行高不一致 */ }
     .word:focus { outline: 2px dashed #888; }
     .tooltip {
       display: none;
