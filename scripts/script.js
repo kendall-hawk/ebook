@@ -1,89 +1,72 @@
-Promise.all([
-  fetch('data/chapters.json').then(res => res.json()),
-  fetch('data/tooltips.json').then(res => res.json())
-]).then(([chapterData, tooltipData]) => {
-  const toc = document.getElementById('toc');
-  const chaptersContainer = document.getElementById('chapters');
-  const tooltipsContainer = document.getElementById('tooltips');
+async function loadJSON(url) {
+  const res = await fetch(url);
+  return res.json();
+}
 
-  // Render chapters and TOC
-  chapterData.chapters.forEach(ch => {
-    const link = document.createElement('a');
-    link.href = `#${ch.id}`;
-    link.textContent = ch.title;
-    toc.appendChild(link);
+function createWordElements() {
+  const words = document.querySelectorAll('.word');
 
-    const chapterEl = document.createElement('div');
-    chapterEl.id = ch.id;
-
-    const title = document.createElement('h2');
-    title.innerHTML = ch.title;
-
-    const content = document.createElement('div');
-    content.className = 'chapter-content';
-    ch.paragraphs.forEach(p => {
-      const para = document.createElement('p');
-      para.innerHTML = p;
-      content.appendChild(para);
-    });
-
-    const toggle = document.createElement('div');
-    toggle.className = 'toggle-btn';
-    toggle.textContent = '[ Show / Hide ]';
-    toggle.style.cursor = 'pointer';
-    toggle.onclick = () => {
-      content.style.display = content.style.display === 'none' ? 'block' : 'none';
-    };
-
-    chapterEl.appendChild(title);
-    chapterEl.appendChild(toggle);
-    chapterEl.appendChild(content);
-    chaptersContainer.appendChild(chapterEl);
-  });
-
-  // Create tooltip elements
-  for (const [id, data] of Object.entries(tooltipData)) {
-    const tip = document.createElement('div');
-    tip.id = `tooltip-${id}`;
-    tip.className = 'tooltip';
-    tip.style.position = 'absolute';
-    tip.style.display = 'none';
-    tip.style.zIndex = 1000;
-    tip.innerHTML = `
-      <strong>${id}</strong>: ${data.text}<br><br>
-      <audio controls src="${data.audio}" preload="none"></audio>`;
-    tooltipsContainer.appendChild(tip);
-  }
-
-  // Hide tooltips on body click
-  document.addEventListener('click', (e) => {
-    if (!e.target.classList.contains('word')) {
-      document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
-    }
-  });
-
-  // Show tooltip near clicked word
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('word')) {
+  words.forEach(word => {
+    word.addEventListener('click', e => {
       e.stopPropagation();
 
-      const id = e.target.dataset.tooltipId;
-      const tooltip = document.getElementById(`tooltip-${id]}`);
-      const rect = e.target.getBoundingClientRect();
+      const id = word.dataset.tooltipId;
+      const tooltip = document.getElementById(id);
 
-      // Hide others
       document.querySelectorAll('.tooltip').forEach(t => {
         if (t !== tooltip) t.style.display = 'none';
       });
 
-      // Toggle this one
       if (tooltip.style.display === 'block') {
         tooltip.style.display = 'none';
       } else {
         tooltip.style.display = 'block';
-        tooltip.style.top = `${window.scrollY + rect.top - tooltip.offsetHeight - 8}px`;
-        tooltip.style.left = `${window.scrollX + rect.left + e.target.offsetWidth + 8}px`;
+
+        const rect = word.getBoundingClientRect();
+        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
+        tooltip.style.left = `${window.scrollX + rect.left}px`;
       }
-    }
+    });
   });
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
 });
+
+async function init() {
+  const chapters = await loadJSON('data/chapters.json');
+  const tooltips = await loadJSON('data/tooltips.json');
+
+  // Render TOC
+  const toc = document.getElementById('toc');
+  chapters.forEach(ch => {
+    const a = document.createElement('a');
+    a.href = `#${ch.id}`;
+    a.textContent = ch.title;
+    toc.appendChild(a);
+  });
+
+  // Render chapters
+  const chaptersDiv = document.getElementById('chapters');
+  chapters.forEach(ch => {
+    const section = document.createElement('section');
+    section.id = ch.id;
+    section.innerHTML = `<h2>${ch.title}</h2>${ch.content}<a class="back-link" href="#top">🔙 Back to Table of Contents</a>`;
+    chaptersDiv.appendChild(section);
+  });
+
+  // Render tooltips
+  const tooltipsDiv = document.getElementById('tooltips');
+  tooltips.forEach(tp => {
+    const div = document.createElement('div');
+    div.className = 'tooltip';
+    div.id = tp.id;
+    div.innerHTML = `<strong>${tp.title}</strong>: ${tp.description}<br><br><audio controls src="${tp.audio}" preload="none"></audio>`;
+    tooltipsDiv.appendChild(div);
+  });
+
+  createWordElements();
+}
+
+init();
