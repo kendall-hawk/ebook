@@ -50,26 +50,22 @@ function setupVideoAutoPause() {
   iframes.forEach(iframe => {
     if (iframe.src.includes('youtube.com/embed')) {
       iframe.addEventListener('load', () => {
-        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        iframe.contentWindow.postMessage('{"event":"listening","id":0}', '*');
       });
     }
   });
 
   window.addEventListener('message', (e) => {
-    if (typeof e.data === 'string' && e.data.includes('info')) {
-      // Optional: log or debug message
+    if (typeof e.data !== 'string') return;
+    // 当收到播放事件时，暂停其他视频
+    if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
+      const playingIframe = e.source;
+      document.querySelectorAll('iframe').forEach(iframe => {
+        if (iframe.contentWindow !== playingIframe) {
+          iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        }
+      });
     }
-  });
-
-  // Pause other iframes when one starts playing
-  window.addEventListener('message', (e) => {
-    if (typeof e.data === 'object' || !e.data.includes('play')) return;
-    const playingIframe = e.source;
-    document.querySelectorAll('iframe').forEach(iframe => {
-      if (iframe.contentWindow !== playingIframe) {
-        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-      }
-    });
   });
 }
 
@@ -124,7 +120,7 @@ async function init() {
           iframe.width = '560';
           iframe.height = '315';
           iframe.frameBorder = '0';
-          iframe.allowFullscreen = true;
+          iframe.setAttribute('allowfullscreen', '');
           iframe.setAttribute('allow', 'autoplay; encrypted-media');
           div.appendChild(iframe);
           chapters.appendChild(div);
