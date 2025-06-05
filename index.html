@@ -5,22 +5,21 @@
   <title>Interactive eBook</title>
   <style>
     body {
-  font-family: Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  padding: 20px;
-}
-.word {
-  color: blue;
-  cursor: pointer;
-  position: relative;
-  user-select: none;
-  display: inline;          /* 保持与正文完全一致 */
-  font-size: inherit;       /* 继承父元素字体大小 */
-  line-height: inherit;     /* 保证对齐 */
-  font-family: inherit;     /* 保证字体样式一致 */
-}
-    .word.active .tooltip { display: block; }
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    .word {
+      color: blue;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      font-size: 1em;
+      line-height: inherit;
+    }
+
     .tooltip {
       display: none;
       position: absolute;
@@ -28,162 +27,123 @@
       border: 1px solid #ccc;
       padding: 10px;
       border-radius: 8px;
-      top: 25px;
-      left: 0;
       width: 280px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+      font-size: 0.95em;
       z-index: 1000;
     }
-    h2 { margin-top: 40px; }
-    .back-link { display: block; margin-top: 20px; }
-    nav a { display: block; margin: 4px 0; color: darkgreen; text-decoration: none; }
-    .controls { margin: 20px 0; }
-    .controls input, .controls button { margin: 5px; padding: 6px 12px; }
-    #progress { font-weight: bold; margin-bottom: 10px; color: darkred; }
-    .bookmarked { background: #ffffcc; padding: 3px 6px; }
+
+    h2 {
+      margin-top: 40px;
+    }
+
+    .back-link {
+      display: block;
+      margin-top: 20px;
+    }
+
+    nav a {
+      display: block;
+      margin: 4px 0;
+      color: darkgreen;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
 
-<h1 id="top">English eBook</h1>
-<div id="progress">Progress: 0 / 0 words learned</div>
+<h1 id="top">📚 Interactive English eBook</h1>
 
-<div class="controls">
-  🔍 Search word: <input type="text" id="searchInput" placeholder="Type a word...">
-  <button onclick="searchWord()">Search</button>
-  <button onclick="showBookmarks()">📑 Show Bookmarks</button>
-  <button onclick="reviewWords()">🧠 Review Words</button>
-</div>
-
-<h2>Table of Contents</h2>
+<h2>📌 Table of Contents</h2>
 <nav>
+  <a href="#chapter1">BBC 6 Minute English – Crunchy Food</a>
   <a href="#chapter2">Chapter 2: Nature</a>
   <a href="#chapter3">Chapter 3: Technology</a>
 </nav>
 
-<hr>
-
-<h2 id="chapter2">Chapter 2: Nature <button onclick="bookmarkChapter('chapter2')">🔖 Bookmark</button></h2>
+<!-- Chapter 1 -->
+<h2 id="chapter1">🍪 Chapter 1: Crunchy Food</h2>
 <p>
-  The 
-  <span class="word" data-word="sun">
-    sun
-    <span class="tooltip">
-      <strong>Sun</strong>: The star at the center of the solar system.
-      <br><audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"></audio>
-    </span>
-  </span>
-  shines brightly. Trees need 
-  <span class="word" data-word="light">
-    light
-    <span class="tooltip">
-      <strong>Light</strong>: A form of energy that makes things visible.
-      <br><audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"></audio>
-    </span>
-  </span>
-  to grow.
+  <span class="word" data-tooltip-id="tooltip-hello">hello</span> to learn more.
 </p>
+<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
 
-<h2 id="chapter3">💻 Chapter 3: Technology <button onclick="bookmarkChapter('chapter3')">🔖 Bookmark</button></h2>
+<!-- Chapter 2 -->
+<h2 id="chapter2">🌳 Chapter 2: Nature</h2>
 <p>
-  We use 
-  <span class="word" data-word="computers">
-    computers
-    <span class="tooltip">
-      <strong>Computers</strong>: Machines used for processing information.
-      <br><audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"></audio>
-    </span>
-  </span>
-  every day. The internet helps us 
-  <span class="word" data-word="connect">
-    connect
-    <span class="tooltip">
-      <strong>Connect</strong>: To link or join together.
-      <br><audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"></audio>
-    </span>
-  </span>
-  with others.
+  The <span class="word" data-tooltip-id="tooltip-sun">sun</span> shines brightly in the sky. 
+  Trees need <span class="word" data-tooltip-id="tooltip-light">light</span> to grow.
 </p>
+<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
 
+<!-- Chapter 3 -->
+<h2 id="chapter3">💻 Chapter 3: Technology</h2>
+<p>
+  We use <span class="word" data-tooltip-id="tooltip-computers">computers</span> every day. 
+  The internet helps us learn and <span class="word" data-tooltip-id="tooltip-connect">connect</span> with others.
+</p>
+<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
+
+<!-- Tooltips -->
+<div id="tooltip-hello" class="tooltip">
+  <strong>Hello</strong>: A greeting used when meeting someone.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-sun" class="tooltip">
+  <strong>Sun</strong>: The star at the center of the solar system.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-light" class="tooltip">
+  <strong>Light</strong>: A form of energy that makes things visible.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-computers" class="tooltip">
+  <strong>Computers</strong>: Machines used for processing information.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-connect" class="tooltip">
+  <strong>Connect</strong>: To link or join together.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" preload="none"></audio>
+</div>
+
+<!-- JS -->
 <script>
-  // 单词点击显示 tooltip，并统计已学单词
   const words = document.querySelectorAll('.word');
-  const learnedWords = new Set();
-
-
-  // 点击空白关闭 tooltip（只注册一次）
-  document.addEventListener('click', () => {
-    words.forEach(w => w.classList.remove('active'));
-  });
-
-  function updateProgress() {
-    document.getElementById('progress').innerText =
-      `Progress: ${learnedWords.size} / ${words.length} words learned`;
-  }
-
-words.forEach(word => {
-  const text = word.childNodes[0].nodeValue.trim(); // ✅ 正确获取单词
-
-  word.addEventListener('click', e => {
-    e.stopPropagation();
-    words.forEach(w => { if (w !== word) w.classList.remove('active'); });
-    word.classList.toggle('active');
-
-    // 添加到已学习
-    learnedWords.add(text);
-    localStorage.setItem('learnedWords', JSON.stringify([...learnedWords]));
-    updateProgress();
-  });
-
-function searchWord() {
-  const input = document.getElementById('searchInput').value.trim().toLowerCase();
-  let found = false;
 
   words.forEach(word => {
-    const text = word.childNodes[0].nodeValue.trim().toLowerCase();
-    if (text === input) {
-      word.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      word.classList.add('active');
-      found = true;
-    }
-  });
+    word.addEventListener('click', e => {
+      e.stopPropagation(); // Prevent document click handler
 
-  if (!found) alert("❌ Word not found.");
-}
-  word.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      word.click();
-    }
-  });
+      const id = word.dataset.tooltipId;
+      const tooltip = document.getElementById(id);
 
-  word.addEventListener('touchstart', () => {
-    word.click();
-  });
-});
+      // Hide all tooltips
+      document.querySelectorAll('.tooltip').forEach(t => {
+        if (t !== tooltip) t.style.display = 'none';
+      });
 
-  function bookmarkChapter(id) {
-    localStorage.setItem(`bookmark-${id}`, true);
-    alert("Bookmarked!");
-  }
+      // Toggle selected tooltip
+      if (tooltip.style.display === 'block') {
+        tooltip.style.display = 'none';
+      } else {
+        tooltip.style.display = 'block';
 
-  function showBookmarks() {
-    let bookmarked = "";
-    for (let key in localStorage) {
-      if (key.startsWith("bookmark-")) {
-        bookmarked += `🔖 ${key.replace("bookmark-", "")}\n`;
+        // Position it below the word
+        const rect = word.getBoundingClientRect();
+        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
+        tooltip.style.left = `${window.scrollX + rect.left}px`;
       }
-    }
-    alert(bookmarked || "No bookmarks yet.");
-  }
+    });
+  });
 
-  function reviewWords() {
-    if (learnedWords.size === 0) {
-      alert("You haven't learned any words yet.");
-    } else {
-      alert("Learned words:\n" + [...learnedWords].join(", "));
-    }
-  }
+  // Hide tooltip when clicking elsewhere
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+  });
 </script>
 
 </body>
