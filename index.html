@@ -3,37 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <title>Interactive eBook</title>
-  <style>
-    body { font-family: Arial; padding: 20px; line-height: 1.6; }
-    .word { color: blue;
-  cursor: pointer;
-  position: relative;
-  user-select: none;
-  display: inline-block;
-  font-size: 1em; /* 保持与正文相同 */
-  line-height: inherit; /* 避免行高不一致 */ }
-    .word:focus { outline: 2px dashed #888; }
-    .tooltip {
-      display: none;
-      position: absolute;
-      background: #f0f0f0;
-      border: 1px solid #ccc;
-      padding: 10px;
-      border-radius: 8px;
-      top: 25px;
-      left: 0;
-      width: 280px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-      z-index: 1000;
-    }
-    .word.active .tooltip { display: block; }
-    h2 { margin-top: 40px; }
-    .back-link { display: block; margin-top: 20px; }
-    nav a { display: block; margin: 4px 0; color: darkgreen; text-decoration: none; }
-    .controls { margin: 20px 0; }
-    .controls input, .controls button { margin: 5px; padding: 6px 12px; }
-    #progress { font-weight: bold; margin-bottom: 10px; color: darkred; }
-  </style>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    line-height: 1.6;
+    font-size: 16px; /* 设置基础字体大小 */
+  }
+
+  .word {
+    color: blue;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    display: inline-block;
+    font-size: 1em;         /* 确保与正文一致 */
+    line-height: inherit;   /* 保持行高一致 */
+    vertical-align: baseline;
+  }
+
+  .word:focus {
+    outline: 2px dashed #888;
+  }
+
+  .tooltip {
+    display: none;
+    position: absolute;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 8px;
+    top: 25px;
+    left: 0;
+    width: 280px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    z-index: 1000;
+    font-size: 0.95em; /* 稍微小一点，不影响正文 */
+  }
+
+  .word.active .tooltip {
+    display: block;
+  }
+
+  h2 {
+    margin-top: 40px;
+  }
+
+  .back-link {
+    display: block;
+    margin-top: 20px;
+  }
+
+  nav a {
+    display: block;
+    margin: 4px 0;
+    color: darkgreen;
+    text-decoration: none;
+  }
+
+  .controls {
+    margin: 20px 0;
+  }
+
+  .controls input, .controls button {
+    margin: 5px;
+    padding: 6px 12px;
+  }
+
+  #progress {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: darkred;
+  }
+</style>
 </head>
 <body>
 
