@@ -66,12 +66,30 @@ async function init() {
     title.textContent = ch.title;
     chapters.appendChild(title);
 
-    // Paragraphs
-    ch.paragraphs.forEach(md => {
-      const para = document.createElement('p');
-      para.innerHTML = renderMarkdownWithTooltips(md);
-      chapters.appendChild(para);
-    });
+// Paragraphs
+ch.paragraphs.forEach(item => {
+  if (typeof item === 'string') {
+    const para = document.createElement('p');
+    para.innerHTML = renderMarkdownWithTooltips(item);
+    chapters.appendChild(para);
+  } else if (item.video) {
+    const div = document.createElement('div');
+    div.className = 'media-block';
+    div.innerHTML = item.video;
+    chapters.appendChild(div);
+  } else if (item.audio) {
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.src = item.audio;
+    chapters.appendChild(audio);
+  } else if (item.image) {
+    const img = document.createElement('img');
+    img.src = item.image;
+    img.alt = 'Image';
+    img.className = 'media-image';
+    chapters.appendChild(img);
+  }
+});
 
     // Back link
     const back = document.createElement('a');
