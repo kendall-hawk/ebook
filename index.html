@@ -3,91 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <title>Interactive eBook</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
-    line-height: 1.6;
-    font-size: 16px; /* 设置基础字体大小 */
-  }
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      line-height: 1.6;
+      font-size: 16px;
+    }
 
-  .word {
-    color: blue;
-    cursor: pointer;
-    position: relative;
-    user-select: none;
-    display: inline-block;
-    font-size: 1em;         /* 确保与正文一致 */
-    line-height: inherit;   /* 保持行高一致 */
-    vertical-align: baseline;
-  }
+    .word {
+      color: blue;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      font-size: 1em;
+      line-height: inherit;
+    }
 
-  .word:focus {
-    outline: 2px dashed #888;
-  }
+    .tooltip {
+      display: none;
+      position: absolute;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 8px;
+      width: 280px;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+      font-size: 0.95em;
+      z-index: 1000;
+    }
 
-  .tooltip {
-    display: none;
-    position: absolute;
-    background: #f0f0f0;
-    border: 1px solid #ccc;
-    padding: 10px;
-    border-radius: 8px;
-    top: 25px;
-    left: 0;
-    width: 280px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-    z-index: 1000;
-    font-size: 0.95em; /* 稍微小一点，不影响正文 */
-  }
+    h2 {
+      margin-top: 40px;
+    }
 
-  .word.active .tooltip {
-    display: block;
-  }
+    .back-link {
+      display: block;
+      margin-top: 20px;
+    }
 
-  h2 {
-    margin-top: 40px;
-  }
-
-  .back-link {
-    display: block;
-    margin-top: 20px;
-  }
-
-  nav a {
-    display: block;
-    margin: 4px 0;
-    color: darkgreen;
-    text-decoration: none;
-  }
-
-  .controls {
-    margin: 20px 0;
-  }
-
-  .controls input, .controls button {
-    margin: 5px;
-    padding: 6px 12px;
-  }
-
-  #progress {
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: darkred;
-  }
-</style>
+    nav a {
+      display: block;
+      margin: 4px 0;
+      color: darkgreen;
+      text-decoration: none;
+    }
+  </style>
 </head>
 <body>
 
 <h1 id="top">📚 Interactive English eBook</h1>
-<div id="progress">Progress: 0 / 0 words learned</div>
-
-<div class="controls">
-  🔍 Search word: <input type="text" id="searchInput" placeholder="Type a word...">
-  <button onclick="searchWord()">Search</button>
-  <button onclick="showBookmarks()">📑 Show Bookmarks</button>
-  <button onclick="reviewWords()">🧠 Review Words</button>
-</div>
 
 <h2>📌 Table of Contents</h2>
 <nav>
@@ -96,140 +61,89 @@
   <a href="#chapter3">Chapter 3: Technology</a>
 </nav>
 
+<!-- Chapter 1 -->
+<h2 id="chapter1">🍪 Chapter 1: Crunchy Food</h2>
 <p>
-  <span class="word" tabindex="0" role="tooltip">hello
-    <span class="tooltip">
-      <strong>Hello</strong>: A greeting used when meeting someone.
-      <br><br>
-      <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" preload="none"></audio>
-    </span>
-  </span>
-  to learn more.
+  <span class="word" data-tooltip-id="tooltip-hello">hello</span> to learn more.
 </p>
 <a class="back-link" href="#top">🔙 Back to Table of Contents</a>
 
-<hr>
-
-<h2 id="chapter2">🌳 Chapter 2: Nature <button onclick="bookmarkChapter('chapter2')">🔖 Bookmark</button></h2>
+<!-- Chapter 2 -->
+<h2 id="chapter2">🌳 Chapter 2: Nature</h2>
 <p>
-  The 
-  <span class="word" tabindex="0" role="tooltip">sun
-    <span class="tooltip">
-      <strong>Sun</strong>: The star at the center of the solar system.
-      <br><br>
-      <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" preload="none"></audio>
-    </span>
-  </span>
-  shines brightly in the sky. Trees need 
-  <span class="word" tabindex="0" role="tooltip">light
-    <span class="tooltip">
-      <strong>Light</strong>: A form of energy that makes things visible.
-      <br><br>
-      <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" preload="none"></audio>
-    </span>
-  </span>
-  to grow.
+  The <span class="word" data-tooltip-id="tooltip-sun">sun</span> shines brightly in the sky. 
+  Trees need <span class="word" data-tooltip-id="tooltip-light">light</span> to grow.
 </p>
-
-<h2 id="chapter3">💻 Chapter 3: Technology <button onclick="bookmarkChapter('chapter3')">🔖 Bookmark</button></h2>
-<p>
-  We use 
-  <span class="word" tabindex="0" role="tooltip">computers
-    <span class="tooltip">
-      <strong>Computers</strong>: Machines used for processing information.
-      <br><br>
-      <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" preload="none"></audio>
-    </span>
-  </span>
-  every day. The internet helps us learn and 
-  <span class="word" tabindex="0" role="tooltip">connect
-    <span class="tooltip">
-      <strong>Connect</strong>: To link or join together.
-      <br><br>
-      <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" preload="none"></audio>
-    </span>
-  </span>
-  with others.
-</p>
-
 <a class="back-link" href="#top">🔙 Back to Table of Contents</a>
 
-<!-- JavaScript 功能区 -->
+<!-- Chapter 3 -->
+<h2 id="chapter3">💻 Chapter 3: Technology</h2>
+<p>
+  We use <span class="word" data-tooltip-id="tooltip-computers">computers</span> every day. 
+  The internet helps us learn and <span class="word" data-tooltip-id="tooltip-connect">connect</span> with others.
+</p>
+<a class="back-link" href="#top">🔙 Back to Table of Contents</a>
+
+<!-- Tooltips -->
+<div id="tooltip-hello" class="tooltip">
+  <strong>Hello</strong>: A greeting used when meeting someone.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-sun" class="tooltip">
+  <strong>Sun</strong>: The star at the center of the solar system.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-light" class="tooltip">
+  <strong>Light</strong>: A form of energy that makes things visible.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-computers" class="tooltip">
+  <strong>Computers</strong>: Machines used for processing information.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" preload="none"></audio>
+</div>
+
+<div id="tooltip-connect" class="tooltip">
+  <strong>Connect</strong>: To link or join together.<br><br>
+  <audio controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" preload="none"></audio>
+</div>
+
+<!-- JS -->
 <script>
   const words = document.querySelectorAll('.word');
-  const progressDisplay = document.getElementById('progress');
-  const learnedWords = new Set(JSON.parse(localStorage.getItem('learnedWords') || '[]'));
-
-  function updateProgress() {
-    progressDisplay.textContent = `Progress: ${learnedWords.size} / ${words.length} words learned`;
-  }
 
   words.forEach(word => {
-    const text = word.textContent.trim();
-    
     word.addEventListener('click', e => {
-      e.stopPropagation();
-      words.forEach(w => { if (w !== word) w.classList.remove('active'); });
-      word.classList.toggle('active');
-      
-      // 添加到已学习单词列表
-      learnedWords.add(text);
-      localStorage.setItem('learnedWords', JSON.stringify([...learnedWords]));
-      updateProgress();
-    });
+      e.stopPropagation(); // Prevent document click handler
 
-    word.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        word.click();
+      const id = word.dataset.tooltipId;
+      const tooltip = document.getElementById(id);
+
+      // Hide all tooltips
+      document.querySelectorAll('.tooltip').forEach(t => {
+        if (t !== tooltip) t.style.display = 'none';
+      });
+
+      // Toggle selected tooltip
+      if (tooltip.style.display === 'block') {
+        tooltip.style.display = 'none';
+      } else {
+        tooltip.style.display = 'block';
+
+        // Position it below the word
+        const rect = word.getBoundingClientRect();
+        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
+        tooltip.style.left = `${window.scrollX + rect.left}px`;
       }
-    });
-
-    // 手机端触摸支持
-    word.addEventListener('touchstart', () => {
-      word.click();
     });
   });
 
+  // Hide tooltip when clicking elsewhere
   document.addEventListener('click', () => {
-    words.forEach(w => w.classList.remove('active'));
+    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
-
-  function searchWord() {
-    const input = document.getElementById('searchInput').value.trim().toLowerCase();
-    words.forEach(word => {
-      if (word.textContent.trim().toLowerCase() === input) {
-        word.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        word.classList.add('active');
-      }
-    });
-  }
-
-  function reviewWords() {
-    alert("Words you’ve learned:\n\n" + [...learnedWords].join(', '));
-  }
-
-  function bookmarkChapter(id) {
-    let bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
-    if (!bookmarks.includes(id)) {
-      bookmarks.push(id);
-      localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
-      alert("✅ Chapter bookmarked!");
-    } else {
-      alert("🔖 Already bookmarked.");
-    }
-  }
-
-  function showBookmarks() {
-    let bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
-    if (bookmarks.length === 0) {
-      alert("No bookmarks yet.");
-    } else {
-      alert("📌 Bookmarked chapters:\n" + bookmarks.join('\n'));
-    }
-  }
-
-  updateProgress(); // 初始加载进度
 </script>
 
 </body>
