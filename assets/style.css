@@ -1,15 +1,17 @@
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
-  font-size: 16px;
   line-height: 1.6;
+  font-size: 16px;
 }
 
 .word {
   color: blue;
   cursor: pointer;
-  position: relative;
   user-select: none;
+  position: relative;
+  font-size: 1em;
+  line-height: inherit;
 }
 
 .tooltip {
@@ -22,18 +24,21 @@ body {
   width: 280px;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
   font-size: 0.95em;
-  z-index: 9999;
+  z-index: 1000;
 }
 
-.chapter-content {
-  margin-top: 10px;
+h2 {
+  margin-top: 40px;
 }
 
-.toggle-btn {
-  cursor: pointer;
-  font-size: 0.9em;
-  color: darkred;
-  margin-bottom: 10px;
-  
+.back-link {
+  display: block;
+  margin-top: 20px;
+}
 
+nav a {
+  display: block;
+  margin: 4px 0;
+  color: darkgreen;
+  text-decoration: none;
 }
