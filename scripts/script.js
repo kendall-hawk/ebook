@@ -150,39 +150,65 @@ async function init() {
   });
 
 // Build tooltip DOM blocks
-for (const id in tooltipData) {
-  const data = tooltipData[id];
-  const div = document.createElement('div');
-  div.id = 'tooltip-' + id;
-  div.className = 'tooltip';
+function setupTooltips(tooltipData) {
+  const words = document.querySelectorAll('.word');
+  const tooltipContainer = document.getElementById('tooltips');
 
-  let html = `<strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>`;
+  words.forEach(word => {
+    word.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = word.dataset.tooltipId;
+      let tooltip = document.getElementById('tooltip-' + id);
 
-  if (data.partOfSpeech) {
-    html += `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>`;
-  }
+      if (!tooltip) {
+        const data = tooltipData[id];
+        tooltip = document.createElement('div');
+        tooltip.id = 'tooltip-' + id;
+        tooltip.className = 'tooltip';
 
-  if (data.definition) {
-    html += `<div><strong>Definition:</strong> ${data.definition}</div>`;
-  }
+        let html = `<strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>`;
+        if (data.partOfSpeech) {
+          html += `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>`;
+        }
+        if (data.definition) {
+          html += `<div><strong>Definition:</strong> ${data.definition}</div>`;
+        }
+        if (data["Image Description"]) {
+          html += `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>`;
+        }
+        if (data.example) {
+          html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
+        }
+        if (data.image) {
+          html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
+        }
 
-  if (data["Image Description"]) {
-    html += `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>`;
-  }
+        tooltip.innerHTML = html;
+        tooltipContainer.appendChild(tooltip);
+      }
 
-  if (data.example) {
-    html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
-  }
+      // 显示逻辑
+      document.querySelectorAll('.tooltip').forEach(t => {
+        if (t !== tooltip) t.style.display = 'none';
+      });
 
-  if (data.image) {
-    html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
-  }
+      if (tooltip.style.display === 'block') {
+        tooltip.style.display = 'none';
+      } else {
+        tooltip.style.display = 'block';
+        const rect = word.getBoundingClientRect();
+        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
+        tooltip.style.left = `${window.scrollX + rect.left}px`;
+      }
+    });
+  });
 
-  div.innerHTML = html;
-  tooltipContainer.appendChild(div);
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+  });
 }
 
-  setupTooltips();
+  setupTooltips(tooltipData);
   setupVideoAutoPause();
 }
 
