@@ -1,146 +1,121 @@
-/* Base styles */
 body {
   font-family: Arial, sans-serif;
+  padding: 20px;
   line-height: 1.6;
-  margin: 20px;
-  background-color: #f9f9f9;
-  color: #333;
+  font-size: 16px;
+}
+
+.word {
+  color: blue;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  font-size: 1em;
+  line-height: inherit;
+}
+
+.word:hover .tooltip {
+  display: block;
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  width: 280px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  font-size: 0.95em;
+  z-index: 1000;
+  transition: opacity 0.2s ease;
 }
 
 h2 {
   margin-top: 40px;
-  border-bottom: 2px solid #ccc;
-  padding-bottom: 5px;
 }
 
-a {
-  text-decoration: none;
-  color: #007BFF;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-/* Table of contents */
-#toc {
-  margin-bottom: 30px;
-}
-
-#toc a {
-  display: block;
-  margin: 5px 0;
-  font-weight: bold;
-}
-
-/* Back to top link */
 .back-link {
-  display: inline-block;
+  display: block;
   margin-top: 20px;
-  font-size: 14px;
-  color: #555;
 }
 
-.back-link:hover {
-  color: #000;
+nav a {
+  display: block;
+  margin: 4px 0;
+  color: darkgreen;
+  text-decoration: none;
 }
 
-/* Tooltip word highlighting */
-.word {
-  background-color: #ffffcc;
-  cursor: pointer;
-  padding: 1px 3px;
-  border-radius: 3px;
-}
-
-/* Tooltip box */
-.tooltip {
-  position: absolute;
-  background-color: #fff;
-  border: 1px solid #999;
-  padding: 10px;
-  z-index: 1000;
-  max-width: 300px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  font-size: 14px;
-  display: none;
-  border-radius: 4px;
-}
-
-.tooltip-image {
-  max-width: 100%;
-  margin-top: 8px;
-  border-radius: 3px;
-}
-
-/* Media styles */
 .media-block {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 ratio */
+  height: 0;
+  overflow: hidden;
   margin: 20px 0;
-  text-align: center;
+}
+
+.media-block iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 .media-image {
+  display: block;
   max-width: 100%;
-  height: auto;
-  margin-top: 10px;
-  border-radius: 4px;
+  margin: 20px auto;
 }
 
-/* Floating video styles */
+/* ⬇️ 浮动视频样式 ⬇️ */
 .floating-video {
   position: fixed;
-  bottom: 10px;
-  right: 10px;
+  bottom: 80px;
+  right: 20px;
   width: 320px;
-  height: 200px;
-  background-color: #000;
-  border: 1px solid #444;
-  border-radius: 6px;
-  z-index: 1000;
+  height: 180px;
+  background: #000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-
-/* Header bar of floating video */
-.floating-video .video-header {
-  height: 20px;
-  background-color: #222;
-  color: white;
-  font-size: 14px;
+  resize: both;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 2px 8px;
-  cursor: move;
-  user-select: none;
+  flex-direction: column;
 }
 
-/* Close and resize buttons */
-.floating-video .close-btn,
-.floating-video .resize-btn {
-  cursor: pointer;
-  margin-left: 8px;
-  font-weight: bold;
+.floating-video.large {
+  width: 480px;
+  height: 270px;
 }
 
 .floating-video iframe {
   width: 100%;
-  height: calc(100% - 20px); /* subtract header height */
+  height: 100%;
   border: none;
+  flex: 1;
 }
 
-/* Responsive enhancements */
-@media (max-width: 600px) {
-  .floating-video {
-    width: 280px;
-    height: 180px;
-  }
+.floating-video .video-header {
+  background: #111;
+  color: white;
+  padding: 4px 8px;
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
 
-  .floating-video iframe {
-    height: calc(100% - 20px);
-  }
-
-  .tooltip {
-    max-width: 90%;
-  }
+.floating-video .close-btn,
+.floating-video .resize-btn {
+  cursor: pointer;
+  padding: 2px 6px;
 }
