@@ -17,24 +17,60 @@ export async function loadTooltips() {
   }
 }
 
+// js/tooltip.js
+
+// ... (loadTooltips 保持不变) ...
+
 /**
  * 将 Markdown 文本中的关键词包装成带有 tooltip 的 span，并渲染 Markdown。
  * @param {string} md - 原始 Markdown 文本。
  * @param {Object} tooltipData - tooltips 数据。
+ * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map (word -> count)。
+ * @param {number} maxFreq - 词语的最高频率。
+ * @param {number} baseFontSize - 基础字体大小 (px)。
+ * @param {number} maxFontSizeIncrease - 最大字体增加量 (px)。
  * @returns {string} - 渲染后的 HTML 字符串。
  */
-export function renderMarkdownWithTooltips(md, tooltipData) {
-  const tooltipWords = Object.keys(tooltipData);
-  const wordPattern = /\b\w+\b/g;
-  const markedWithSpan = md.replace(wordPattern, (match) => {
-    const lower = match.toLowerCase();
-    return tooltipWords.includes(lower)
-      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>`
-      : match;
-  });
-  // 假设 marked 库已全局可用，或者你需要导入它
-  return marked.parse(markedWithSpan);
+export function renderMarkdownWithTooltips(
+    md,
+    tooltipData,
+    wordFrequenciesMap,
+    maxFreq,
+    baseFontSize = 16,
+    maxFontSizeIncrease = 12 // 最高频率的词增加 12px，即 16+12=28px
+) {
+    const tooltipWords = Object.keys(tooltipData);
+    const wordPattern = /\b\w+\b/g;
+
+    const markedWithSpan = md.replace(wordPattern, (match) => {
+        const lowerMatch = match.toLowerCase();
+        const freq = wordFrequenciesMap.get(lowerMatch) || 0; // 获取词语频率
+        let fontSizeStyle = '';
+
+        // 如果该词是高频词（并且不是停用词，getWordFrequencies已过滤停用词）
+        if (freq > 0) {
+            // 计算字体大小：频率越高，字体越大
+            // 简单线性映射：(当前频率 / 最高频率) * 最大增加量 + 基础字体
+            const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
+            fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
+        }
+
+        // 判断是否是 tooltip 词，如果是，则同时应用 tooltip 样式和字体大小
+        if (tooltipWords.includes(lowerMatch)) {
+            return `<span data-tooltip-id="${lowerMatch}" class="word" style="${fontSizeStyle}">${match}</span>`;
+        } else if (fontSizeStyle) {
+            // 如果不是 tooltip 词，但因为高频而需要调整字体大小
+            return `<span style="${fontSizeStyle}">${match}</span>`;
+        }
+        // 否则，不作任何改变
+        return match;
+    });
+
+    return marked.parse(markedWithSpan);
 }
+
+// ... (setupTooltips 保持不变) ...
+
 
 /**
  * 为所有带有 'word' class 的元素绑定点击事件，显示/隐藏 tooltip。
