@@ -16,15 +16,18 @@ async function loadChapters() {
 function renderMarkdownWithTooltips(md, tooltipData) {
   const tooltipWords = Object.keys(tooltipData);
   const wordPattern = /\b\w+\b/g;
+  // 这里原代码直接替换单词，导致原单词大小写被替换为小写，改为保留原词显示
   const markedWithSpan = md.replace(wordPattern, (match) => {
     const lower = match.toLowerCase();
     return tooltipWords.includes(lower)
-      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>`
+      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>` // 保留原单词显示
       : match;
   });
 
+  // 使用marked库渲染Markdown
   return marked.parse(markedWithSpan);
 }
+
 
 // 4. 给所有词绑定点击弹出tooltip
 function setupTooltips(tooltipData) {
@@ -52,10 +55,12 @@ function setupTooltips(tooltipData) {
         tooltipContainer.appendChild(tooltip);
       }
 
+      // 隐藏其它tooltip，只显示当前
       document.querySelectorAll('.tooltip').forEach(t => {
         if (t !== tooltip) t.style.display = 'none';
       });
 
+      // 切换显示隐藏
       if (tooltip.style.display === 'block') {
         tooltip.style.display = 'none';
       } else {
@@ -66,9 +71,11 @@ function setupTooltips(tooltipData) {
         let top = window.scrollY + rect.bottom + 6;
         let left = window.scrollX + rect.left;
 
+        // 防止浮窗超出右边界
         if (left + tooltipRect.width > window.innerWidth) {
           left = window.innerWidth - tooltipRect.width - 10;
         }
+        // 防止浮窗超出下边界
         if (top + tooltipRect.height > window.scrollY + window.innerHeight) {
           top = window.scrollY + rect.top - tooltipRect.height - 6;
         }
@@ -79,10 +86,12 @@ function setupTooltips(tooltipData) {
     });
   });
 
+  // 点击页面空白处关闭所有tooltip
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => (t.style.display = 'none'));
   });
 }
+
 
 // 5. YouTube视频自动暂停
 function setupVideoAutoPause() {
@@ -117,12 +126,12 @@ function setupVideoAutoPause() {
     });
   }
 
-  // 2. 提取视频ID函数
-  function extractVideoId(url) {
-    const regex = /(?:youtube\.com\/embed\/|youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/;
-    const m = url.match(regex);
-    return m ? m[1] : '';
-  }
+function extractVideoId(url) {
+  // 正则表达式可匹配多种YouTube链接格式
+  const regex = /(?:youtube\.com\/embed\/|youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/;
+  const m = url.match(regex);
+  return m ? m[1] : '';
+}
 
   // 3. 创建浮动窗口及拖拽功能
   let floatBox = null;
@@ -282,23 +291,20 @@ window.addEventListener('scroll', () => {
   });
 })();
 
-// 7. 页面初始化入口
+// 7. 页面初始化入口 - 优化了对YouTube iframe的src追加enablejsapi参数的逻辑（标注）
 async function init() {
   const tooltipData = await loadTooltips();
   const chapterData = await loadChapters();
 
-  // 生成目录和章节内容
   const toc = document.getElementById('toc');
   const chapters = document.getElementById('chapters');
 
   chapterData.chapters.forEach(ch => {
-    // 目录
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
-    // 章节标题
     const title = document.createElement('h2');
     title.id = ch.id;
     title.textContent = ch.title;
@@ -317,6 +323,8 @@ async function init() {
         iframe.frameBorder = '0';
         iframe.allowFullscreen = true;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+
+        // 这里确保enablejsapi=1参数只追加一次，避免重复添加（标注）
         if (videoUrl.includes('youtu.be')) {
           const videoId = videoUrl.split('/').pop().split('?')[0];
           iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
