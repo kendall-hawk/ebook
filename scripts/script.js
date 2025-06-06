@@ -1,20 +1,19 @@
-// Load tooltip data
+// --- Load tooltip data ---
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
   return await res.json();
 }
 
-// Load chapter data
+// --- Load chapter data ---
 async function loadChapters() {
   const res = await fetch('data/chapters.json');
   return await res.json();
 }
 
-// Convert Markdown to HTML and auto-wrap tooltip words
+// --- Convert Markdown to HTML and wrap tooltip words ---
 function renderMarkdownWithTooltips(md, tooltipData) {
   const html = marked.parse(md);
   const words = Object.keys(tooltipData);
-  // Escape special regex chars in words
   const escapedWords = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const regex = new RegExp(`\\b(${escapedWords.join('|')})\\b`, 'gi');
   return html.replace(regex, (match) => {
@@ -23,7 +22,7 @@ function renderMarkdownWithTooltips(md, tooltipData) {
   });
 }
 
-// Setup tooltips behavior
+// --- Setup tooltips behavior ---
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
 
@@ -33,13 +32,14 @@ function setupTooltips(tooltipData) {
       const id = word.dataset.tooltipId;
       let tooltip = document.getElementById('tooltip-' + id);
 
-      // Hide all others first
+      // Hide all other tooltips
       document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
 
       if (tooltip) {
         tooltip.style.display = 'block';
       } else {
         const data = tooltipData[id];
+        if (!data) return;
         tooltip = document.createElement('div');
         tooltip.id = 'tooltip-' + id;
         tooltip.className = 'tooltip';
@@ -49,7 +49,7 @@ function setupTooltips(tooltipData) {
         if (data.definition) html += `<div><strong>Definition:</strong> ${data.definition}</div>`;
         if (data["Image Description"]) html += `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>`;
         if (data.example) html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
-        if (data.image) html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
+        if (data.image) html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image"></div>`;
 
         tooltip.innerHTML = html;
         tooltipContainer.appendChild(tooltip);
@@ -57,12 +57,10 @@ function setupTooltips(tooltipData) {
         const rect = word.getBoundingClientRect();
         tooltip.style.position = 'absolute';
 
-        // 基本top定位
         let top = window.scrollY + rect.bottom + 6;
-        // 计算left，防止溢出右边界
         let left = window.scrollX + rect.left;
-        const tooltipWidth = 300; // 估计tooltip宽度（可根据实际调整或动态测量）
-        const maxLeft = window.scrollX + window.innerWidth - tooltipWidth - 10; // 右边距10px缓冲
+        const tooltipWidth = 300;
+        const maxLeft = window.scrollX + window.innerWidth - tooltipWidth - 10;
         if (left > maxLeft) left = maxLeft;
 
         tooltip.style.top = `${top}px`;
@@ -79,7 +77,7 @@ function setupTooltips(tooltipData) {
   });
 }
 
-// Convert any YouTube URL to embeddable format
+// --- Convert YouTube URLs to embed URLs ---
 function convertYouTubeToEmbedUrl(url) {
   let videoId = '';
   if (url.includes('youtu.be/')) {
@@ -100,7 +98,7 @@ function convertYouTubeToEmbedUrl(url) {
   return '';
 }
 
-// Auto pause other YouTube iframes
+// --- Setup auto pause for YouTube videos ---
 function setupVideoAutoPause() {
   const iframes = document.querySelectorAll('iframe');
   iframes.forEach(iframe => {
@@ -125,7 +123,7 @@ function setupVideoAutoPause() {
   });
 }
 
-// Floating video small window
+// --- Setup floating video window ---
 function setupFloatingVideo() {
   const videos = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
   if (!videos.length) return;
@@ -133,7 +131,6 @@ function setupFloatingVideo() {
   let floatContainer = null;
 
   window.addEventListener('scroll', () => {
-    // 简单示范：当滚动超出第一个视频的位置，显示小悬浮窗
     const firstVideo = videos[0];
     const rect = firstVideo.getBoundingClientRect();
 
@@ -141,16 +138,7 @@ function setupFloatingVideo() {
       if (!floatContainer) {
         floatContainer = document.createElement('div');
         floatContainer.id = 'floating-video';
-        floatContainer.style.position = 'fixed';
-        floatContainer.style.bottom = '10px';
-        floatContainer.style.right = '10px';
-        floatContainer.style.width = '320px';
-        floatContainer.style.height = '180px';
-        floatContainer.style.zIndex = 10000;
-        floatContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
-        floatContainer.style.background = '#000';
 
-        // 复制iframe到浮动窗口
         const clone = firstVideo.cloneNode(true);
         clone.style.width = '100%';
         clone.style.height = '100%';
@@ -166,3 +154,21 @@ function setupFloatingVideo() {
     }
   });
 }
+
+// --- Main function ---
+async function main() {
+  const tooltipData = await loadTooltips();
+  const chapters = await loadChapters();
+
+  if (chapters.length > 0) {
+    const md = chapters[0].content || '';
+    const html = renderMarkdownWithTooltips(md, tooltipData);
+    document.getElementById('content').innerHTML = html;
+  }
+
+  setupTooltips(tooltipData);
+  setupVideoAutoPause();
+  setupFloatingVideo();
+}
+
+main();
