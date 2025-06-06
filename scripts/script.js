@@ -1,23 +1,33 @@
-// Load tooltips
+// Load tooltip data
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
   return await res.json();
 }
 
-// Load chapters
+// Load chapter data
 async function loadChapters() {
   const res = await fetch('data/chapters.json');
   return await res.json();
 }
 
-// Convert Markdown with tooltip links to HTML
-function renderMarkdownWithTooltips(md) {
+// Convert Markdown to HTML and auto-wrap tooltip words
+function renderMarkdownWithTooltips(md, tooltipData) {
   const html = marked.parse(md);
-  return html.replace(/<a href="tooltip:(.+?)">(.+?)<\/a>/g,
-    (_, id, text) => `<span class="word" data-tooltip-id="${id}">${text}</span>`);
+  const words = Object.keys(tooltipData);
+
+  // 正则替换每个匹配到的词
+  const wrappedHtml = html.replace(/\b([a-zA-Z]+)\b/g, (match) => {
+    const word = match.toLowerCase();
+    if (words.includes(word)) {
+      return `<span class="word" data-tooltip-id="${word}">${match}</span>`;
+    }
+    return match;
+  });
+
+  return wrappedHtml;
 }
 
-// Setup tooltips
+// Setup tooltip click behavior
 function setupTooltips() {
   const words = document.querySelectorAll('.word');
   words.forEach(word => {
@@ -44,7 +54,7 @@ function setupTooltips() {
   });
 }
 
-// Auto pause other videos using postMessage API
+// Auto pause other YouTube iframes
 function setupVideoAutoPause() {
   const iframes = document.querySelectorAll('iframe');
   iframes.forEach(iframe => {
@@ -57,7 +67,6 @@ function setupVideoAutoPause() {
 
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
-    // 当收到播放事件时，暂停其他视频
     if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
       const playingIframe = e.source;
       document.querySelectorAll('iframe').forEach(iframe => {
@@ -69,7 +78,7 @@ function setupVideoAutoPause() {
   });
 }
 
-// Initialize
+// Main init
 async function init() {
   const tooltipData = await loadTooltips();
   const chapterData = await loadChapters();
@@ -79,23 +88,20 @@ async function init() {
   const tooltipContainer = document.getElementById('tooltips');
 
   chapterData.chapters.forEach(ch => {
-    // TOC link
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
-    // Chapter title
     const title = document.createElement('h2');
     title.id = ch.id;
     title.textContent = ch.title;
     chapters.appendChild(title);
 
-    // Paragraphs and media
     ch.paragraphs.forEach(item => {
       if (typeof item === 'string') {
         const para = document.createElement('p');
-        para.innerHTML = renderMarkdownWithTooltips(item);
+        para.innerHTML = renderMarkdownWithTooltips(item, tooltipData);
         chapters.appendChild(para);
       } else if (item.video) {
         const div = document.createElement('div');
@@ -104,12 +110,9 @@ async function init() {
         let videoUrl = item.video;
         let videoId = '';
 
-        // Handle youtu.be short URL
         if (videoUrl.includes('youtu.be')) {
           videoId = videoUrl.split('/').pop().split('?')[0];
-        }
-        // Handle youtube.com/watch?v=
-        else if (videoUrl.includes('youtube.com/watch')) {
+        } else if (videoUrl.includes('youtube.com/watch')) {
           const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
           videoId = urlParams.get('v');
         }
@@ -139,7 +142,6 @@ async function init() {
       }
     });
 
-    // Back to top
     const back = document.createElement('a');
     back.href = '#top';
     back.className = 'back-link';
@@ -147,19 +149,18 @@ async function init() {
     chapters.appendChild(back);
   });
 
-  // Create tooltip blocks
-// Create tooltip blocks
-for (const id in tooltipData) {
-  const div = document.createElement('div');
-  div.id = 'tooltip-' + id;
-  div.className = 'tooltip';
-  div.innerHTML = `
-    <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
-    <em>Definition:</em> ${tooltipData[id].definition}<br><br>
-    <em>Image Description:</em> ${tooltipData[id]["Image Description"]}
-  `;
-  tooltipContainer.appendChild(div);
-}
+  // Build tooltip DOM blocks
+  for (const id in tooltipData) {
+    const div = document.createElement('div');
+    div.id = 'tooltip-' + id;
+    div.className = 'tooltip';
+    div.innerHTML = `
+      <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
+      <span>${tooltipData[id].definition}</span><br><br>
+      <em>${tooltipData[id]["Image Description"]}</em>
+    `;
+    tooltipContainer.appendChild(div);
+  }
 
   setupTooltips();
   setupVideoAutoPause();
