@@ -1,13 +1,22 @@
-export function renderMarkdownWithTooltips(md, tooltipData) {
-  const tooltipWords = Object.keys(tooltipData);
-  const wordPattern = /\b\w+\b/g;
+import { setupTooltips } from './tooltip.js';
 
-  const markedWithSpan = md.replace(wordPattern, (match) => {
-    const lower = match.toLowerCase();
-    return tooltipWords.includes(lower)
-      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>`
-      : match;
+export function parseMarkdownToHtml(markdownText, tooltipData) {
+  // 这里使用你喜欢的 markdown 库，如 marked.js
+  let html = marked.parse(markdownText);
+
+  // 给含 tooltip 的词添加 class 和 data-tooltip-id（举例）
+  // 假设 tooltipData 的键是单词，替换文本
+  Object.keys(tooltipData).forEach(word => {
+    const reg = new RegExp(`\\b${word}\\b`, 'gi');
+    html = html.replace(reg, match =>
+      `<span class="word" data-tooltip-id="${match.toLowerCase()}">${match}</span>`
+    );
   });
 
-  return marked.parse(markedWithSpan);
+  return html;
+}
+
+export function renderMarkdown(container, markdownText, tooltipData) {
+  container.innerHTML = parseMarkdownToHtml(markdownText, tooltipData);
+  setupTooltips(tooltipData);
 }
