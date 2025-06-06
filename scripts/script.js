@@ -364,5 +364,3 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
-这个代码有需要改进的地方吗
