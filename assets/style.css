@@ -113,19 +113,4 @@ nav a {
 .floating-video .resize-btn {
   cursor: pointer;
   padding: 2px 6px;
-  
-          /* 词云容器的基础样式 */
-#word-cloud-display {
-            width: 80%; /* 根据需要调整 */
-            height: 400px; /* 确保有足够的高度 */
-            margin: 20px auto;
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
-            display: flex; /* 让SVG居中 */
-            justify-content: center;
-            align-items: center;
-        }
-        #word-cloud-display svg {
-            overflow: visible; /* 允许词语超出SVG边界一点点，但通常不建议 */
-        }
 }
