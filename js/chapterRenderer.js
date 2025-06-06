@@ -1,6 +1,8 @@
 // js/chapterRenderer.js
+// 导入 renderMarkdownWithTooltips，现在它需要更多参数
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
+
 
 /**
  * 加载章节数据。
@@ -23,8 +25,10 @@ export async function loadChapters() {
  * 渲染章节内容到 DOM。
  * @param {Object} chapterData - 章节数据。
  * @param {Object} tooltipData - tooltips 数据。
+ * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
+ * @param {number} maxFreq - 词语的最高频率。
  */
-export function renderChapters(chapterData, tooltipData) {
+export function renderChapters(chapterData, tooltipData, wordFrequenciesMap, maxFreq) {
   const toc = document.getElementById('toc');
   const chaptersContainer = document.getElementById('chapters');
 
@@ -34,33 +38,38 @@ export function renderChapters(chapterData, tooltipData) {
   }
 
   chapterData.chapters.forEach(ch => {
-    // 目录链接
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
-    // 章节标题
     const title = document.createElement('h2');
     title.id = ch.id;
     title.textContent = ch.title;
     chaptersContainer.appendChild(title);
 
-    // 章节内容（段落或视频）
     ch.paragraphs.forEach(item => {
       if (typeof item === 'string') {
         const para = document.createElement('p');
-        para.innerHTML = renderMarkdownWithTooltips(item, tooltipData);
+        // 传递词频数据和最大频率
+        para.innerHTML = renderMarkdownWithTooltips(
+            item,
+            tooltipData,
+            wordFrequenciesMap,
+            maxFreq
+        );
         chaptersContainer.appendChild(para);
       } else if (item.video) {
+        // ... (视频渲染逻辑保持不变) ...
         const videoUrl = item.video;
         const wrapper = document.createElement('div');
         Object.assign(wrapper.style, {
           position: 'relative',
-          paddingBottom: '56.25%', // 16:9 aspect ratio
+          paddingBottom: '56.25%',
           height: '0',
           overflow: 'hidden',
           maxWidth: '100%',
+          marginBottom: '20px'
         });
 
         const iframe = document.createElement('iframe');
@@ -77,10 +86,8 @@ export function renderChapters(chapterData, tooltipData) {
 
         const videoId = extractVideoId(videoUrl);
         if (videoId) {
-            // 使用标准的 YouTube 嵌入 URL 格式
             iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
         } else {
-            // 如果无法提取ID，尝试使用原始URL，并确保 JS API 参数
             iframe.src = ensureEnableJsApi(videoUrl);
         }
 
