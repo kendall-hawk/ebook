@@ -13,7 +13,7 @@ async function loadChapters() {
 // Safely convert Markdown to HTML and wrap tooltip words
 function renderMarkdownWithTooltips(md, tooltipData) {
   const tooltipWords = Object.keys(tooltipData);
-  const wordPattern = /\b([a-zA-Z]+)\b/g;
+  const wordPattern = /\b\w+\b/g;
 
   const markedWithSpan = md.replace(wordPattern, (match) => {
     const lower = match.toLowerCase();
@@ -37,7 +37,7 @@ function renderMarkdownWithTooltips(md, tooltipData) {
   return container.innerHTML;
 }
 
-// Tooltip setup
+// Tooltip setup with auto repositioning
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
   document.querySelectorAll('.word').forEach(word => {
@@ -57,17 +57,37 @@ function setupTooltips(tooltipData) {
         if (data.example) html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
         if (data.image) html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
         tooltip.innerHTML = html;
+        tooltip.style.position = 'absolute';
+        tooltip.style.display = 'none';
         tooltipContainer.appendChild(tooltip);
       }
-      document.querySelectorAll('.tooltip').forEach(t => { if (t !== tooltip) t.style.display = 'none'; });
+
+      document.querySelectorAll('.tooltip').forEach(t => {
+        if (t !== tooltip) t.style.display = 'none';
+      });
+
       tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
+
       if (tooltip.style.display === 'block') {
         const rect = word.getBoundingClientRect();
-        tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
-        tooltip.style.left = `${window.scrollX + rect.left}px`;
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let top = window.scrollY + rect.bottom + 6;
+        let left = window.scrollX + rect.left;
+
+        // Adjust if tooltip goes off screen
+        if (left + tooltipRect.width > window.innerWidth) {
+          left = window.innerWidth - tooltipRect.width - 10;
+        }
+        if (top + tooltipRect.height > window.scrollY + window.innerHeight) {
+          top = window.scrollY + rect.top - tooltipRect.height - 6;
+        }
+
+        tooltip.style.top = `${Math.max(0, top)}px`;
+        tooltip.style.left = `${Math.max(0, left)}px`;
       }
     });
   });
+
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
