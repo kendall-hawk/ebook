@@ -24,13 +24,19 @@ function renderMarkdownWithTooltips(md, tooltipData) {
 // Setup tooltips behavior
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
+
   document.querySelectorAll('.word').forEach(word => {
     word.addEventListener('click', e => {
       e.stopPropagation();
       const id = word.dataset.tooltipId;
       let tooltip = document.getElementById('tooltip-' + id);
 
-      if (!tooltip) {
+      // Hide all others first
+      document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+
+      if (tooltip) {
+        tooltip.style.display = 'block';
+      } else {
         const data = tooltipData[id];
         tooltip = document.createElement('div');
         tooltip.id = 'tooltip-' + id;
@@ -45,22 +51,17 @@ function setupTooltips(tooltipData) {
 
         tooltip.innerHTML = html;
         tooltipContainer.appendChild(tooltip);
-      }
 
-      document.querySelectorAll('.tooltip').forEach(t => {
-        if (t !== tooltip) t.style.display = 'none';
-      });
-
-      tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
-
-      if (tooltip.style.display === 'block') {
         const rect = word.getBoundingClientRect();
+        tooltip.style.position = 'absolute';
         tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
         tooltip.style.left = `${window.scrollX + rect.left}px`;
+        tooltip.style.display = 'block';
       }
     });
   });
 
+  // Hide tooltips on document click
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
@@ -98,6 +99,7 @@ function setupVideoAutoPause() {
 
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
+
     if (e.data.includes('"playerState":1')) {
       const playingIframe = e.source;
       document.querySelectorAll('iframe').forEach(iframe => {
@@ -155,10 +157,8 @@ function setupFloatingVideo() {
       if (isDragging) {
         let left = e.clientX - offsetX;
         let top = e.clientY - offsetY;
-        left = Math.min(Math.max(0, left), window.innerWidth - floatContainer.offsetWidth);
-        top = Math.min(Math.max(0, top), window.innerHeight - floatContainer.offsetHeight);
-        floatContainer.style.left = left + 'px';
-        floatContainer.style.top = top + 'px';
+        floatContainer.style.left = Math.max(0, left) + 'px';
+        floatContainer.style.top = Math.max(0, top) + 'px';
         floatContainer.style.bottom = 'auto';
         floatContainer.style.right = 'auto';
       }
