@@ -45,7 +45,6 @@ function setupTooltips(tooltipData) {
         tooltip.innerHTML = html;
         tooltipContainer.appendChild(tooltip);
       }
-      // Toggle display
       document.querySelectorAll('.tooltip').forEach(t => { if (t !== tooltip) t.style.display = 'none'; });
       tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
 
@@ -61,7 +60,7 @@ function setupTooltips(tooltipData) {
   });
 }
 
-// Auto pause other YouTube iframes
+// Setup auto-pause other YouTube iframes
 function setupVideoAutoPause() {
   const iframes = document.querySelectorAll('iframe');
   iframes.forEach(iframe => {
@@ -85,19 +84,19 @@ function setupVideoAutoPause() {
   });
 }
 
-// Floating video small window
+// Setup floating video
 function setupFloatingVideo() {
-  const videos = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
-  if (!videos.length) return;
-
   let floatContainer = null;
   let currentVideo = null;
   let isDragging = false;
   let offsetX = 0;
   let offsetY = 0;
 
-  function createFloatingVideo(src) {
+  const videoStates = new Map();
+
+  function createFloatingVideo(iframe) {
     if (floatContainer) return;
+
     floatContainer = document.createElement('div');
     floatContainer.className = 'floating-video';
     floatContainer.innerHTML = `
@@ -105,7 +104,7 @@ function setupFloatingVideo() {
         <span class="close-btn" style="cursor:pointer; font-weight:bold;">×</span>
         <span class="resize-btn" style="cursor:pointer;">⤢</span>
       </div>
-      <iframe src="${src}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
+      <iframe src="${iframe.src}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
     `;
     floatContainer.style.position = 'fixed';
     floatContainer.style.bottom = '10px';
@@ -129,12 +128,10 @@ function setupFloatingVideo() {
       if (isDragging) {
         let left = e.clientX - offsetX;
         let top = e.clientY - offsetY;
-        // Keep inside viewport
         const maxLeft = window.innerWidth - floatContainer.offsetWidth;
         const maxTop = window.innerHeight - floatContainer.offsetHeight;
         left = Math.min(Math.max(0, left), maxLeft);
         top = Math.min(Math.max(0, top), maxTop);
-
         floatContainer.style.left = left + 'px';
         floatContainer.style.top = top + 'px';
         floatContainer.style.bottom = 'auto';
@@ -150,37 +147,60 @@ function setupFloatingVideo() {
       floatContainer = null;
       currentVideo = null;
     });
+
     const resizeBtn = floatContainer.querySelector('.resize-btn');
     let isLarge = false;
     resizeBtn.addEventListener('click', () => {
       isLarge = !isLarge;
-      if (isLarge) {
-        floatContainer.style.width = '560px';
-        floatContainer.style.height = '315px';
-        floatContainer.querySelector('iframe').width = '560';
-        floatContainer.querySelector('iframe').height = '315';
-      } else {
-        floatContainer.style.width = '320px';
-        floatContainer.style.height = '200px';
-        floatContainer.querySelector('iframe').width = '320';
-        floatContainer.querySelector('iframe').height = '180';
-      }
+      const w = isLarge ? 560 : 320;
+      const h = isLarge ? 315 : 180;
+      floatContainer.style.width = `${w}px`;
+      floatContainer.style.height = `${h + 20}px`;
+      const iframe = floatContainer.querySelector('iframe');
+      iframe.width = w;
+      iframe.height = h;
     });
   }
 
-  window.addEventListener('scroll', () => {
-    videos.forEach(iframe => {
-      const rect = iframe.getBoundingClientRect();
-      if (rect.bottom < 0 && !floatContainer) {
-        createFloatingVideo(iframe.src);
-        currentVideo = iframe;
-      } else if (rect.top > 0 && rect.bottom < window.innerHeight) {
-        if (floatContainer) {
-          floatContainer.remove();
-          floatContainer = null;
-          currentVideo = null;
+  function removeFloatingVideo() {
+    if (floatContainer) {
+      floatContainer.remove();
+      floatContainer = null;
+      currentVideo = null;
+    }
+  }
+
+  window.addEventListener('message', (event) => {
+    if (typeof event.data !== 'string') return;
+    try {
+      const data = JSON.parse(event.data);
+      if (data.event === 'infoDelivery' && data.info && typeof data.info.playerState !== 'undefined') {
+        const state = data.info.playerState;
+        const iframe = Array.from(document.querySelectorAll('iframe')).find(f => f.contentWindow === event.source);
+        if (iframe) {
+          videoStates.set(iframe, state);
+          checkFloatingCondition(iframe, state);
         }
       }
+    } catch (e) {}
+  });
+
+  function checkFloatingCondition(iframe, state) {
+    const rect = iframe.getBoundingClientRect();
+    const outOfView = rect.bottom < 0 || rect.top > window.innerHeight;
+    const isPlaying = state === 1;
+    if (isPlaying && outOfView) {
+      if (!floatContainer) createFloatingVideo(iframe);
+    } else {
+      if (floatContainer && iframe.src === currentVideo?.src) {
+        removeFloatingVideo();
+      }
+    }
+  }
+
+  window.addEventListener('scroll', () => {
+    videoStates.forEach((state, iframe) => {
+      checkFloatingCondition(iframe, state);
     });
   });
 }
@@ -192,7 +212,6 @@ async function init() {
 
   const toc = document.getElementById('toc');
   const chapters = document.getElementById('chapters');
-  const tooltipContainer = document.getElementById('tooltips');
 
   chapterData.chapters.forEach(ch => {
     const link = document.createElement('a');
