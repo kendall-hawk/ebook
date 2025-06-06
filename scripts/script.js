@@ -10,20 +10,34 @@ async function loadChapters() {
   return await res.json();
 }
 
-// Convert Markdown to HTML and auto-wrap tooltip words
+// Safely convert Markdown to HTML and wrap tooltip words
 function renderMarkdownWithTooltips(md, tooltipData) {
-  const html = marked.parse(md);
-  const words = Object.keys(tooltipData);
-  return html.replace(/\b([a-zA-Z]+)\b/g, (match) => {
-    const word = match.toLowerCase();
-    if (words.includes(word)) {
-      return `<span class="word" data-tooltip-id="${word}">${match}</span>`;
-    }
-    return match;
+  const tooltipWords = Object.keys(tooltipData);
+  const wordPattern = /\b([a-zA-Z]+)\b/g;
+
+  const markedWithSpan = md.replace(wordPattern, (match) => {
+    const lower = match.toLowerCase();
+    return tooltipWords.includes(lower)
+      ? `<span data-word="${lower}">${match}</span>`
+      : match;
   });
+
+  const html = marked.parse(markedWithSpan);
+
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  container.querySelectorAll('span[data-word]').forEach(span => {
+    const id = span.dataset.word;
+    span.classList.add('word');
+    span.setAttribute('data-tooltip-id', id);
+    span.removeAttribute('data-word');
+  });
+
+  return container.innerHTML;
 }
 
-// Setup tooltips behavior
+// Tooltip setup
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
   document.querySelectorAll('.word').forEach(word => {
@@ -47,7 +61,6 @@ function setupTooltips(tooltipData) {
       }
       document.querySelectorAll('.tooltip').forEach(t => { if (t !== tooltip) t.style.display = 'none'; });
       tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
-
       if (tooltip.style.display === 'block') {
         const rect = word.getBoundingClientRect();
         tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
@@ -60,7 +73,7 @@ function setupTooltips(tooltipData) {
   });
 }
 
-// Setup auto-pause other YouTube iframes
+// Pause other YouTube videos
 function setupVideoAutoPause() {
   const iframes = document.querySelectorAll('iframe');
   iframes.forEach(iframe => {
@@ -70,7 +83,6 @@ function setupVideoAutoPause() {
       });
     }
   });
-
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
     if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
@@ -84,19 +96,17 @@ function setupVideoAutoPause() {
   });
 }
 
-// Setup floating video
+// Floating video when out of view
 function setupFloatingVideo() {
   let floatContainer = null;
   let currentVideo = null;
   let isDragging = false;
   let offsetX = 0;
   let offsetY = 0;
-
   const videoStates = new Map();
 
   function createFloatingVideo(iframe) {
     if (floatContainer) return;
-
     floatContainer = document.createElement('div');
     currentVideo = iframe;
     floatContainer.className = 'floating-video';
@@ -233,7 +243,6 @@ async function init() {
       } else if (item.video) {
         const div = document.createElement('div');
         div.className = 'media-block';
-
         let videoUrl = item.video;
         let videoId = '';
 
