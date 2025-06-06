@@ -41,11 +41,11 @@ nav a {
   margin: 4px 0;
   color: darkgreen;
   text-decoration: none;
-} /* 这里必须闭合 */
+} /* 闭合正确 */
 
 .media-block {
   position: relative;
-  padding-bottom: 56.25%; /* 16:9 ratio (9 ÷ 16 = 0.5625) */
+  padding-bottom: 56.25%; /* 16:9 ratio */
   height: 0;
   overflow: hidden;
   margin: 20px 0;
@@ -64,7 +64,10 @@ nav a {
   display: block;
   max-width: 100%;
   margin: 20px auto;
-  .floating-video {
+}
+
+/* ⬇️ 正确分离的 .floating-video 样式块 ⬇️ */
+.floating-video {
   position: fixed;
   bottom: 80px;
   right: 20px;
@@ -107,5 +110,4 @@ nav a {
 .floating-video .resize-btn {
   cursor: pointer;
   padding: 2px 6px;
-}
 }
