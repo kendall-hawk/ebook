@@ -227,62 +227,35 @@ function extractVideoId(url) {
   }
 
   // 5. 监控播放状态和滚动，控制浮动窗口显示隐藏
-async function setupFloatingYouTube() {
-  await loadYouTubeAPI();
+  async function setupFloatingYouTube() {
+    await loadYouTubeAPI();
 
-  const iframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"]'));
+    const iframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"]'));
 
-  iframes.forEach(iframe => {
-    if (!iframe.src.includes('enablejsapi=1')) {
-      const sep = iframe.src.includes('?') ? '&' : '?';
-      iframe.src += sep + 'enablejsapi=1';
-    }
-  });
-
-  const players = new Map();
-
-  function onPlayerStateChange(event) {
-    const iframe = event.target.getIframe();
-    players.set(iframe, event.data);
-    updateFloatForIframe(iframe);
-  }
-
-  iframes.forEach(iframe => {
-    const player = new YT.Player(iframe, {
-      events: {
-        onStateChange: onPlayerStateChange
+    iframes.forEach(iframe => {
+      if (!iframe.src.includes('enablejsapi=1')) {
+        const sep = iframe.src.includes('?') ? '&' : '?';
+        iframe.src += sep + 'enablejsapi=1';
       }
     });
-    players.set(iframe, -1);
-  });
 
-  function updateFloatForIframe(iframe) {
-    const state = players.get(iframe);
-    if (state === 1 && isIframeOutOfView(iframe)) {
-      if (!floatBox || currentFloatSrc !== iframe.src) {
-        createFloatBox(iframe.src);
-      }
-    } else {
-      if (floatBox && currentFloatSrc === iframe.src) {
-        removeFloatBox();
-      }
-    }
-  }
+    const players = new Map();
 
-  window.addEventListener('scroll', () => {
-    players.forEach((state, iframe) => {
+    function onPlayerStateChange(event) {
+      const iframe = event.target.getIframe();
+      players.set(iframe, event.data);
       updateFloatForIframe(iframe);
-    });
-  });
+    }
 
-  window.addEventListener('resize', () => {
-    if (!floatBox) return;
-    const left = parseInt(floatBox.style.left || '0');
-    const top = parseInt(floatBox.style.top || '0');
-    floatBox.style.left = Math.min(left, window.innerWidth - floatBox.offsetWidth) + 'px';
-    floatBox.style.top = Math.min(top, window.innerHeight - floatBox.offsetHeight) + 'px';
-  });
-}
+    iframes.forEach(iframe => {
+      const player = new YT.Player(iframe, {
+        events: {
+          onStateChange: onPlayerStateChange
+        }
+      });
+      players.set(iframe, -1);
+    });
+}, 1000); // 等 1 秒 iframe 加载完成
     function updateFloatForIframe(iframe) {
       const state = players.get(iframe);
       if (state === 1 && isIframeOutOfView(iframe)) {
@@ -313,12 +286,9 @@ window.addEventListener('scroll', () => {
       }
     });
   }
-document.addEventListener('DOMContentLoaded', async () => {
-  await init(); // 确保章节和iframe全部加载
-  setTimeout(() => {
+  document.addEventListener('DOMContentLoaded', () => {
     setupFloatingYouTube();
-  }, 500); // 稍微延迟以确保 iframe 渲染完毕
-});
+  });
 })();
 
 // 7. 页面初始化入口 - 优化了对YouTube iframe的src追加enablejsapi参数的逻辑（标注）
