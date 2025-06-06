@@ -1,16 +1,58 @@
+// script.js
 
- // script.js
+// --- Helper Functions ---
+
+// 优化后的函数：确保 YouTube URL 包含 enablejsapi=1 参数，且只添加一次
+function ensureEnableJsApi(videoUrl) {
+  try {
+    const url = new URL(videoUrl);
+    const params = new URLSearchParams(url.search);
+    if (!params.has('enablejsapi')) {
+      params.append('enablejsapi', '1');
+      url.search = params.toString();
+    }
+    return url.toString();
+  } catch (e) {
+    console.error('无效的视频URL:', videoUrl, e);
+    return videoUrl; // 返回原始URL或进行其他错误处理
+  }
+}
+
+function extractVideoId(url) {
+  // 正则表达式可匹配多种YouTube链接格式
+  const regex = /(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([^&?/]+)/;
+  const m = url.match(regex);
+  return m ? m[1] : '';
+}
+
+// --- Core Functions ---
 
 // 1. 加载tooltip数据
 async function loadTooltips() {
-  const res = await fetch('data/tooltips.json');
-  return await res.json();
+  try {
+    const res = await fetch('data/tooltips.json');
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('加载 tooltips 数据失败:', error);
+    return {}; // 返回空对象以避免后续错误
+  }
 }
 
 // 2. 加载章节数据
 async function loadChapters() {
-  const res = await fetch('data/chapters.json');
-  return await res.json();
+  try {
+    const res = await fetch('data/chapters.json');
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('加载 chapters 数据失败:', error);
+    return { chapters: [] }; // 返回空数组以避免后续错误
+  }
 }
 
 // 3. 用tooltip包装关键词，渲染markdown
@@ -29,7 +71,6 @@ function renderMarkdownWithTooltips(md, tooltipData) {
   return marked.parse(markedWithSpan);
 }
 
-
 // 4. 给所有词绑定点击弹出tooltip
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
@@ -40,8 +81,9 @@ function setupTooltips(tooltipData) {
       let tooltip = document.getElementById('tooltip-' + id);
       if (!tooltip) {
         const data = tooltipData[id];
+        // 使用模板字面量优化HTML字符串构建
         tooltip = document.createElement('div');
-        tooltip.id = 'tooltip-' + id;
+        tooltip.id = `tooltip-${id}`;
         tooltip.className = 'tooltip';
         tooltip.innerHTML = `
           <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
@@ -93,15 +135,16 @@ function setupTooltips(tooltipData) {
   });
 }
 
-
 // 5. YouTube视频自动暂停
 function setupVideoAutoPause() {
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
+    // 检查消息是否来自YouTube播放器，并且是播放状态 (playerState: 1)
     if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
       const playingIframe = e.source;
       document.querySelectorAll('iframe').forEach(iframe => {
         if (iframe.contentWindow !== playingIframe) {
+          // 向非当前播放的iframe发送暂停命令
           iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
         }
       });
@@ -110,8 +153,6 @@ function setupVideoAutoPause() {
 }
 
 // 6. 浮动小窗口播放YouTube视频
-// script.js - 完整浮动YouTube视频实现
-
 (function() {
   // 1. 加载 YouTube iframe API
   function loadYouTubeAPI() {
@@ -120,19 +161,13 @@ function setupVideoAutoPause() {
         resolve();
       } else {
         const tag = document.createElement('script');
+        // 修正 YouTube API URL
         tag.src = 'https://www.youtube.com/iframe_api';
         document.head.appendChild(tag);
         window.onYouTubeIframeAPIReady = () => resolve();
       }
     });
   }
-
-function extractVideoId(url) {
-  // 正则表达式可匹配多种YouTube链接格式
-  const regex = /(?:youtube\.com\/embed\/|youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/;
-  const m = url.match(regex);
-  return m ? m[1] : '';
-}
 
   // 3. 创建浮动窗口及拖拽功能
   let floatBox = null;
@@ -163,7 +198,7 @@ function extractVideoId(url) {
     floatBox.innerHTML = `
       <div id="float-header" style="background:#222; color:#fff; padding:4px; display:flex; justify-content:space-between; align-items:center;">
         <span>Floating Video</span>
-        <button id="float-close" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer;">×</button>
+        <button id="float-close" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer;">&times;</button>
       </div>
       <div id="float-player" style="flex-grow:1;"></div>
     `;
@@ -231,14 +266,13 @@ function extractVideoId(url) {
   async function setupFloatingYouTube() {
     await loadYouTubeAPI();
 
-    const iframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"]'));
-
-    iframes.forEach(iframe => {
-      if (!iframe.src.includes('enablejsapi=1')) {
-        const sep = iframe.src.includes('?') ? '&' : '?';
-        iframe.src += sep + 'enablejsapi=1';
-      }
-    });
+    // 筛选出所有YouTube iframe，并确保它们有 enablejsapi=1
+    const iframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube.com/watch?v="], iframe[src*="youtu.be/"]'))
+      .map(iframe => {
+        // 使用辅助函数确保 enablejsapi=1 已添加
+        iframe.src = ensureEnableJsApi(iframe.src);
+        return iframe;
+      });
 
     const players = new Map();
 
@@ -254,28 +288,29 @@ function extractVideoId(url) {
           onStateChange: onPlayerStateChange
         }
       });
-      players.set(iframe, -1);
+      players.set(iframe, -1); // 初始化播放器状态
     });
 
     function updateFloatForIframe(iframe) {
       const state = players.get(iframe);
+      // YT.PlayerState.PLAYING (1)
       if (state === 1 && isIframeOutOfView(iframe)) {
         // 播放中且出视口，显示浮动
         if (!floatBox || currentFloatSrc !== iframe.src) {
           createFloatBox(iframe.src);
         }
       } else {
-        // 不满足条件关闭浮动窗口
+        // 不满足条件或停止播放，关闭浮动窗口
         if (floatBox && currentFloatSrc === iframe.src) {
           removeFloatBox();
         }
       }
     }
-window.addEventListener('scroll', () => {
-  players.forEach((state, iframe) => {
-    updateFloatForIframe(iframe);
-  });
-});
+    window.addEventListener('scroll', () => {
+      players.forEach((state, iframe) => {
+        updateFloatForIframe(iframe);
+      });
+    });
 
     window.addEventListener('resize', () => {
       if (!floatBox) return;
@@ -288,11 +323,11 @@ window.addEventListener('scroll', () => {
     });
   }
   document.addEventListener('DOMContentLoaded', () => {
-    setupFloatingYouTube();
+    // setupFloatingYouTube() 在 init 中调用，不需要在这里重复调用
   });
 })();
 
-// 7. 页面初始化入口 - 优化了对YouTube iframe的src追加enablejsapi参数的逻辑（标注）
+// 7. 页面初始化入口
 async function init() {
   const tooltipData = await loadTooltips();
   const chapterData = await loadChapters();
@@ -317,39 +352,38 @@ async function init() {
         para.innerHTML = renderMarkdownWithTooltips(item, tooltipData);
         chapters.appendChild(para);
       } else if (item.video) {
-  const videoUrl = item.video;
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'relative';
-  wrapper.style.paddingBottom = '56.25%'; // 16:9 aspect ratio
-  wrapper.style.height = '0';
-  wrapper.style.overflow = 'hidden';
-  wrapper.style.maxWidth = '100%';
+        const videoUrl = item.video;
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.paddingBottom = '56.25%'; // 16:9 aspect ratio
+        wrapper.style.height = '0';
+        wrapper.style.overflow = 'hidden';
+        wrapper.style.maxWidth = '100%';
 
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'absolute';
-  iframe.style.top = '0';
-  iframe.style.left = '0';
-  iframe.style.width = '100%';
-  iframe.style.height = '100%';
-  iframe.frameBorder = '0';
-  iframe.allowFullscreen = true;
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.top = '0';
+        iframe.style.left = '0';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.frameBorder = '0';
+        iframe.allowFullscreen = true;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
 
-  // 确保 enablejsapi=1 只添加一次
-  if (videoUrl.includes('youtu.be')) {
-    const videoId = videoUrl.split('/').pop().split('?')[0];
-    iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-  } else if (videoUrl.includes('youtube.com/watch')) {
-    const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-    const videoId = urlParams.get('v');
-    iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-  } else {
-    iframe.src = videoUrl;
-  }
+        // 使用统一的 ensureEnableJsApi 处理函数和 extractVideoId
+        // 假设 item.video 已经是完整的 YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID)
+        // 或者是一个嵌入 URL (e.g., https://www.youtube.com/embed/VIDEO_ID)
+        const videoId = extractVideoId(videoUrl);
+        if (videoId) {
+            iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
+        } else {
+            // 如果无法提取ID，则尝试使用原始URL，但可能会缺少JS API
+            iframe.src = ensureEnableJsApi(videoUrl);
+        }
 
-  wrapper.appendChild(iframe);
-  chapters.appendChild(wrapper);
-}
+        wrapper.appendChild(iframe);
+        chapters.appendChild(wrapper);
+      }
     });
   });
 
@@ -360,7 +394,7 @@ async function init() {
   setupVideoAutoPause();
 
   // 浮动视频
-  //setupFloatingYouTube();
+  setupFloatingYouTube(); // 确保浮动视频被调用
 }
 
 document.addEventListener('DOMContentLoaded', init);
