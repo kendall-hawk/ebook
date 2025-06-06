@@ -341,7 +341,7 @@ async function init() {
   setupVideoAutoPause();
 
   // 浮动视频
-  setupFloatingVideo();
+  setupFloatingYouTube();
 }
 
 document.addEventListener('DOMContentLoaded', init);
