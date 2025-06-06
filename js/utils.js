@@ -44,7 +44,6 @@ const STOP_WORDS = new Set([
   "whose", "where", "when", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
   "some", "such", "no", "nor", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
   "just", "don", "should", "now", "ve", "ll", "re", "m", "has", "had", "would", "could", "did", "do", "does", "get",
-  “Neil”, ”Beth”
 ]);
 
 
