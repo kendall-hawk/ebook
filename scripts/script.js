@@ -262,11 +262,20 @@ function setupVideoAutoPause() {
       }
     }
 
-    window.addEventListener('scroll', () => {
-      players.forEach((state, iframe) => {
-        updateFloatForIframe(iframe);
-      });
-    });
+window.addEventListener('scroll', checkFloatingWindowVisibility);
+
+function checkFloatingWindowVisibility() {
+  if (!player) return;
+
+  const videoRect = videoElement.getBoundingClientRect();
+  const isOutOfView = videoRect.bottom < 0 || videoRect.top > window.innerHeight;
+
+  if (isOutOfView && player.getPlayerState() === YT.PlayerState.PLAYING) {
+    showFloatingWindow();
+  } else {
+    hideFloatingWindow();
+  }
+}
 
     window.addEventListener('resize', () => {
       if (!floatBox) return;
