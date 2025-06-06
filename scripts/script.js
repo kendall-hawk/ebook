@@ -100,115 +100,189 @@ function setupVideoAutoPause() {
 }
 
 // 6. 浮动小窗口播放YouTube视频
-function setupFloatingVideo() {
-  let floatContainer = null;
-  let currentVideoSrc = null;
+// script.js - 完整浮动YouTube视频实现
+
+(function() {
+  // 1. 加载 YouTube iframe API
+  function loadYouTubeAPI() {
+    return new Promise(resolve => {
+      if (window.YT && window.YT.Player) {
+        resolve();
+      } else {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+        window.onYouTubeIframeAPIReady = () => resolve();
+      }
+    });
+  }
+
+  // 2. 提取视频ID函数
+  function extractVideoId(url) {
+    const regex = /(?:youtube\.com\/embed\/|youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/;
+    const m = url.match(regex);
+    return m ? m[1] : '';
+  }
+
+  // 3. 创建浮动窗口及拖拽功能
+  let floatBox = null;
+  let floatPlayer = null;
+  let currentFloatSrc = null;
   let isDragging = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
-  function createFloatingVideo(iframe) {
-    if (floatContainer) return;
-    currentVideoSrc = iframe.src;
+  function createFloatBox(videoSrc) {
+    if (floatBox) return;
 
-    floatContainer = document.createElement('div');
-    floatContainer.className = 'floating-video';
-    floatContainer.style.position = 'fixed';
-    floatContainer.style.bottom = '10px';
-    floatContainer.style.right = '10px';
-    floatContainer.style.width = '320px';
-    floatContainer.style.height = '200px';
-    floatContainer.style.backgroundColor = '#000';
-    floatContainer.style.border = '1px solid #444';
-    floatContainer.style.borderRadius = '6px';
-    floatContainer.style.zIndex = '10000';
-    floatContainer.style.display = 'flex';
-    floatContainer.style.flexDirection = 'column';
+    floatBox = document.createElement('div');
+    floatBox.style.position = 'fixed';
+    floatBox.style.width = '320px';
+    floatBox.style.height = '180px';
+    floatBox.style.bottom = '10px';
+    floatBox.style.right = '10px';
+    floatBox.style.backgroundColor = '#000';
+    floatBox.style.border = '1px solid #444';
+    floatBox.style.borderRadius = '6px';
+    floatBox.style.zIndex = '9999';
+    floatBox.style.display = 'flex';
+    floatBox.style.flexDirection = 'column';
+    floatBox.style.cursor = 'move';
+    floatBox.style.userSelect = 'none';
 
-    floatContainer.innerHTML = `
-      <div class="header" style="background:#222; color:#fff; cursor: move; padding: 4px; display: flex; justify-content: space-between; user-select:none;">
+    floatBox.innerHTML = `
+      <div id="float-header" style="background:#222; color:#fff; padding:4px; display:flex; justify-content:space-between; align-items:center;">
         <span>Floating Video</span>
-        <span style="cursor:pointer;" id="close-float">×</span>
+        <button id="float-close" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer;">×</button>
       </div>
-      <iframe src="${currentVideoSrc}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
+      <div id="float-player" style="flex-grow:1;"></div>
     `;
 
-    document.body.appendChild(floatContainer);
+    document.body.appendChild(floatBox);
 
-    const header = floatContainer.querySelector('.header');
-    const closeBtn = floatContainer.querySelector('#close-float');
-
+    const header = floatBox.querySelector('#float-header');
     header.addEventListener('mousedown', e => {
       isDragging = true;
-      dragOffsetX = e.clientX - floatContainer.getBoundingClientRect().left;
-      dragOffsetY = e.clientY - floatContainer.getBoundingClientRect().top;
+      dragOffsetX = e.clientX - floatBox.getBoundingClientRect().left;
+      dragOffsetY = e.clientY - floatBox.getBoundingClientRect().top;
       e.preventDefault();
     });
     document.addEventListener('mousemove', e => {
       if (!isDragging) return;
       let left = e.clientX - dragOffsetX;
       let top = e.clientY - dragOffsetY;
-      const maxLeft = window.innerWidth - floatContainer.offsetWidth;
-      const maxTop = window.innerHeight - floatContainer.offsetHeight;
-      left = Math.min(Math.max(0, left), maxLeft);
-      top = Math.min(Math.max(0, top), maxTop);
-      floatContainer.style.left = left + 'px';
-      floatContainer.style.top = top + 'px';
-      floatContainer.style.bottom = 'auto';
-      floatContainer.style.right = 'auto';
+      left = Math.min(Math.max(0, left), window.innerWidth - floatBox.offsetWidth);
+      top = Math.min(Math.max(0, top), window.innerHeight - floatBox.offsetHeight);
+      floatBox.style.left = left + 'px';
+      floatBox.style.top = top + 'px';
+      floatBox.style.bottom = 'auto';
+      floatBox.style.right = 'auto';
     });
     document.addEventListener('mouseup', () => {
       isDragging = false;
     });
 
-    closeBtn.addEventListener('click', () => {
-      floatContainer.remove();
-      floatContainer = null;
-      currentVideoSrc = null;
+    floatBox.querySelector('#float-close').addEventListener('click', () => {
+      removeFloatBox();
     });
-  }
 
-  function removeFloatingVideo() {
-    if (floatContainer) {
-      floatContainer.remove();
-      floatContainer = null;
-      currentVideoSrc = null;
-    }
-  }
-
-  const videoStates = new Map();
-
-  window.addEventListener('message', e => {
-    if (typeof e.data !== 'string') return;
-    try {
-      const data = JSON.parse(e.data);
-      if (data.event === 'infoDelivery' && data.info && typeof data.info.playerState !== 'undefined') {
-        const iframe = Array.from(document.querySelectorAll('iframe')).find(f => f.contentWindow === e.source);
-        if (!iframe) return;
-        const state = data.info.playerState;
-        videoStates.set(iframe, state);
-        checkFloatingCondition(iframe, state);
+    floatPlayer = new YT.Player('float-player', {
+      height: '180',
+      width: '320',
+      videoId: extractVideoId(videoSrc),
+      playerVars: { autoplay: 1, controls: 1 },
+      events: {
+        onReady: event => event.target.playVideo()
       }
-    } catch (err) {}
-  });
+    });
 
-  function checkFloatingCondition(iframe, state) {
-    const rect = iframe.getBoundingClientRect();
-    const outOfView = rect.bottom < 0 || rect.top > window.innerHeight;
-    const isPlaying = state === 1;
-    if (isPlaying && outOfView) {
-      if (!floatContainer) createFloatingVideo(iframe);
-    } else if (floatContainer && iframe.src === currentVideoSrc) {
-      removeFloatingVideo();
+    currentFloatSrc = videoSrc;
+  }
+
+  function removeFloatBox() {
+    if (floatPlayer) {
+      floatPlayer.destroy();
+      floatPlayer = null;
+    }
+    if (floatBox) {
+      floatBox.remove();
+      floatBox = null;
+      currentFloatSrc = null;
     }
   }
 
-  window.addEventListener('scroll', () => {
-    videoStates.forEach((state, iframe) => {
-      checkFloatingCondition(iframe, state);
+  // 4. 检测iframe是否完全出视口
+  function isIframeOutOfView(iframe) {
+    const rect = iframe.getBoundingClientRect();
+    return rect.bottom < 0 || rect.top > window.innerHeight;
+  }
+
+  // 5. 监控播放状态和滚动，控制浮动窗口显示隐藏
+  async function setupFloatingYouTube() {
+    await loadYouTubeAPI();
+
+    const iframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"]'));
+
+    iframes.forEach(iframe => {
+      if (!iframe.src.includes('enablejsapi=1')) {
+        const sep = iframe.src.includes('?') ? '&' : '?';
+        iframe.src += sep + 'enablejsapi=1';
+      }
     });
+
+    const players = new Map();
+
+    function onPlayerStateChange(event) {
+      const iframe = event.target.getIframe();
+      players.set(iframe, event.data);
+      updateFloatForIframe(iframe);
+    }
+
+    iframes.forEach(iframe => {
+      const player = new YT.Player(iframe, {
+        events: {
+          onStateChange: onPlayerStateChange
+        }
+      });
+      players.set(iframe, -1);
+    });
+
+    function updateFloatForIframe(iframe) {
+      const state = players.get(iframe);
+      if (state === 1 && isIframeOutOfView(iframe)) {
+        // 播放中且出视口，显示浮动
+        if (!floatBox || currentFloatSrc !== iframe.src) {
+          createFloatBox(iframe.src);
+        }
+      } else {
+        // 不满足条件关闭浮动窗口
+        if (floatBox && currentFloatSrc === iframe.src) {
+          removeFloatBox();
+        }
+      }
+    }
+
+    window.addEventListener('scroll', () => {
+      players.forEach((state, iframe) => {
+        updateFloatForIframe(iframe);
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      if (!floatBox) return;
+      const left = parseInt(floatBox.style.left || 'auto');
+      const top = parseInt(floatBox.style.top || 'auto');
+      if (!isNaN(left) && !isNaN(top)) {
+        floatBox.style.left = Math.min(left, window.innerWidth - floatBox.offsetWidth) + 'px';
+        floatBox.style.top = Math.min(top, window.innerHeight - floatBox.offsetHeight) + 'px';
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setupFloatingYouTube();
   });
-}
+})();
 
 // 7. 页面初始化入口
 async function init() {
