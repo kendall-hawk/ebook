@@ -105,7 +105,7 @@ function setupVideoAutoPause() {
   });
 }
 
-// Floating video small window
+// Floating video small window — improved: only show when video is playing and off screen
 function setupFloatingVideo() {
   const videos = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
   if (!videos.length) return;
@@ -187,20 +187,43 @@ function setupFloatingVideo() {
     });
   }
 
-  window.addEventListener('scroll', () => {
-    videos.forEach(iframe => {
-      const rect = iframe.getBoundingClientRect();
-      if (rect.bottom < 0 && !floatContainer) {
-        createFloatingVideo(iframe.src);
-        currentVideo = iframe;
-      } else if (rect.top > 0 && rect.bottom < window.innerHeight) {
-        if (floatContainer) {
-          floatContainer.remove();
-          floatContainer = null;
-          currentVideo = null;
-        }
+  // Listen to YouTube player state changes for playing state
+  window.addEventListener('message', (e) => {
+    if (typeof e.data !== 'string') return;
+    // Listen for playing event
+    if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
+      // Remove existing floating video first
+      if (floatContainer) {
+        floatContainer.remove();
+        floatContainer = null;
       }
-    });
+
+      // Find which iframe sent the message
+      currentVideo = Array.from(videos).find(v => v.contentWindow === e.source);
+      if (currentVideo) {
+        createFloatingVideo(currentVideo.src);
+      }
+    }
+    // Listen for pause or ended event to remove floating window
+    if (e.data.includes('{"event":"infoDelivery"') && (e.data.includes('"info":{"playerState":2') || e.data.includes('"info":{"playerState":0'))) {
+      if (floatContainer) {
+        floatContainer.remove();
+        floatContainer = null;
+        currentVideo = null;
+      }
+    }
+  });
+
+  // Remove floating video if original iframe is visible on screen
+  window.addEventListener('scroll', () => {
+    if (!floatContainer || !currentVideo) return;
+    const rect = currentVideo.getBoundingClientRect();
+    if (rect.bottom >= 0 && rect.top <= window.innerHeight) {
+      // Original video is visible, remove floating window
+      floatContainer.remove();
+      floatContainer = null;
+      currentVideo = null;
+    }
   });
 }
 
@@ -267,6 +290,7 @@ async function init() {
 
   setupTooltips(tooltipData);
   setupVideoAutoPause();
+  setupFloatingVideo();
 }
 
-init().then(setupFloatingVideo);
+init();
