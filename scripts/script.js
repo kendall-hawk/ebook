@@ -1,43 +1,32 @@
-// Load tooltip data
+// script.js
+
+// 1. 加载tooltip数据
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
   return await res.json();
 }
 
-// Load chapter data
+// 2. 加载章节数据
 async function loadChapters() {
   const res = await fetch('data/chapters.json');
   return await res.json();
 }
 
-// Safely convert Markdown to HTML and wrap tooltip words
+// 3. 用tooltip包装关键词，渲染markdown
 function renderMarkdownWithTooltips(md, tooltipData) {
   const tooltipWords = Object.keys(tooltipData);
   const wordPattern = /\b\w+\b/g;
-
   const markedWithSpan = md.replace(wordPattern, (match) => {
     const lower = match.toLowerCase();
     return tooltipWords.includes(lower)
-      ? `<span data-word="${lower}">${match}</span>`
+      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>`
       : match;
   });
 
-  const html = marked.parse(markedWithSpan);
-
-  const container = document.createElement('div');
-  container.innerHTML = html;
-
-  container.querySelectorAll('span[data-word]').forEach(span => {
-    const id = span.dataset.word;
-    span.classList.add('word');
-    span.setAttribute('data-tooltip-id', id);
-    span.removeAttribute('data-word');
-  });
-
-  return container.innerHTML;
+  return marked.parse(markedWithSpan);
 }
 
-// Tooltip setup with auto repositioning
+// 4. 给所有词绑定点击弹出tooltip
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
   document.querySelectorAll('.word').forEach(word => {
@@ -50,13 +39,14 @@ function setupTooltips(tooltipData) {
         tooltip = document.createElement('div');
         tooltip.id = 'tooltip-' + id;
         tooltip.className = 'tooltip';
-        let html = `<strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>`;
-        if (data.partOfSpeech) html += `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>`;
-        if (data.definition) html += `<div><strong>Definition:</strong> ${data.definition}</div>`;
-        if (data["Image Description"]) html += `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>`;
-        if (data.example) html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
-        if (data.image) html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
-        tooltip.innerHTML = html;
+        tooltip.innerHTML = `
+          <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
+          ${data.partOfSpeech ? `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>` : ''}
+          ${data.definition ? `<div><strong>Definition:</strong> ${data.definition}</div>` : ''}
+          ${data["Image Description"] ? `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>` : ''}
+          ${data.example ? `<div><strong>Example:</strong> <em>${data.example}</em></div>` : ''}
+          ${data.image ? `<img src="${data.image}" alt="${id}" style="max-width:100%; margin-top:8px;">` : ''}
+        `;
         tooltip.style.position = 'absolute';
         tooltip.style.display = 'none';
         tooltipContainer.appendChild(tooltip);
@@ -66,15 +56,16 @@ function setupTooltips(tooltipData) {
         if (t !== tooltip) t.style.display = 'none';
       });
 
-      tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
-
       if (tooltip.style.display === 'block') {
+        tooltip.style.display = 'none';
+      } else {
+        tooltip.style.display = 'block';
         const rect = word.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
+
         let top = window.scrollY + rect.bottom + 6;
         let left = window.scrollX + rect.left;
 
-        // Adjust if tooltip goes off screen
         if (left + tooltipRect.width > window.innerWidth) {
           left = window.innerWidth - tooltipRect.width - 10;
         }
@@ -82,27 +73,19 @@ function setupTooltips(tooltipData) {
           top = window.scrollY + rect.top - tooltipRect.height - 6;
         }
 
-        tooltip.style.top = `${Math.max(0, top)}px`;
-        tooltip.style.left = `${Math.max(0, left)}px`;
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
       }
     });
   });
 
   document.addEventListener('click', () => {
-    document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.tooltip').forEach(t => (t.style.display = 'none'));
   });
 }
 
-// Pause other YouTube videos
+// 5. YouTube视频自动暂停
 function setupVideoAutoPause() {
-  const iframes = document.querySelectorAll('iframe');
-  iframes.forEach(iframe => {
-    if (iframe.src.includes('youtube.com/embed')) {
-      iframe.addEventListener('load', () => {
-        iframe.contentWindow.postMessage('{"event":"listening","id":0}', '*');
-      });
-    }
-  });
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
     if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
@@ -116,80 +99,72 @@ function setupVideoAutoPause() {
   });
 }
 
-// Floating video when out of view
+// 6. 浮动小窗口播放YouTube视频
 function setupFloatingVideo() {
   let floatContainer = null;
-  let currentVideo = null;
+  let currentVideoSrc = null;
   let isDragging = false;
-  let offsetX = 0;
-  let offsetY = 0;
-  const videoStates = new Map();
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
 
   function createFloatingVideo(iframe) {
     if (floatContainer) return;
+    currentVideoSrc = iframe.src;
+
     floatContainer = document.createElement('div');
-    currentVideo = iframe;
     floatContainer.className = 'floating-video';
-    floatContainer.innerHTML = `
-      <div class="video-header" style="cursor: move; user-select: none; background:#222; color:#fff; padding:4px; display:flex; justify-content: space-between; align-items:center;">
-        <span class="close-btn" style="cursor:pointer; font-weight:bold;">×</span>
-        <span class="resize-btn" style="cursor:pointer;">⤢</span>
-      </div>
-      <iframe src="${iframe.src}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
-    `;
     floatContainer.style.position = 'fixed';
     floatContainer.style.bottom = '10px';
     floatContainer.style.right = '10px';
     floatContainer.style.width = '320px';
     floatContainer.style.height = '200px';
     floatContainer.style.backgroundColor = '#000';
-    floatContainer.style.zIndex = '1000';
     floatContainer.style.border = '1px solid #444';
     floatContainer.style.borderRadius = '6px';
+    floatContainer.style.zIndex = '10000';
+    floatContainer.style.display = 'flex';
+    floatContainer.style.flexDirection = 'column';
+
+    floatContainer.innerHTML = `
+      <div class="header" style="background:#222; color:#fff; cursor: move; padding: 4px; display: flex; justify-content: space-between; user-select:none;">
+        <span>Floating Video</span>
+        <span style="cursor:pointer;" id="close-float">×</span>
+      </div>
+      <iframe src="${currentVideoSrc}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
+    `;
+
     document.body.appendChild(floatContainer);
 
-    const header = floatContainer.querySelector('.video-header');
+    const header = floatContainer.querySelector('.header');
+    const closeBtn = floatContainer.querySelector('#close-float');
+
     header.addEventListener('mousedown', e => {
       isDragging = true;
-      offsetX = e.clientX - floatContainer.getBoundingClientRect().left;
-      offsetY = e.clientY - floatContainer.getBoundingClientRect().top;
+      dragOffsetX = e.clientX - floatContainer.getBoundingClientRect().left;
+      dragOffsetY = e.clientY - floatContainer.getBoundingClientRect().top;
       e.preventDefault();
     });
     document.addEventListener('mousemove', e => {
-      if (isDragging) {
-        let left = e.clientX - offsetX;
-        let top = e.clientY - offsetY;
-        const maxLeft = window.innerWidth - floatContainer.offsetWidth;
-        const maxTop = window.innerHeight - floatContainer.offsetHeight;
-        left = Math.min(Math.max(0, left), maxLeft);
-        top = Math.min(Math.max(0, top), maxTop);
-        floatContainer.style.left = left + 'px';
-        floatContainer.style.top = top + 'px';
-        floatContainer.style.bottom = 'auto';
-        floatContainer.style.right = 'auto';
-      }
+      if (!isDragging) return;
+      let left = e.clientX - dragOffsetX;
+      let top = e.clientY - dragOffsetY;
+      const maxLeft = window.innerWidth - floatContainer.offsetWidth;
+      const maxTop = window.innerHeight - floatContainer.offsetHeight;
+      left = Math.min(Math.max(0, left), maxLeft);
+      top = Math.min(Math.max(0, top), maxTop);
+      floatContainer.style.left = left + 'px';
+      floatContainer.style.top = top + 'px';
+      floatContainer.style.bottom = 'auto';
+      floatContainer.style.right = 'auto';
     });
     document.addEventListener('mouseup', () => {
       isDragging = false;
     });
 
-    floatContainer.querySelector('.close-btn').addEventListener('click', () => {
+    closeBtn.addEventListener('click', () => {
       floatContainer.remove();
       floatContainer = null;
-      currentVideo = null;
-    });
-
-    const resizeBtn = floatContainer.querySelector('.resize-btn');
-    let isLarge = false;
-    resizeBtn.addEventListener('click', () => {
-      isLarge = !isLarge;
-      const w = isLarge ? 560 : 320;
-      const h = isLarge ? 315 : 180;
-      floatContainer.style.width = `${w}px`;
-      floatContainer.style.height = `${h + 20}px`;
-      const iframe = floatContainer.querySelector('iframe');
-      iframe.width = w;
-      iframe.height = h;
+      currentVideoSrc = null;
     });
   }
 
@@ -197,23 +172,24 @@ function setupFloatingVideo() {
     if (floatContainer) {
       floatContainer.remove();
       floatContainer = null;
-      currentVideo = null;
+      currentVideoSrc = null;
     }
   }
 
-  window.addEventListener('message', (event) => {
-    if (typeof event.data !== 'string') return;
+  const videoStates = new Map();
+
+  window.addEventListener('message', e => {
+    if (typeof e.data !== 'string') return;
     try {
-      const data = JSON.parse(event.data);
+      const data = JSON.parse(e.data);
       if (data.event === 'infoDelivery' && data.info && typeof data.info.playerState !== 'undefined') {
+        const iframe = Array.from(document.querySelectorAll('iframe')).find(f => f.contentWindow === e.source);
+        if (!iframe) return;
         const state = data.info.playerState;
-        const iframe = Array.from(document.querySelectorAll('iframe')).find(f => f.contentWindow === event.source);
-        if (iframe) {
-          videoStates.set(iframe, state);
-          checkFloatingCondition(iframe, state);
-        }
+        videoStates.set(iframe, state);
+        checkFloatingCondition(iframe, state);
       }
-    } catch (e) {}
+    } catch (err) {}
   });
 
   function checkFloatingCondition(iframe, state) {
@@ -222,10 +198,8 @@ function setupFloatingVideo() {
     const isPlaying = state === 1;
     if (isPlaying && outOfView) {
       if (!floatContainer) createFloatingVideo(iframe);
-    } else {
-      if (floatContainer && iframe.src === currentVideo?.src) {
-        removeFloatingVideo();
-      }
+    } else if (floatContainer && iframe.src === currentVideoSrc) {
+      removeFloatingVideo();
     }
   }
 
@@ -236,20 +210,23 @@ function setupFloatingVideo() {
   });
 }
 
-// Main init
+// 7. 页面初始化入口
 async function init() {
   const tooltipData = await loadTooltips();
   const chapterData = await loadChapters();
 
+  // 生成目录和章节内容
   const toc = document.getElementById('toc');
   const chapters = document.getElementById('chapters');
 
   chapterData.chapters.forEach(ch => {
+    // 目录
     const link = document.createElement('a');
     link.href = `#${ch.id}`;
     link.textContent = ch.title;
     toc.appendChild(link);
 
+    // 章节标题
     const title = document.createElement('h2');
     title.id = ch.id;
     title.textContent = ch.title;
@@ -261,52 +238,36 @@ async function init() {
         para.innerHTML = renderMarkdownWithTooltips(item, tooltipData);
         chapters.appendChild(para);
       } else if (item.video) {
-        const div = document.createElement('div');
-        div.className = 'media-block';
-        let videoUrl = item.video;
-        let videoId = '';
-
+        const videoUrl = item.video;
+        const iframe = document.createElement('iframe');
+        iframe.width = '560';
+        iframe.height = '315';
+        iframe.frameBorder = '0';
+        iframe.allowFullscreen = true;
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
         if (videoUrl.includes('youtu.be')) {
-          videoId = videoUrl.split('/').pop().split('?')[0];
+          const videoId = videoUrl.split('/').pop().split('?')[0];
+          iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
         } else if (videoUrl.includes('youtube.com/watch')) {
           const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-          videoId = urlParams.get('v');
-        }
-
-        if (videoId) {
-          const iframe = document.createElement('iframe');
+          const videoId = urlParams.get('v');
           iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-          iframe.width = '560';
-          iframe.height = '315';
-          iframe.frameBorder = '0';
-          iframe.setAttribute('allowfullscreen', '');
-          iframe.setAttribute('allow', 'autoplay; encrypted-media');
-          div.appendChild(iframe);
-          chapters.appendChild(div);
+        } else {
+          iframe.src = videoUrl; // 其他链接直接用
         }
-      } else if (item.audio) {
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.src = item.audio;
-        chapters.appendChild(audio);
-      } else if (item.image) {
-        const img = document.createElement('img');
-        img.src = item.image;
-        img.alt = 'Image';
-        img.className = 'media-image';
-        chapters.appendChild(img);
+        chapters.appendChild(iframe);
       }
     });
-
-    const back = document.createElement('a');
-    back.href = '#top';
-    back.className = 'back-link';
-    back.textContent = '🔙 Back to Table of Contents';
-    chapters.appendChild(back);
   });
 
+  // 绑定tooltip点击事件
   setupTooltips(tooltipData);
+
+  // 视频自动暂停
   setupVideoAutoPause();
+
+  // 浮动视频
+  setupFloatingVideo();
 }
 
-init().then(setupFloatingVideo);
+document.addEventListener('DOMContentLoaded', init);
