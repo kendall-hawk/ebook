@@ -98,6 +98,7 @@ function setupFloatingVideo() {
     if (floatContainer) return;
 
     floatContainer = document.createElement('div');
+    currentVideo = iframe;
     floatContainer.className = 'floating-video';
     floatContainer.innerHTML = `
       <div class="video-header" style="cursor: move; user-select: none; background:#222; color:#fff; padding:4px; display:flex; justify-content: space-between; align-items:center;">
