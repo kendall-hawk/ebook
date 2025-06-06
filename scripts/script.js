@@ -1,4 +1,4 @@
-// script.js
+ // script.js
 
 // 1. 加载tooltip数据
 async function loadTooltips() {
@@ -255,7 +255,7 @@ function extractVideoId(url) {
       });
       players.set(iframe, -1);
     });
-}, 1000); // 等 1 秒 iframe 加载完成
+
     function updateFloatForIframe(iframe) {
       const state = players.get(iframe);
       if (state === 1 && isIframeOutOfView(iframe)) {
@@ -323,22 +323,6 @@ async function init() {
         iframe.frameBorder = '0';
         iframe.allowFullscreen = true;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        // ✅ 在添加到 DOM 之前设置 src！
-let finalSrc = '';
-if (videoUrl.includes('youtu.be')) {
-  const videoId = videoUrl.split('/').pop().split('?')[0];
-  finalSrc = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-} else if (videoUrl.includes('youtube.com/watch')) {
-  const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-  const videoId = urlParams.get('v');
-  finalSrc = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-} else {
-  finalSrc = videoUrl;
-}
-
-// ✅ 确保设置好 src 再加入 DOM
-iframe.src = finalSrc;
-chapters.appendChild(iframe);
 
         // 这里确保enablejsapi=1参数只追加一次，避免重复添加（标注）
         if (videoUrl.includes('youtu.be')) {
