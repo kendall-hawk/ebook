@@ -47,10 +47,9 @@ function setupTooltips(tooltipData) {
       }
       // Toggle display
       document.querySelectorAll('.tooltip').forEach(t => { if (t !== tooltip) t.style.display = 'none'; });
+      tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
+
       if (tooltip.style.display === 'block') {
-        tooltip.style.display = 'none';
-      } else {
-        tooltip.style.display = 'block';
         const rect = word.getBoundingClientRect();
         tooltip.style.top = `${window.scrollY + rect.bottom + 6}px`;
         tooltip.style.left = `${window.scrollX + rect.left}px`;
@@ -102,56 +101,70 @@ function setupFloatingVideo() {
     floatContainer = document.createElement('div');
     floatContainer.className = 'floating-video';
     floatContainer.innerHTML = `
-      <div class="video-header">
-        <span class="close-btn">×</span>
-        <span class="resize-btn">⤢</span>
+      <div class="video-header" style="cursor: move; user-select: none; background:#222; color:#fff; padding:4px; display:flex; justify-content: space-between; align-items:center;">
+        <span class="close-btn" style="cursor:pointer; font-weight:bold;">×</span>
+        <span class="resize-btn" style="cursor:pointer;">⤢</span>
       </div>
-      <iframe src="${src}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      <iframe src="${src}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
     `;
+    floatContainer.style.position = 'fixed';
+    floatContainer.style.bottom = '10px';
+    floatContainer.style.right = '10px';
+    floatContainer.style.width = '320px';
+    floatContainer.style.height = '200px';
+    floatContainer.style.backgroundColor = '#000';
+    floatContainer.style.zIndex = '1000';
+    floatContainer.style.border = '1px solid #444';
+    floatContainer.style.borderRadius = '6px';
     document.body.appendChild(floatContainer);
 
     const header = floatContainer.querySelector('.video-header');
     header.addEventListener('mousedown', e => {
       isDragging = true;
-      offsetX = e.clientX - floatContainer.offsetLeft;
-      offsetY = e.clientY - floatContainer.offsetTop;
+      offsetX = e.clientX - floatContainer.getBoundingClientRect().left;
+      offsetY = e.clientY - floatContainer.getBoundingClientRect().top;
+      e.preventDefault();
     });
     document.addEventListener('mousemove', e => {
       if (isDragging) {
-        floatContainer.style.left = `${e.clientX - offsetX}px`;
-        floatContainer.style.top = `${e.clientY - offsetY}px`;
+        let left = e.clientX - offsetX;
+        let top = e.clientY - offsetY;
+        // Keep inside viewport
+        const maxLeft = window.innerWidth - floatContainer.offsetWidth;
+        const maxTop = window.innerHeight - floatContainer.offsetHeight;
+        left = Math.min(Math.max(0, left), maxLeft);
+        top = Math.min(Math.max(0, top), maxTop);
+
+        floatContainer.style.left = left + 'px';
+        floatContainer.style.top = top + 'px';
+        floatContainer.style.bottom = 'auto';
+        floatContainer.style.right = 'auto';
       }
     });
     document.addEventListener('mouseup', () => {
-      if (!isDragging) return;
       isDragging = false;
-      // Auto snap to edges
-      const containerWidth = floatContainer.offsetWidth;
-      const containerHeight = floatContainer.offsetHeight;
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-      const left = floatContainer.offsetLeft;
-      const top = floatContainer.offsetTop;
-      if (left + containerWidth / 2 < windowWidth / 2) {
-        floatContainer.style.left = '10px';
-      } else {
-        floatContainer.style.left = `${windowWidth - containerWidth - 10}px`;
-      }
-      if (top < 10) {
-        floatContainer.style.top = '10px';
-      } else if (top + containerHeight > windowHeight - 10) {
-        floatContainer.style.top = `${windowHeight - containerHeight - 10}px`;
-      }
     });
+
     floatContainer.querySelector('.close-btn').addEventListener('click', () => {
       floatContainer.remove();
       floatContainer = null;
+      currentVideo = null;
     });
     const resizeBtn = floatContainer.querySelector('.resize-btn');
     let isLarge = false;
     resizeBtn.addEventListener('click', () => {
       isLarge = !isLarge;
-      floatContainer.classList.toggle('large', isLarge);
+      if (isLarge) {
+        floatContainer.style.width = '560px';
+        floatContainer.style.height = '315px';
+        floatContainer.querySelector('iframe').width = '560';
+        floatContainer.querySelector('iframe').height = '315';
+      } else {
+        floatContainer.style.width = '320px';
+        floatContainer.style.height = '200px';
+        floatContainer.querySelector('iframe').width = '320';
+        floatContainer.querySelector('iframe').height = '180';
+      }
     });
   }
 
@@ -161,15 +174,14 @@ function setupFloatingVideo() {
       if (rect.bottom < 0 && !floatContainer) {
         createFloatingVideo(iframe.src);
         currentVideo = iframe;
+      } else if (rect.top > 0 && rect.bottom < window.innerHeight) {
+        if (floatContainer) {
+          floatContainer.remove();
+          floatContainer = null;
+          currentVideo = null;
+        }
       }
     });
-    if (currentVideo && floatContainer) {
-      const rect = currentVideo.getBoundingClientRect();
-      if (rect.top > 0 && rect.bottom < window.innerHeight) {
-        floatContainer.remove();
-        floatContainer = null;
-      }
-    }
   });
 }
 
