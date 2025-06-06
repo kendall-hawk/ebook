@@ -1,18 +1,16 @@
-// === 原有代码部分 ===
-
-// 加载提示词数据
+// Load tooltip data
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
   return await res.json();
 }
 
-// 加载章节数据
+// Load chapter data
 async function loadChapters() {
   const res = await fetch('data/chapters.json');
   return await res.json();
 }
 
-// Markdown转HTML并包裹提示词
+// Safely convert Markdown to HTML and wrap tooltip words
 function renderMarkdownWithTooltips(md, tooltipData) {
   const tooltipWords = Object.keys(tooltipData);
   const wordPattern = /\b\w+\b/g;
@@ -39,7 +37,7 @@ function renderMarkdownWithTooltips(md, tooltipData) {
   return container.innerHTML;
 }
 
-// 设置提示词点击弹窗
+// Tooltip setup with auto repositioning
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
   document.querySelectorAll('.word').forEach(word => {
@@ -76,6 +74,7 @@ function setupTooltips(tooltipData) {
         let top = window.scrollY + rect.bottom + 6;
         let left = window.scrollX + rect.left;
 
+        // Adjust if tooltip goes off screen
         if (left + tooltipRect.width > window.innerWidth) {
           left = window.innerWidth - tooltipRect.width - 10;
         }
@@ -94,7 +93,7 @@ function setupTooltips(tooltipData) {
   });
 }
 
-// 设置视频自动暂停（互斥播放）
+// Pause other YouTube videos
 function setupVideoAutoPause() {
   const iframes = document.querySelectorAll('iframe');
   iframes.forEach(iframe => {
@@ -117,55 +116,39 @@ function setupVideoAutoPause() {
   });
 }
 
-// === 新增浮动窗口功能整合开始 ===
-
+// Floating video when out of view
 function setupFloatingVideo() {
   let floatContainer = null;
   let currentVideo = null;
   let isDragging = false;
   let offsetX = 0;
   let offsetY = 0;
+  const videoStates = new Map();
 
   function createFloatingVideo(iframe) {
-    if (floatContainer) return; // 已存在就不重复创建
-
+    if (floatContainer) return;
     floatContainer = document.createElement('div');
     currentVideo = iframe;
     floatContainer.className = 'floating-video';
+    floatContainer.innerHTML = `
+      <div class="video-header" style="cursor: move; user-select: none; background:#222; color:#fff; padding:4px; display:flex; justify-content: space-between; align-items:center;">
+        <span class="close-btn" style="cursor:pointer; font-weight:bold;">×</span>
+        <span class="resize-btn" style="cursor:pointer;">⤢</span>
+      </div>
+      <iframe src="${iframe.src}" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" width="320" height="180"></iframe>
+    `;
     floatContainer.style.position = 'fixed';
     floatContainer.style.bottom = '10px';
     floatContainer.style.right = '10px';
     floatContainer.style.width = '320px';
     floatContainer.style.height = '200px';
     floatContainer.style.backgroundColor = '#000';
-    floatContainer.style.zIndex = '10000';
+    floatContainer.style.zIndex = '1000';
     floatContainer.style.border = '1px solid #444';
     floatContainer.style.borderRadius = '6px';
-    floatContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.7)';
-    floatContainer.style.display = 'flex';
-    floatContainer.style.flexDirection = 'column';
-
-    // 头部栏(拖拽+关闭+缩放)
-    const header = document.createElement('div');
-    header.className = 'video-header';
-    header.style.cssText = 'cursor: move; user-select: none; background:#222; color:#fff; padding:4px; display:flex; justify-content: space-between; align-items:center;';
-    header.innerHTML = `<span class="close-btn" style="cursor:pointer; font-weight:bold;">×</span><span class="resize-btn" style="cursor:pointer;">⤢</span>`;
-    floatContainer.appendChild(header);
-
-    // iframe复制
-    const floatIframe = document.createElement('iframe');
-    floatIframe.src = iframe.src;
-    floatIframe.frameBorder = '0';
-    floatIframe.allowFullscreen = true;
-    floatIframe.allow = 'autoplay; encrypted-media';
-    floatIframe.width = 320;
-    floatIframe.height = 180;
-    floatIframe.style.flex = '1';
-    floatContainer.appendChild(floatIframe);
-
     document.body.appendChild(floatContainer);
 
-    // 拖拽逻辑
+    const header = floatContainer.querySelector('.video-header');
     header.addEventListener('mousedown', e => {
       isDragging = true;
       offsetX = e.clientX - floatContainer.getBoundingClientRect().left;
@@ -173,45 +156,40 @@ function setupFloatingVideo() {
       e.preventDefault();
     });
     document.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      let left = e.clientX - offsetX;
-      let top = e.clientY - offsetY;
-      const maxLeft = window.innerWidth - floatContainer.offsetWidth;
-      const maxTop = window.innerHeight - floatContainer.offsetHeight;
-      left = Math.min(Math.max(0, left), maxLeft);
-      top = Math.min(Math.max(0, top), maxTop);
-      floatContainer.style.left = left + 'px';
-      floatContainer.style.top = top + 'px';
-      floatContainer.style.bottom = 'auto';
-      floatContainer.style.right = 'auto';
+      if (isDragging) {
+        let left = e.clientX - offsetX;
+        let top = e.clientY - offsetY;
+        const maxLeft = window.innerWidth - floatContainer.offsetWidth;
+        const maxTop = window.innerHeight - floatContainer.offsetHeight;
+        left = Math.min(Math.max(0, left), maxLeft);
+        top = Math.min(Math.max(0, top), maxTop);
+        floatContainer.style.left = left + 'px';
+        floatContainer.style.top = top + 'px';
+        floatContainer.style.bottom = 'auto';
+        floatContainer.style.right = 'auto';
+      }
     });
     document.addEventListener('mouseup', () => {
       isDragging = false;
     });
 
-    // 关闭按钮
-    header.querySelector('.close-btn').addEventListener('click', () => {
+    floatContainer.querySelector('.close-btn').addEventListener('click', () => {
       floatContainer.remove();
       floatContainer = null;
       currentVideo = null;
     });
 
-    // 缩放按钮
-    const resizeBtn = header.querySelector('.resize-btn');
+    const resizeBtn = floatContainer.querySelector('.resize-btn');
     let isLarge = false;
     resizeBtn.addEventListener('click', () => {
       isLarge = !isLarge;
-      if (isLarge) {
-        floatContainer.style.width = '560px';
-        floatContainer.style.height = '335px';
-        floatIframe.width = 560;
-        floatIframe.height = 315;
-      } else {
-        floatContainer.style.width = '320px';
-        floatContainer.style.height = '200px';
-        floatIframe.width = 320;
-        floatIframe.height = 180;
-      }
+      const w = isLarge ? 560 : 320;
+      const h = isLarge ? 315 : 180;
+      floatContainer.style.width = `${w}px`;
+      floatContainer.style.height = `${h + 20}px`;
+      const iframe = floatContainer.querySelector('iframe');
+      iframe.width = w;
+      iframe.height = h;
     });
   }
 
@@ -223,46 +201,112 @@ function setupFloatingVideo() {
     }
   }
 
-  // 监听YouTube iframe消息，判断播放状态和位置
   window.addEventListener('message', (event) => {
     if (typeof event.data !== 'string') return;
     try {
       const data = JSON.parse(event.data);
       if (data.event === 'infoDelivery' && data.info && typeof data.info.playerState !== 'undefined') {
-        const state = data.info.playerState; // 1=playing, 0=ended, 2=paused
+        const state = data.info.playerState;
         const iframe = Array.from(document.querySelectorAll('iframe')).find(f => f.contentWindow === event.source);
-        if (!iframe) return;
-        const rect = iframe.getBoundingClientRect();
-        const outOfView = rect.bottom < 0 || rect.top > window.innerHeight;
-        const isPlaying = state === 1;
-        if (isPlaying && outOfView) {
-          if (!floatContainer) createFloatingVideo(iframe);
-        } else {
-          if (floatContainer && iframe.src === currentVideo?.src) {
-            removeFloatingVideo();
-          }
+        if (iframe) {
+          videoStates.set(iframe, state);
+          checkFloatingCondition(iframe, state);
         }
       }
     } catch (e) {}
   });
+
+  function checkFloatingCondition(iframe, state) {
+    const rect = iframe.getBoundingClientRect();
+    const outOfView = rect.bottom < 0 || rect.top > window.innerHeight;
+    const isPlaying = state === 1;
+    if (isPlaying && outOfView) {
+      if (!floatContainer) createFloatingVideo(iframe);
+    } else {
+      if (floatContainer && iframe.src === currentVideo?.src) {
+        removeFloatingVideo();
+      }
+    }
+  }
+
+  window.addEventListener('scroll', () => {
+    videoStates.forEach((state, iframe) => {
+      checkFloatingCondition(iframe, state);
+    });
+  });
 }
 
-// === 初始化入口 ===
+// Main init
 async function init() {
   const tooltipData = await loadTooltips();
-  const chapters = await loadChapters();
+  const chapterData = await loadChapters();
 
-  // 示例：加载第一章内容，渲染带提示词的html
-  const chapterContentMarkdown = chapters[0].content;
-  const html = renderMarkdownWithTooltips(chapterContentMarkdown, tooltipData);
-  document.getElementById('content').innerHTML = html;
+  const toc = document.getElementById('toc');
+  const chapters = document.getElementById('chapters');
+
+  chapterData.chapters.forEach(ch => {
+    const link = document.createElement('a');
+    link.href = `#${ch.id}`;
+    link.textContent = ch.title;
+    toc.appendChild(link);
+
+    const title = document.createElement('h2');
+    title.id = ch.id;
+    title.textContent = ch.title;
+    chapters.appendChild(title);
+
+    ch.paragraphs.forEach(item => {
+      if (typeof item === 'string') {
+        const para = document.createElement('p');
+        para.innerHTML = renderMarkdownWithTooltips(item, tooltipData);
+        chapters.appendChild(para);
+      } else if (item.video) {
+        const div = document.createElement('div');
+        div.className = 'media-block';
+        let videoUrl = item.video;
+        let videoId = '';
+
+        if (videoUrl.includes('youtu.be')) {
+          videoId = videoUrl.split('/').pop().split('?')[0];
+        } else if (videoUrl.includes('youtube.com/watch')) {
+          const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
+          videoId = urlParams.get('v');
+        }
+
+        if (videoId) {
+          const iframe = document.createElement('iframe');
+          iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+          iframe.width = '560';
+          iframe.height = '315';
+          iframe.frameBorder = '0';
+          iframe.setAttribute('allowfullscreen', '');
+          iframe.setAttribute('allow', 'autoplay; encrypted-media');
+          div.appendChild(iframe);
+          chapters.appendChild(div);
+        }
+      } else if (item.audio) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = item.audio;
+        chapters.appendChild(audio);
+      } else if (item.image) {
+        const img = document.createElement('img');
+        img.src = item.image;
+        img.alt = 'Image';
+        img.className = 'media-image';
+        chapters.appendChild(img);
+      }
+    });
+
+    const back = document.createElement('a');
+    back.href = '#top';
+    back.className = 'back-link';
+    back.textContent = '🔙 Back to Table of Contents';
+    chapters.appendChild(back);
+  });
 
   setupTooltips(tooltipData);
   setupVideoAutoPause();
-
-  // 新增浮动视频功能初始化
-  setupFloatingVideo();
 }
 
-// 页面加载后调用init
-window.addEventListener('DOMContentLoaded', init);
+init().then(setupFloatingVideo);
