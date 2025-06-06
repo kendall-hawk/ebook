@@ -18,5 +18,16 @@
   "connect": {
     "definition": "To link or join together.",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
+  },
+  {
+  "recipes": {
+    "definition": "A set of instructions for preparing a particular dish, including the ingredients needed and steps to follow.",
+    "Image Description": "Imagine a kitchen table with a notebook open to a page that says ‘Noodle Soup’—next to it are bowls of chopped vegetables, spices, and a pot simmering on the stove. Someone is reading the instructions and cooking step by step."
+  },
+  "traders": {
+    "definition": "People who buy and sell goods as part of business, often moving between places or countries.",
+    "Image Description": "Picture a dusty road along the Silk Road, with camels carrying bags of goods. Merchants wearing robes and hats are exchanging items like spices and silk, speaking different languages as they make deals in busy markets."
   }
 }
+}
+
