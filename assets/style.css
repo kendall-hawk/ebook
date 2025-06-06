@@ -19,20 +19,15 @@ body {
 }
 
 .tooltip {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: #f0f0f0;
-  border: 1px solid #ccc;
+  max-width: 90vw;
+  word-wrap: break-word;
+  font-size: 14px;
+  z-index: 9999;
+  background-color: #fff;
   padding: 10px;
-  border-radius: 8px;
-  width: 280px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  font-size: 0.95em;
-  z-index: 1000;
-  transition: opacity 0.2s ease;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 h2 {
