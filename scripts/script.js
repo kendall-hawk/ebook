@@ -149,18 +149,38 @@ async function init() {
     chapters.appendChild(back);
   });
 
-  // Build tooltip DOM blocks
-  for (const id in tooltipData) {
-    const div = document.createElement('div');
-    div.id = 'tooltip-' + id;
-    div.className = 'tooltip';
-    div.innerHTML = `
-      <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
-      <span>${tooltipData[id].definition}</span><br><br>
-      <em>${tooltipData[id]["Image Description"]}</em>
-    `;
-    tooltipContainer.appendChild(div);
+// Build tooltip DOM blocks
+for (const id in tooltipData) {
+  const data = tooltipData[id];
+  const div = document.createElement('div');
+  div.id = 'tooltip-' + id;
+  div.className = 'tooltip';
+
+  let html = `<strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>`;
+
+  if (data.partOfSpeech) {
+    html += `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>`;
   }
+
+  if (data.definition) {
+    html += `<div><strong>Definition:</strong> ${data.definition}</div>`;
+  }
+
+  if (data["Image Description"]) {
+    html += `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>`;
+  }
+
+  if (data.example) {
+    html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
+  }
+
+  if (data.image) {
+    html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
+  }
+
+  div.innerHTML = html;
+  tooltipContainer.appendChild(div);
+}
 
   setupTooltips();
   setupVideoAutoPause();
