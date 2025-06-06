@@ -317,27 +317,39 @@ async function init() {
         para.innerHTML = renderMarkdownWithTooltips(item, tooltipData);
         chapters.appendChild(para);
       } else if (item.video) {
-        const videoUrl = item.video;
-        const iframe = document.createElement('iframe');
-        iframe.width = '560';
-        iframe.height = '315';
-        iframe.frameBorder = '0';
-        iframe.allowFullscreen = true;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+  const videoUrl = item.video;
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'relative';
+  wrapper.style.paddingBottom = '56.25%'; // 16:9 aspect ratio
+  wrapper.style.height = '0';
+  wrapper.style.overflow = 'hidden';
+  wrapper.style.maxWidth = '100%';
 
-        // 这里确保enablejsapi=1参数只追加一次，避免重复添加（标注）
-        if (videoUrl.includes('youtu.be')) {
-          const videoId = videoUrl.split('/').pop().split('?')[0];
-          iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-        } else if (videoUrl.includes('youtube.com/watch')) {
-          const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-          const videoId = urlParams.get('v');
-          iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-        } else {
-          iframe.src = videoUrl; // 其他链接直接用
-        }
-        chapters.appendChild(iframe);
-      }
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.top = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.frameBorder = '0';
+  iframe.allowFullscreen = true;
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+
+  // 确保 enablejsapi=1 只添加一次
+  if (videoUrl.includes('youtu.be')) {
+    const videoId = videoUrl.split('/').pop().split('?')[0];
+    iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+  } else if (videoUrl.includes('youtube.com/watch')) {
+    const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
+    const videoId = urlParams.get('v');
+    iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+  } else {
+    iframe.src = videoUrl;
+  }
+
+  wrapper.appendChild(iframe);
+  chapters.appendChild(wrapper);
+}
     });
   });
 
