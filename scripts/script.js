@@ -278,9 +278,8 @@ function setupVideoAutoPause() {
       }
     });
   }
-
   document.addEventListener('DOMContentLoaded', () => {
-    setupFloatingYouTube();
+    //setupFloatingYouTube();
   });
 })();
 
@@ -341,7 +340,7 @@ async function init() {
   setupVideoAutoPause();
 
   // 浮动视频
-  //setupFloatingYouTube();
+  setupFloatingYouTube();
 }
 
 document.addEventListener('DOMContentLoaded', init);
