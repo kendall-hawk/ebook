@@ -148,17 +148,18 @@ async function init() {
   });
 
   // Create tooltip blocks
-  for (const id in tooltipData) {
-    const div = document.createElement('div');
-    div.id = 'tooltip-' + id;
-    div.className = 'tooltip';
-    div.innerHTML = `
-      <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong>: ${tooltipData[id].definition}
-      <br><br>
-      <audio controls src="${tooltipData[id].audio}" preload="none"></audio>
-    `;
-    tooltipContainer.appendChild(div);
-  }
+// Create tooltip blocks
+for (const id in tooltipData) {
+  const div = document.createElement('div');
+  div.id = 'tooltip-' + id;
+  div.className = 'tooltip';
+  div.innerHTML = `
+    <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
+    <em>Definition:</em> ${tooltipData[id].definition}<br><br>
+    <em>Image Description:</em> ${tooltipData[id]["Image Description"]}
+  `;
+  tooltipContainer.appendChild(div);
+}
 
   setupTooltips();
   setupVideoAutoPause();
