@@ -1,6 +1,3 @@
-
- // script.js
-
 // 1. 加载tooltip数据
 async function loadTooltips() {
   const res = await fetch('data/tooltips.json');
@@ -17,27 +14,32 @@ async function loadChapters() {
 function renderMarkdownWithTooltips(md, tooltipData) {
   const tooltipWords = Object.keys(tooltipData);
   const wordPattern = /\b\w+\b/g;
-  // 这里原代码直接替换单词，导致原单词大小写被替换为小写，改为保留原词显示
+
   const markedWithSpan = md.replace(wordPattern, (match) => {
     const lower = match.toLowerCase();
     return tooltipWords.includes(lower)
-      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>` // 保留原单词显示
+      ? `<span data-tooltip-id="${lower}" class="word">${match}</span>`
       : match;
   });
 
-  // 使用marked库渲染Markdown
   return marked.parse(markedWithSpan);
 }
 
-
-// 4. 给所有词绑定点击弹出tooltip
+// 4. 设置 tooltip 浮窗
 function setupTooltips(tooltipData) {
   const tooltipContainer = document.getElementById('tooltips');
+  const fragment = document.createDocumentFragment();
+
   document.querySelectorAll('.word').forEach(word => {
-    word.addEventListener('click', e => {
+    const oldHandler = word._tooltipClickHandler;
+    if (oldHandler) word.removeEventListener('click', oldHandler);
+
+    const handler = (e) => {
       e.stopPropagation();
+
       const id = word.dataset.tooltipId;
       let tooltip = document.getElementById('tooltip-' + id);
+
       if (!tooltip) {
         const data = tooltipData[id];
         tooltip = document.createElement('div');
@@ -53,52 +55,103 @@ function setupTooltips(tooltipData) {
         `;
         tooltip.style.position = 'absolute';
         tooltip.style.display = 'none';
-        tooltipContainer.appendChild(tooltip);
+
+        setupTooltipAutoHide(tooltip);
+        tooltip.addEventListener('click', ev => {
+          ev.stopPropagation();
+          tooltip.style.display = 'none';
+        });
+
+        fragment.appendChild(tooltip);
       }
 
-      // 隐藏其它tooltip，只显示当前
+      // 隐藏其它浮窗
       document.querySelectorAll('.tooltip').forEach(t => {
         if (t !== tooltip) t.style.display = 'none';
       });
 
-      // 切换显示隐藏
+      // 显示当前 tooltip 并定位
       if (tooltip.style.display === 'block') {
         tooltip.style.display = 'none';
       } else {
         tooltip.style.display = 'block';
         const rect = word.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
 
         let top = window.scrollY + rect.bottom + 6;
-        let left = window.scrollX + rect.left;
+        let left = window.scrollX + rect.left + (rect.width - tooltipRect.width) / 2;
 
-        // 防止浮窗超出右边界
-        if (left + tooltipRect.width > window.innerWidth) {
-          left = window.innerWidth - tooltipRect.width - 10;
-        }
-        // 防止浮窗超出下边界
-        if (top + tooltipRect.height > window.scrollY + window.innerHeight) {
+        if (top + tooltipRect.height > window.scrollY + viewportHeight) {
           top = window.scrollY + rect.top - tooltipRect.height - 6;
+        }
+        if (left < 0) {
+          left = 10;
+        }
+        if (left + tooltipRect.width > viewportWidth) {
+          left = viewportWidth - tooltipRect.width - 10;
         }
 
         tooltip.style.top = `${top}px`;
         tooltip.style.left = `${left}px`;
+
+        createOverlayLayer();
       }
-    });
+    };
+
+    word.addEventListener('click', handler);
+    word.addEventListener('touchstart', handler);
+    word._tooltipClickHandler = handler;
   });
 
-  // 点击页面空白处关闭所有tooltip
+  tooltipContainer.appendChild(fragment);
+
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => (t.style.display = 'none'));
+    const overlay = document.getElementById('tooltip-overlay');
+    if (overlay) overlay.remove();
   });
 }
 
+// 5. Tooltip 浮窗延迟隐藏
+function setupTooltipAutoHide(tooltip) {
+  let hideTimer;
+  tooltip.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+  tooltip.addEventListener('mouseleave', () => {
+    hideTimer = setTimeout(() => {
+      tooltip.style.display = 'none';
+    }, 300);
+  });
+}
 
-// 5. YouTube视频自动暂停
+// 6. 创建移动端遮罩层
+function createOverlayLayer() {
+  let overlay = document.getElementById('tooltip-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tooltip-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.zIndex = '9998';
+    overlay.style.background = 'transparent';
+    document.body.appendChild(overlay);
+  }
+
+  overlay.onclick = () => {
+    document.querySelectorAll('.tooltip').forEach(t => (t.style.display = 'none'));
+    overlay.remove();
+  };
+}
+
+// 7. YouTube 自动暂停（保持原功能）
 function setupVideoAutoPause() {
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
-    if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
+    if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"playerState":1')) {
       const playingIframe = e.source;
       document.querySelectorAll('iframe').forEach(iframe => {
         if (iframe.contentWindow !== playingIframe) {
@@ -109,7 +162,7 @@ function setupVideoAutoPause() {
   });
 }
 
-// 6. 浮动小窗口播放YouTube视频
+// 8. 浮动小窗口播放YouTube视频
 // script.js - 完整浮动YouTube视频实现
 
 (function() {
