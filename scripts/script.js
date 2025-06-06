@@ -45,7 +45,6 @@ function setupTooltips(tooltipData) {
         tooltip.innerHTML = html;
         tooltipContainer.appendChild(tooltip);
       }
-      // Toggle display
       document.querySelectorAll('.tooltip').forEach(t => { if (t !== tooltip) t.style.display = 'none'; });
       tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
 
@@ -59,6 +58,27 @@ function setupTooltips(tooltipData) {
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
+}
+
+// Convert any YouTube URL to embeddable format
+function convertYouTubeToEmbedUrl(url) {
+  let videoId = '';
+  if (url.includes('youtu.be/')) {
+    videoId = url.split('youtu.be/')[1].split('?')[0];
+  } else if (url.includes('youtube.com/watch')) {
+    const params = new URLSearchParams(url.split('?')[1]);
+    videoId = params.get('v');
+  } else if (url.includes('youtube.com/embed/')) {
+    if (!url.includes('enablejsapi=1')) {
+      return url.includes('?') ? `${url}&enablejsapi=1` : `${url}?enablejsapi=1`;
+    }
+    return url;
+  }
+
+  if (videoId) {
+    return `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+  }
+  return '';
 }
 
 // Auto pause other YouTube iframes
@@ -129,7 +149,6 @@ function setupFloatingVideo() {
       if (isDragging) {
         let left = e.clientX - offsetX;
         let top = e.clientY - offsetY;
-        // Keep inside viewport
         const maxLeft = window.innerWidth - floatContainer.offsetWidth;
         const maxTop = window.innerHeight - floatContainer.offsetHeight;
         left = Math.min(Math.max(0, left), maxLeft);
@@ -192,7 +211,6 @@ async function init() {
 
   const toc = document.getElementById('toc');
   const chapters = document.getElementById('chapters');
-  const tooltipContainer = document.getElementById('tooltips');
 
   chapterData.chapters.forEach(ch => {
     const link = document.createElement('a');
@@ -214,19 +232,10 @@ async function init() {
         const div = document.createElement('div');
         div.className = 'media-block';
 
-        let videoUrl = item.video;
-        let videoId = '';
-
-        if (videoUrl.includes('youtu.be')) {
-          videoId = videoUrl.split('/').pop().split('?')[0];
-        } else if (videoUrl.includes('youtube.com/watch')) {
-          const urlParams = new URLSearchParams(videoUrl.split('?')[1]);
-          videoId = urlParams.get('v');
-        }
-
-        if (videoId) {
+        const embedUrl = convertYouTubeToEmbedUrl(item.video);
+        if (embedUrl) {
           const iframe = document.createElement('iframe');
-          iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+          iframe.src = embedUrl;
           iframe.width = '560';
           iframe.height = '315';
           iframe.frameBorder = '0';
