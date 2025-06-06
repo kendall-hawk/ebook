@@ -14,12 +14,10 @@ async function loadChapters() {
 function renderMarkdownWithTooltips(md, tooltipData) {
   const html = marked.parse(md);
   const words = Object.keys(tooltipData);
-  return html.replace(/\b([a-zA-Z]+)\b/g, (match) => {
-    const word = match.toLowerCase();
-    if (words.includes(word)) {
-      return `<span class="word" data-tooltip-id="${word}">${match}</span>`;
-    }
-    return match;
+  const regex = new RegExp(`\\b(${words.join('|')})\\b`, 'gi');
+  return html.replace(regex, (match) => {
+    const wordId = match.toLowerCase();
+    return `<span class="word" data-tooltip-id="${wordId}">${match}</span>`;
   });
 }
 
@@ -31,21 +29,28 @@ function setupTooltips(tooltipData) {
       e.stopPropagation();
       const id = word.dataset.tooltipId;
       let tooltip = document.getElementById('tooltip-' + id);
+
       if (!tooltip) {
         const data = tooltipData[id];
         tooltip = document.createElement('div');
         tooltip.id = 'tooltip-' + id;
         tooltip.className = 'tooltip';
+
         let html = `<strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>`;
         if (data.partOfSpeech) html += `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>`;
         if (data.definition) html += `<div><strong>Definition:</strong> ${data.definition}</div>`;
         if (data["Image Description"]) html += `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>`;
         if (data.example) html += `<div><strong>Example:</strong> <em>${data.example}</em></div>`;
         if (data.image) html += `<div><img src="${data.image}" alt="${id}" class="tooltip-image" style="max-width:100%;margin-top:8px;"></div>`;
+
         tooltip.innerHTML = html;
         tooltipContainer.appendChild(tooltip);
       }
-      document.querySelectorAll('.tooltip').forEach(t => { if (t !== tooltip) t.style.display = 'none'; });
+
+      document.querySelectorAll('.tooltip').forEach(t => {
+        if (t !== tooltip) t.style.display = 'none';
+      });
+
       tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
 
       if (tooltip.style.display === 'block') {
@@ -55,6 +60,7 @@ function setupTooltips(tooltipData) {
       }
     });
   });
+
   document.addEventListener('click', () => {
     document.querySelectorAll('.tooltip').forEach(t => t.style.display = 'none');
   });
@@ -86,15 +92,13 @@ function setupVideoAutoPause() {
   const iframes = document.querySelectorAll('iframe');
   iframes.forEach(iframe => {
     if (iframe.src.includes('youtube.com/embed')) {
-      iframe.addEventListener('load', () => {
-        iframe.contentWindow.postMessage('{"event":"listening","id":0}', '*');
-      });
+      iframe.src += iframe.src.includes('?') ? '&enablejsapi=1' : '?enablejsapi=1';
     }
   });
 
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
-    if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
+    if (e.data.includes('"playerState":1')) {
       const playingIframe = e.source;
       document.querySelectorAll('iframe').forEach(iframe => {
         if (iframe.contentWindow !== playingIframe) {
@@ -105,7 +109,7 @@ function setupVideoAutoPause() {
   });
 }
 
-// Floating video small window — improved: only show when video is playing and off screen
+// Floating video small window
 function setupFloatingVideo() {
   const videos = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
   if (!videos.length) return;
@@ -118,6 +122,7 @@ function setupFloatingVideo() {
 
   function createFloatingVideo(src) {
     if (floatContainer) return;
+
     floatContainer = document.createElement('div');
     floatContainer.className = 'floating-video';
     floatContainer.innerHTML = `
@@ -145,21 +150,20 @@ function setupFloatingVideo() {
       offsetY = e.clientY - floatContainer.getBoundingClientRect().top;
       e.preventDefault();
     });
+
     document.addEventListener('mousemove', e => {
       if (isDragging) {
         let left = e.clientX - offsetX;
         let top = e.clientY - offsetY;
-        const maxLeft = window.innerWidth - floatContainer.offsetWidth;
-        const maxTop = window.innerHeight - floatContainer.offsetHeight;
-        left = Math.min(Math.max(0, left), maxLeft);
-        top = Math.min(Math.max(0, top), maxTop);
-
+        left = Math.min(Math.max(0, left), window.innerWidth - floatContainer.offsetWidth);
+        top = Math.min(Math.max(0, top), window.innerHeight - floatContainer.offsetHeight);
         floatContainer.style.left = left + 'px';
         floatContainer.style.top = top + 'px';
         floatContainer.style.bottom = 'auto';
         floatContainer.style.right = 'auto';
       }
     });
+
     document.addEventListener('mouseup', () => {
       isDragging = false;
     });
@@ -169,43 +173,37 @@ function setupFloatingVideo() {
       floatContainer = null;
       currentVideo = null;
     });
+
     const resizeBtn = floatContainer.querySelector('.resize-btn');
     let isLarge = false;
     resizeBtn.addEventListener('click', () => {
       isLarge = !isLarge;
+      const iframe = floatContainer.querySelector('iframe');
       if (isLarge) {
         floatContainer.style.width = '560px';
         floatContainer.style.height = '315px';
-        floatContainer.querySelector('iframe').width = '560';
-        floatContainer.querySelector('iframe').height = '315';
+        iframe.width = '560';
+        iframe.height = '315';
       } else {
         floatContainer.style.width = '320px';
         floatContainer.style.height = '200px';
-        floatContainer.querySelector('iframe').width = '320';
-        floatContainer.querySelector('iframe').height = '180';
+        iframe.width = '320';
+        iframe.height = '180';
       }
     });
   }
 
-  // Listen to YouTube player state changes for playing state
   window.addEventListener('message', (e) => {
     if (typeof e.data !== 'string') return;
-    // Listen for playing event
-    if (e.data.includes('{"event":"infoDelivery"') && e.data.includes('"info":{"playerState":1')) {
-      // Remove existing floating video first
-      if (floatContainer) {
-        floatContainer.remove();
-        floatContainer = null;
-      }
 
-      // Find which iframe sent the message
+    if (e.data.includes('"playerState":1')) {
+      if (floatContainer) floatContainer.remove();
+      floatContainer = null;
       currentVideo = Array.from(videos).find(v => v.contentWindow === e.source);
-      if (currentVideo) {
-        createFloatingVideo(currentVideo.src);
-      }
+      if (currentVideo) createFloatingVideo(currentVideo.src);
     }
-    // Listen for pause or ended event to remove floating window
-    if (e.data.includes('{"event":"infoDelivery"') && (e.data.includes('"info":{"playerState":2') || e.data.includes('"info":{"playerState":0'))) {
+
+    if (e.data.includes('"playerState":2') || e.data.includes('"playerState":0')) {
       if (floatContainer) {
         floatContainer.remove();
         floatContainer = null;
@@ -214,12 +212,10 @@ function setupFloatingVideo() {
     }
   });
 
-  // Remove floating video if original iframe is visible on screen
   window.addEventListener('scroll', () => {
     if (!floatContainer || !currentVideo) return;
     const rect = currentVideo.getBoundingClientRect();
     if (rect.bottom >= 0 && rect.top <= window.innerHeight) {
-      // Original video is visible, remove floating window
       floatContainer.remove();
       floatContainer = null;
       currentVideo = null;
