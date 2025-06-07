@@ -2,8 +2,8 @@
   "chapters": [
     {
       "id": "1",
-      "title": "Introduction",
-      "file": "chapters/intro.json"
+      "title": "What's your favourite kind of noodle?",
+      "file": "chapters/1.json"
     },
     {
       "id": "grammar",
