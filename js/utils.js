@@ -16,7 +16,7 @@ export function ensureEnableJsApi(videoUrl) {
     return url.toString();
   } catch (e) {
     console.error('无效的视频URL:', videoUrl, e);
-    return videoUrl; // 返回原始URL或进行其他错误处理
+    return videoUrl; // 返回原始URL以防出错
   }
 }
 
@@ -31,19 +31,17 @@ export function extractVideoId(url) {
   return m ? m[1] : '';
 }
 
-// js/utils.js
+// --- 词频统计相关 ---
 
-// ... (ensureEnableJsApi 和 extractVideoId 保持不变) ...
-
-// 简单的英文停用词列表，可以根据需要扩展
+// 简单的英文停用词列表 (小写)
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it",
   "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these",
   "they", "this", "to", "was", "will", "with", "he", "she", "him", "her", "his", "hers", "we", "us", "our", "ours",
   "you", "your", "yours", "i", "me", "my", "mine", "them", "their", "theirs", "what", "which", "who", "whom",
   "whose", "where", "when", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
-  "some", "such", "no", "nor", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "neil",
-  "just", "don", "should", "now", "ve", "ll", "re", "m", "has", "had", "would", "could", "did", "do", "does", "get",
+  "some", "such", "no", "nor", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
+  "just", "don", "should", "now", "ve", "ll", "re", "m", "has", "had", "would", "could", "did", "do", "does", "get"
 ]);
 
 
@@ -51,9 +49,10 @@ const STOP_WORDS = new Set([
  * 统计文本中单词的频率。
  * @param {Array<string>} allParagraphTexts - 包含所有章节段落文本的数组。
  * @param {Set<string>} [stopWords=STOP_WORDS] - 可选的停用词Set。
+ * @param {Set<string>} [protectedWords=new Set()] - 无论如何都不能被过滤的词语集合（例如tooltip关键词）。
  * @returns {Array<{word: string, count: number}>} - 按频率降序排列的单词频率列表。
  */
-export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS) {
+export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS, protectedWords = new Set()) {
   const wordCounts = new Map();
 
   allParagraphTexts.forEach(paragraph => {
@@ -61,10 +60,13 @@ export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS) {
       .toLowerCase()
       .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'“”，。？！]/g, '')
       .split(/\s+/)
-      .filter(word => word.length > 0 && !stopWords.has(word));
+      .filter(word => word.length > 0); // 先只过滤空字符串
 
     words.forEach(word => {
-      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+      // 只有当词语不在停用词列表，或者它在受保护的关键词列表时，才进行统计
+      if (!stopWords.has(word) || protectedWords.has(word)) {
+        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+      }
     });
   });
 
@@ -81,4 +83,3 @@ export function getWordFrequenciesMap(wordFrequencies) {
   });
   return map;
 }
-
