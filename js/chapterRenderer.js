@@ -15,27 +15,30 @@ export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      // 如果文件不存在或无法访问，这里会捕获错误
+      throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
     }
     const data = await res.json();
     allChapterIndex = data.chapters; // 存储到全局变量
     return allChapterIndex;
   } catch (error) {
     console.error('加载章节索引数据失败:', error);
+    // 返回空数组，避免后续操作出错
     return [];
   }
 }
 
 /**
  * 加载单个章节的完整内容。
- * @param {string} filePath - 章节内容文件的路径。
+ * @param {string} filePath - 章节内容文件的路径 (例如: 'chapters/intro.json')。
  * @returns {Promise<Object>} - 单个章节的完整数据。
  */
-async function loadSingleChapterContent(filePath) {
+export async function loadSingleChapterContent(filePath) {
   try {
-    const res = await fetch(`data/${filePath}`); // 注意这里拼接路径
+    // 确保这里拼接的路径是相对于网站根目录的正确路径
+    const res = await fetch(`data/${filePath}`);
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      throw new Error(`HTTP error! status: ${res.status} - Check 'data/${filePath}' path and server.`);
     }
     return await res.json();
   } catch (error) {
@@ -108,7 +111,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
         position: 'relative',
-        paddingBottom: '56.25%',
+        paddingBottom: '56.25%', // 16:9 比例
         height: '0',
         overflow: 'hidden',
         maxWidth: '100%',
@@ -125,13 +128,16 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
       });
       iframe.frameBorder = '0';
       iframe.allowFullscreen = true;
+      // 关键：允许画中画，autoplay 必须在 enablejsapi=1 的情况下才能通过 API 控制
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          // 修正：确保这里使用标准的 YouTube iframe src 格式
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/`。`或者`[https://www.youtube.com/iframe\_api](https://www.youtube.com/iframe_api)`);
+          // ！！！ 关键修正 ！！！ 使用正确的 YouTube 嵌入 URL 格式
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
       } else {
+          // 如果是完整的 YouTube URL，也要确保 enablejsapi=1
+          // 这里假设 videoUrl 已经是完整的嵌入 URL，否则 extractVideoId 会失败
           iframe.src = ensureEnableJsApi(videoUrl);
       }
 
@@ -139,10 +145,6 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
       chaptersContainer.appendChild(wrapper);
     }
   });
-
-  // 确保在渲染新内容后重新设置工具提示，因为 DOM 元素已更新
-  // 注意：setupTooltips 需要在 main.js 中再次调用，因为它监听的是 document
-  // 并且可能需要访问全局的 tooltipData
 }
 
 // 导出 getter，以便其他模块可以访问全局词频数据
