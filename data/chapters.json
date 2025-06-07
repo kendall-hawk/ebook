@@ -5,15 +5,5 @@
       "title": "What's your favourite kind of noodle?",
       "file": "chapters/1.json"
     },
-    {
-      "id": "grammar",
-      "title": "Basic Grammar",
-      "file": "chapters/grammar.json"
-    },
-    {
-      "id": "vocabulary",
-      "title": "Vocabulary Building",
-      "file": "chapters/vocabulary.json"
-    }
   ]
 }
