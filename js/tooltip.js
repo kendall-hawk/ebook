@@ -1,25 +1,29 @@
 // js/tooltip.js
+// 假设你使用 Marked.js 进行 Markdown 渲染
+import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+
+// 初始化 marked，可以添加配置，例如 GFM (GitHub Flavored Markdown)
+marked.setOptions({
+  gfm: true, // 启用 GitHub Flavored Markdown
+  breaks: true // 启用换行符
+});
 
 /**
- * 加载 tooltips 数据。
+ * 异步加载 tooltips.json 数据。
  * @returns {Promise<Object>} - tooltips 数据对象。
  */
 export async function loadTooltips() {
-  try {
-    const res = await fetch('data/tooltips.json');
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+    try {
+        const res = await fetch('data/tooltips.json');
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return await res.json();
+    } catch (error) {
+        console.error('加载 tooltip 数据失败:', error);
+        return {};
     }
-    return await res.json();
-  } catch (error) {
-    console.error('加载 tooltips 数据失败:', error);
-    return {};
-  }
 }
-
-// js/tooltip.js
-
-// ... (loadTooltips 保持不变) ...
 
 /**
  * 将 Markdown 文本中的关键词包装成带有 tooltip 的 span，并渲染 Markdown。
@@ -40,15 +44,16 @@ export function renderMarkdownWithTooltips(
     maxFontSizeIncrease = 12 // 最高频率的词增加 12px，即 16+12=28px
 ) {
     const tooltipWords = Object.keys(tooltipData);
-    const wordPattern = /\b\w+\b/g;
+    // 使用更精确的单词匹配模式，只匹配字母数字词语
+    const wordPattern = /\b[a-zA-Z0-9'-]+\b/g;
 
     const markedWithSpan = md.replace(wordPattern, (match) => {
         const lowerMatch = match.toLowerCase();
         const freq = wordFrequenciesMap.get(lowerMatch) || 0; // 获取词语频率
         let fontSizeStyle = '';
 
-        // 如果该词是高频词（并且不是停用词，getWordFrequencies已过滤停用词）
-        if (freq > 0) {
+        // 如果该词是高频词（并且 getWordFrequencies 已过滤停用词）
+        if (freq > 0 && maxFreq > 0) { // 避免除以零
             // 计算字体大小：频率越高，字体越大
             // 简单线性映射：(当前频率 / 最高频率) * 最大增加量 + 基础字体
             const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
@@ -57,6 +62,7 @@ export function renderMarkdownWithTooltips(
 
         // 判断是否是 tooltip 词，如果是，则同时应用 tooltip 样式和字体大小
         if (tooltipWords.includes(lowerMatch)) {
+            // 注意：data-tooltip-id 应该是小写，因为它对应 tooltipData 的键
             return `<span data-tooltip-id="${lowerMatch}" class="word" style="${fontSizeStyle}">${match}</span>`;
         } else if (fontSizeStyle) {
             // 如果不是 tooltip 词，但因为高频而需要调整字体大小
@@ -69,71 +75,63 @@ export function renderMarkdownWithTooltips(
     return marked.parse(markedWithSpan);
 }
 
-// ... (setupTooltips 保持不变) ...
-
-
 /**
- * 为所有带有 'word' class 的元素绑定点击事件，显示/隐藏 tooltip。
+ * 设置工具提示功能（例如使用 react-tooltip 或简单的 JS tooltip）。
+ * 这个函数需要在 DOM 渲染完成后调用，并且在每次新内容渲染后重新调用。
  * @param {Object} tooltipData - tooltips 数据。
  */
 export function setupTooltips(tooltipData) {
-  const tooltipContainer = document.getElementById('tooltips');
-  if (!tooltipContainer) {
-    console.warn('未找到 #tooltips 容器，tooltip 功能可能无法正常工作。');
-    return;
-  }
-
-  document.querySelectorAll('.word').forEach(word => {
-    word.addEventListener('click', e => {
-      e.stopPropagation();
-      const id = word.dataset.tooltipId;
-      let tooltip = document.getElementById(`tooltip-${id}`);
-      if (!tooltip) {
-        const data = tooltipData[id];
-        tooltip = document.createElement('div');
-        tooltip.id = `tooltip-${id}`;
-        tooltip.className = 'tooltip';
-        tooltip.innerHTML = `
-          <strong>${id.charAt(0).toUpperCase() + id.slice(1)}</strong><br>
-          ${data.partOfSpeech ? `<div><strong>Part of Speech:</strong> ${data.partOfSpeech}</div>` : ''}
-          ${data.definition ? `<div><strong>Definition:</strong> ${data.definition}</div>` : ''}
-          ${data["Image Description"] ? `<div><strong>Image Description:</strong> ${data["Image Description"]}</div>` : ''}
-          ${data.example ? `<div><strong>Example:</strong> <em>${data.example}</em></div>` : ''}
-          ${data.image ? `<img src="${data.image}" alt="${id}" style="max-width:100%; margin-top:8px;">` : ''}
-        `;
-        tooltip.style.position = 'absolute';
-        tooltip.style.display = 'none';
-        tooltipContainer.appendChild(tooltip);
-      }
-
-      document.querySelectorAll('.tooltip').forEach(t => {
-        if (t !== tooltip) t.style.display = 'none';
-      });
-
-      if (tooltip.style.display === 'block') {
-        tooltip.style.display = 'none';
-      } else {
-        tooltip.style.display = 'block';
-        const rect = word.getBoundingClientRect();
-        const tooltipRect = tooltip.getBoundingClientRect();
-
-        let top = window.scrollY + rect.bottom + 6;
-        let left = window.scrollX + rect.left;
-
-        if (left + tooltipRect.width > window.innerWidth) {
-          left = window.innerWidth - tooltipRect.width - 10;
-        }
-        if (top + tooltipRect.height > window.scrollY + window.innerHeight) {
-          top = window.scrollY + rect.top - tooltipRect.height - 6;
-        }
-
-        tooltip.style.top = `${top}px`;
-        tooltip.style.left = `${left}px`;
-      }
+    // 移除所有旧的事件监听器，避免重复绑定（如果之前有绑定的话）
+    document.querySelectorAll('.word').forEach(span => {
+        span.removeEventListener('mouseover', showTooltip);
+        span.removeEventListener('mouseout', hideTooltip);
     });
-  });
 
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.tooltip').forEach(t => (t.style.display = 'none'));
-  });
+    const tooltipDiv = document.getElementById('react-tooltip'); // 或者你自定义的 tooltip 容器
+    if (!tooltipDiv) {
+        console.warn('Tooltip container #react-tooltip not found. Tooltips may not display.');
+        return;
+    }
+    tooltipDiv.style.cssText = 'position: absolute; display: none; background: #333; color: #fff; padding: 5px 10px; border-radius: 4px; z-index: 10000;';
+
+    // 绑定新的事件监听器
+    document.querySelectorAll('.word').forEach(span => {
+        span.addEventListener('mouseover', showTooltip);
+        span.addEventListener('mouseout', hideTooltip);
+    });
+
+    function showTooltip(e) {
+        const wordId = e.target.dataset.tooltipId;
+        const data = tooltipData[wordId];
+
+        if (data) {
+            tooltipDiv.innerHTML = `<strong>${data.title}</strong><br>${data.description} (${data.category})`;
+            tooltipDiv.style.display = 'block';
+
+            // 定位 tooltip
+            const spanRect = e.target.getBoundingClientRect();
+            let left = spanRect.left + window.scrollX;
+            let top = spanRect.top + window.scrollY - tooltipDiv.offsetHeight - 5; // 放在单词上方
+
+            // 确保 tooltip 不会超出屏幕左边缘
+            if (left < 0) {
+                left = 0;
+            }
+            // 确保 tooltip 不会超出屏幕右边缘
+            if (left + tooltipDiv.offsetWidth > window.innerWidth) {
+                left = window.innerWidth - tooltipDiv.offsetWidth;
+            }
+             // 确保 tooltip 不会超出屏幕上边缘 (如果放在单词上方)
+            if (top < window.scrollY) {
+                top = spanRect.bottom + window.scrollY + 5; // 如果上方空间不足，则放在下方
+            }
+
+            tooltipDiv.style.left = `${left}px`;
+            tooltipDiv.style.top = `${top}px`;
+        }
+    }
+
+    function hideTooltip() {
+        tooltipDiv.style.display = 'none';
+    }
 }
