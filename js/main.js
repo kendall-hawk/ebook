@@ -2,7 +2,7 @@
 import { loadTooltips, setupTooltips } from './tooltip.js';
 import {
   loadChapterIndex,
-  loadSingleChapterContent, // 导入加载单个章节内容的函数
+  loadSingleChapterContent,
   renderChapterToc,
   renderSingleChapterContent,
   setGlobalWordFrequencies,
@@ -27,15 +27,15 @@ async function init() {
     const chapterIndex = await loadChapterIndex();
     if (chapterIndex.length === 0) {
         console.warn("未找到章节索引，或者索引为空。请检查 data/chapters.json 文件。");
-        return; // 没有章节则停止初始化
+        // 如果没有章节，这里应该停止，否则后续操作可能会出错
+        return;
     }
 
     // 2. 在后台加载所有章节的内容，以获取完整的文本进行全局词频统计
     // 这一步会发起多个请求，但不会阻塞页面渲染
     const allChapterContentsPromises = chapterIndex.map(ch =>
-      loadSingleChapterContent(ch.file) // 使用导出的加载函数
+      loadSingleChapterContent(ch.file)
     );
-    // Promise.all 等待所有章节内容加载完毕
     const allChapterContents = await Promise.all(allChapterContentsPromises);
 
     // 过滤掉加载失败的章节内容 (null)
@@ -52,7 +52,8 @@ async function init() {
     // 5. 统计所有章节的全局词频
     const wordFrequencies = getWordFrequencies(allParagraphTexts, undefined, protectedWords);
     const wordFrequenciesMap = getWordFrequenciesMap(wordFrequencies);
-    const maxFreq = wordFrequencies.length > 0 ? wordFrequencies[0].count : 1; // 避免除以零
+    // 确保 maxFreq 至少为 1，避免除以零的错误
+    const maxFreq = wordFrequencies.length > 0 ? wordFrequencies[0].count : 1;
 
     // 6. 将全局词频数据存储到 chapterRenderer 中，供渲染时使用
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
@@ -64,10 +65,10 @@ async function init() {
         // 使用全局词频数据渲染单个章节
         renderSingleChapterContent(content, tooltipData, getGlobalWordFrequenciesMap(), getGlobalMaxFreq());
         // 每次加载新章节后，需要重新设置工具提示功能，因为 DOM 元素已更新
+        // setupTooltips 内部会移除并重新绑定监听器
         setupTooltips(tooltipData);
-        // 同样，浮动视频功能可能需要重新初始化或更新其观察器（它会自行处理）
-        // 确保浮动视频的监听器在新的 iframe 上生效
-        setupFloatingYouTube(); // 重新调用以确保新渲染的视频被观察
+        // !!! 优化点：移除这里对 setupFloatingYouTube() 的调用 !!!
+        // setupFloatingYouTube(); // 这一行应该被移除
       }
     });
 
@@ -80,12 +81,13 @@ async function init() {
       }
     }
 
-    // 9. 设置工具提示功能 (首次加载时) - setupTooltips 内部会处理重复监听
+    // 9. 设置工具提示功能 (首次加载时)
+    // 这一步很重要，确保在第一次渲染后立即为所有初始元素绑定事件
     setupTooltips(tooltipData);
 
-    // 10. 设置视频自动暂停和浮动视频功能
+    // 10. 设置视频自动暂停和浮动视频功能 (只需要在应用启动时调用一次)
     setupVideoAutoPause();
-    setupFloatingYouTube();
+    setupFloatingYouTube(); // 这个调用应该只发生一次
 
   } catch (error) {
     console.error("初始化应用时发生错误:", error);
