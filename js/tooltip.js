@@ -87,11 +87,15 @@ export function setupTooltips(tooltipData) {
         span.removeEventListener('mouseout', hideTooltip);
     });
 
-    const tooltipDiv = document.getElementById('react-tooltip'); // 或者你自定义的 tooltip 容器
+    // ！！！ 关键修改 ！！！ 匹配 index.html 中的 ID "react-tooltips"
+    const tooltipDiv = document.getElementById('react-tooltips');
     if (!tooltipDiv) {
-        console.warn('Tooltip container #react-tooltip not found. Tooltips may not display.');
+        // 这是一个很重要的警告，表示 JS 无法找到对应的 HTML 元素
+        console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
         return;
     }
+    // 这里的 style.cssText 会覆盖你在 style.css 中为 #react-tooltips 定义的样式，
+    // 因此这里保持和之前一致，以确保定位和显示功能。
     tooltipDiv.style.cssText = 'position: absolute; display: none; background: #333; color: #fff; padding: 5px 10px; border-radius: 4px; z-index: 10000;';
 
     // 绑定新的事件监听器
@@ -105,7 +109,13 @@ export function setupTooltips(tooltipData) {
         const data = tooltipData[wordId];
 
         if (data) {
-            tooltipDiv.innerHTML = `<strong>${data.title}</strong><br>${data.description} (${data.category})`;
+            // ！！！ 关键修改 ！！！ 确保这里使用的字段与 tooltips.json 中的实际字段匹配
+            // 我假设你已经修改了 tooltips.json，使其包含 title 和 description (原 definition)
+            const title = data.title || wordId; // 如果没有 title，使用 wordId
+            const description = data.description || data.definition || 'No definition available.'; // 兼容 definition
+            const category = data.category ? ` (${data.category})` : ''; // 如果没有 category，则不显示括号
+
+            tooltipDiv.innerHTML = `<strong>${title}</strong><br>${description}${category}`;
             tooltipDiv.style.display = 'block';
 
             // 定位 tooltip
