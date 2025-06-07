@@ -1,14 +1,13 @@
 {
-"recipes": {
-  "partOfSpeech": "noun",
-  "definition": "instructions for making food",
-  "Image Description": "An open cookbook with a pasta dish",
-  "example": "She loves trying new recipes from the internet.",
-  "image": ""
-},
+  "recipes": {
+    "title": "食谱",  "partOfSpeech": "noun",
+    "definition": "instructions for making food",
+    "Image Description": "An open cookbook with a pasta dish",
+    "example": "She loves trying new recipes from the internet.",
+    "image": "",
+    "category": "食物" },
   "traders": {
-    "definition": "People who buy and sell goods as part of business, often moving between places or countries.",
-    "Image Description": "Picture a dusty road along the Silk Road, with camels carrying bags of goods. Merchants wearing robes and hats are exchanging items like spices and silk, speaking different languages as they make deals in busy markets."
-  }
+    "title": "商人", "definition": "People who buy and sell goods as part of business, often moving between places or countries.",
+    "Image Description": "Picture a dusty road along the Silk Road, with camels carrying bags of goods. Merchants wearing robes and hats are exchanging items like spices and silk, speaking different languages as they make deals in busy markets.",
+    "category": "商业" }
 }
-
