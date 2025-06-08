@@ -14,11 +14,4 @@
     "Image Description": "Picture a dusty road along the Silk Road, with camels carrying bags of goods. Merchants wearing robes and hats are exchanging items like spices and silk, speaking different languages as they make deals in busy markets.",
     "category": "Historical Term"
   }
-  // 确保这里添加了你所有希望有工具提示的词语，并且它们有 title 和 description
-  // 例如，如果你希望 "ramen" 有工具提示，你需要添加类似：
-  // "ramen": {
-  //   "title": "Ramen",
-  //   "description": "A Japanese noodle dish, typically made with broth, noodles, and toppings.",
-  //   "category": "Food"
-  // }
 }
