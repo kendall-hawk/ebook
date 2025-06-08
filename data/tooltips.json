@@ -1,13 +1,24 @@
 {
   "recipes": {
-    "title": "food",  "partOfSpeech": "noun",
+    "title": "Recipes",
+    "partOfSpeech": "noun",
     "description": "instructions for making food",
     "Image Description": "An open cookbook with a pasta dish",
     "example": "She loves trying new recipes from the internet.",
     "image": "",
-    "category": "" },
+    "category": "Food Term"
+  },
   "traders": {
-    "title": "", "description": "People who buy and sell goods as part of business, often moving between places or countries.",
+    "title": "Traders",
+    "description": "People who buy and sell goods as part of business, often moving between places or countries.",
     "Image Description": "Picture a dusty road along the Silk Road, with camels carrying bags of goods. Merchants wearing robes and hats are exchanging items like spices and silk, speaking different languages as they make deals in busy markets.",
-    "category": "" }
+    "category": "Historical Term"
+  }
+  // 确保这里添加了你所有希望有工具提示的词语，并且它们有 title 和 description
+  // 例如，如果你希望 "ramen" 有工具提示，你需要添加类似：
+  // "ramen": {
+  //   "title": "Ramen",
+  //   "description": "A Japanese noodle dish, typically made with broth, noodles, and toppings.",
+  //   "category": "Food"
+  // }
 }
