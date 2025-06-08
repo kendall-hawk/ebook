@@ -67,8 +67,7 @@ async function init() {
         // 每次加载新章节后，需要重新设置工具提示功能，因为 DOM 元素已更新
         // setupTooltips 内部会移除并重新绑定监听器
         setupTooltips(tooltipData);
-        // !!! 优化点：移除这里对 setupFloatingYouTube() 的调用 !!!
-        // setupFloatingYouTube(); // 这一行应该被移除
+        // setupFloatingYouTube() 只需要在应用启动时调用一次，此处不需要重复调用
       }
     });
 
