@@ -3,7 +3,7 @@
     {
       "id": "one",
       "title": "What's your favourite kind of noodle?",
-      "file": "ebook/data/chapters/one.json"
+      "file": "chapters/one.json"
     }
   ]
 }
