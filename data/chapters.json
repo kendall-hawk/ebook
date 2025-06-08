@@ -3,7 +3,8 @@
     {
       "id": "1",
       "title": "What's your favourite kind of noodle?",
-      "file": "data/chapters/1.json",
+      "file": "chapters/1.json"
     },
+    // ... 其他章节
   ]
-},
+}
