@@ -151,5 +151,11 @@ body {
   transform: translateY(-2px); /* 鼠标悬停时轻微上浮 */
   box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* 阴影效果 */
 }
+#chapters h2 {
+  color: #0056b3;
+  border-bottom: 2px solid #0056b3;
+  padding-bottom: 10px;
+  margin-top: 0;
+}
 
 }
