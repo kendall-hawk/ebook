@@ -15,7 +15,6 @@ export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
     if (!res.ok) {
-      // 如果文件不存在或无法访问，这里会捕获错误
       throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
     }
     const data = await res.json();
@@ -100,14 +99,24 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
 
   chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
-      const para = document.createElement('p');
-      para.innerHTML = renderMarkdownWithTooltips(
+      const renderedHtml = renderMarkdownWithTooltips(
           item,
           tooltipData,
           wordFrequenciesMap,
           maxFreq
       );
-      chaptersContainer.appendChild(para);
+
+      // --- 关键修正：确保Markdown渲染的块级元素（如H2）直接添加到容器 ---
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = renderedHtml;
+
+      // 遍历临时div的子元素，并将它们逐个添加到 chaptersContainer
+      // 这会确保 Markdown 渲染的 H2/H3/P 等都是 #chapters 的直接子元素
+      Array.from(tempDiv.children).forEach(child => {
+          chaptersContainer.appendChild(child);
+      });
+      // --- 修正结束 ---
+
     } else if (item.video) {
       const videoUrl = item.video;
       const wrapper = document.createElement('div');
@@ -155,7 +164,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
   // 1. 返回本篇文章开头
   const toTopLink = document.createElement('a');
   toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节标题的ID
-  toTopLink.textContent = 'back to the top';
+  toTopLink.textContent = '返回本篇文章开头';
   toTopLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
   navSection.appendChild(toTopLink);
 
@@ -166,7 +175,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
   // 2. 返回目录
   const toTocLink = document.createElement('a');
   toTocLink.href = '#toc'; // 链接到目录的ID（在index.html中是<nav id="toc">）
-  toTocLink.textContent = 'Back to contents';
+  toTocLink.textContent = '返回目录';
   toTocLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
   navSection.appendChild(toTocLink);
 
