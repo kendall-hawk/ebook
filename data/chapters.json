@@ -1,7 +1,7 @@
 {
   "chapters": [
     {
-      "id": "1",
+      "id": "one",
       "title": "What's your favourite kind of noodle?",
       "file": "data/chapters/one.json"
     },
