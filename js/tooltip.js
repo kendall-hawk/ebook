@@ -16,7 +16,7 @@ export async function loadTooltips() {
     try {
         const res = await fetch('data/tooltips.json');
         if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
+            throw new Error(`HTTP error! status: ${res.status} - Check 'data/tooltips.json' path and content.`);
         }
         return await res.json();
     } catch (error) {
@@ -76,7 +76,7 @@ export function renderMarkdownWithTooltips(
 }
 
 /**
- * 设置工具提示功能（例如使用 react-tooltip 或简单的 JS tooltip）。
+ * 设置工具提示功能。
  * 这个函数需要在 DOM 渲染完成后调用，并且在每次新内容渲染后重新调用。
  * @param {Object} tooltipData - tooltips 数据。
  */
@@ -90,13 +90,13 @@ export function setupTooltips(tooltipData) {
     // ！！！ 关键修改 ！！！ 匹配 index.html 中的 ID "react-tooltips"
     const tooltipDiv = document.getElementById('react-tooltips');
     if (!tooltipDiv) {
-        // 这是一个很重要的警告，表示 JS 无法找到对应的 HTML 元素
         console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
         return;
     }
-    // 这里的 style.cssText 会覆盖你在 style.css 中为 #react-tooltips 定义的样式，
-    // 因此这里保持和之前一致，以确保定位和显示功能。
+    // tooltipDiv.style.cssText 应该被 style.css 中的类覆盖，这里仅作为 fallback 或临时调试
+    // 确保 CSS 中有 #react-tooltips 的样式来控制其行为
     tooltipDiv.style.cssText = 'position: absolute; display: none; background: #333; color: #fff; padding: 5px 10px; border-radius: 4px; z-index: 10000;';
+
 
     // 绑定新的事件监听器
     document.querySelectorAll('.word').forEach(span => {
@@ -110,13 +110,13 @@ export function setupTooltips(tooltipData) {
 
         if (data) {
             // ！！！ 关键修改 ！！！ 确保这里使用的字段与 tooltips.json 中的实际字段匹配
-            // 我假设你已经修改了 tooltips.json，使其包含 title 和 description (原 definition)
             const title = data.title || wordId; // 如果没有 title，使用 wordId
             const description = data.description || data.definition || 'No definition available.'; // 兼容 definition
             const category = data.category ? ` (${data.category})` : ''; // 如果没有 category，则不显示括号
 
             tooltipDiv.innerHTML = `<strong>${title}</strong><br>${description}${category}`;
-            tooltipDiv.style.display = 'block';
+            tooltipDiv.style.display = 'block'; // 显示 tooltipDiv
+            tooltipDiv.classList.add('visible'); // 添加 visible 类，触发 CSS 动画
 
             // 定位 tooltip
             const spanRect = e.target.getBoundingClientRect();
@@ -142,6 +142,7 @@ export function setupTooltips(tooltipData) {
     }
 
     function hideTooltip() {
-        tooltipDiv.style.display = 'none';
+        tooltipDiv.style.display = 'none'; // 隐藏 tooltipDiv
+        tooltipDiv.classList.remove('visible'); // 移除 visible 类
     }
 }
