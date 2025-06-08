@@ -62,8 +62,6 @@ function createFloatBox(videoSrc) {
 
   // 只有少数需要动态修改或 JS 独有的样式保留 inline
   Object.assign(floatBox.style, {
-    // bottom 和 right 可以通过 CSS 控制初始位置，JS 拖动时会覆盖 left/top
-    // width/height 也通过 CSS 控制，除非你想在 JS 里动态改变大小
     userSelect: 'none' // 防止拖动时选中文字
   });
 
@@ -175,7 +173,7 @@ function isIframeOutOfView(iframe) {
 export function setupVideoAutoPause() {
   window.addEventListener('message', (e) => {
     // 确保消息来自 YouTube iframe
-    if (e.origin !== 'https://www.youtube.com' && e.origin !== 'http://www.youtube.com') {
+    if (e.origin !== 'https://www.youtube.com' && e.origin !== 'https://youtube.com') { // 确保是正确的 YouTube 域名
       return;
     }
 
@@ -185,7 +183,7 @@ export function setupVideoAutoPause() {
       if (data.event === 'infoDelivery' && data.info && data.info.playerState === 1) { // playerState 1 是播放中
         const playingIframe = e.source; // 正在播放的 iframe 的内容窗口
 
-        document.querySelectorAll('iframe[src*="youtube.com/embed/"]').forEach(iframe => {
+        document.querySelectorAll('iframe[src*="https://www.youtube.com/embed/"]').forEach(iframe => {
           if (iframe.contentWindow !== playingIframe) {
             // 如果不是正在播放的 iframe，则发送暂停指令
             iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
@@ -212,7 +210,7 @@ export async function setupFloatingYouTube() {
       return;
   }
 
-  const iframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"]'))
+  const iframes = Array.from(document.querySelectorAll('iframe[src*="https://www.youtube.com/embed/"]'))
     .map(iframe => {
       // 确保 iframe 的 src 包含 enablejsapi=1
       iframe.src = ensureEnableJsApi(iframe.src);
