@@ -95,26 +95,69 @@ export function setupTooltips(tooltipData) {
     }
     // tooltipDiv.style.cssText 应该被 style.css 中的类覆盖，这里仅作为 fallback 或临时调试
     // 确保 CSS 中有 #react-tooltips 的样式来控制其行为
-    tooltipDiv.style.cssText = 'position: absolute; display: none; background: #333; color: #fff; padding: 5px 10px; border-radius: 4px; z-index: 10000;';
+    // tooltipDiv.style.cssText = 'position: absolute; display: none; background: #333; color: #fff; padding: 5px 10px; border-radius: 4px; z-index: 10000;';
 
 
     // 绑定新的事件监听器
     document.querySelectorAll('.word').forEach(span => {
         span.addEventListener('mouseover', showTooltip);
-        span.addEventListener('mouseout', hideTooltip);
+        span.removeEventListener('mouseout', hideTooltip); // 确保只绑定一次
     });
 
+    // 绑定全局点击事件，点击页面其他地方隐藏tooltip
+    document.addEventListener('click', (e) => {
+        if (tooltipDiv.classList.contains('visible') && !e.target.closest('.word')) {
+            hideTooltip();
+        }
+    });
+
+    // 确保鼠标移出 tooltip 后也隐藏
+    tooltipDiv.addEventListener('mouseleave', hideTooltip);
+
     function showTooltip(e) {
+        e.stopPropagation(); // 阻止事件冒泡到 document 的点击事件
+
         const wordId = e.target.dataset.tooltipId;
         const data = tooltipData[wordId];
 
         if (data) {
-            // ！！！ 关键修改 ！！！ 确保这里使用的字段与 tooltips.json 中的实际字段匹配
-            const title = data.title || wordId; // 如果没有 title，使用 wordId
-            const description = data.description || data.definition || 'No definition available.'; // 兼容 definition
-            const category = data.category ? ` (${data.category})` : ''; // 如果没有 category，则不显示括号
+            let htmlContent = '';
 
-            tooltipDiv.innerHTML = `<strong>${title}</strong><br>${description}${category}`;
+            // 标题
+            if (data.title) {
+                htmlContent += `<strong>${data.title}</strong><br>`;
+            } else {
+                htmlContent += `<strong>${wordId}</strong><br>`; // 如果没有title，显示id
+            }
+
+            // 词性
+            if (data.partOfSpeech) {
+                htmlContent += `<em>(${data.partOfSpeech})</em><br>`;
+            }
+
+            // 意思 (description)
+            if (data.description) {
+                htmlContent += `${data.description}<br>`;
+            } else if (data.definition) { // 兼容 definition 字段
+                htmlContent += `${data.definition}<br>`;
+            }
+
+            // 画面感 (Image Description) - 注意你的 JSON 字段名是 "Image Description"
+            if (data["Image Description"]) {
+                htmlContent += `${data["Image Description"]}<br>`;
+            }
+
+            // 例句
+            if (data.example) {
+                htmlContent += `${data.example}<br>`;
+            }
+
+            // 分类
+            if (data.category) {
+                htmlContent += `${data.category}`;
+            }
+
+            tooltipDiv.innerHTML = htmlContent;
             tooltipDiv.style.display = 'block'; // 显示 tooltipDiv
             tooltipDiv.classList.add('visible'); // 添加 visible 类，触发 CSS 动画
 
