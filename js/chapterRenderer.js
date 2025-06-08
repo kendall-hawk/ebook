@@ -155,7 +155,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
   // 1. 返回本篇文章开头
   const toTopLink = document.createElement('a');
   toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节标题的ID
-  toTopLink.textContent = '返回本篇文章开头';
+  toTopLink.textContent = 'Scroll back to the top';
   toTopLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
   navSection.appendChild(toTopLink);
 
@@ -166,7 +166,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
   // 2. 返回目录
   const toTocLink = document.createElement('a');
   toTocLink.href = '#toc'; // 链接到目录的ID（在index.html中是<nav id="toc">）
-  toTocLink.textContent = '返回目录';
+  toTocLink.textContent = 'Back to contents';
   toTocLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
   navSection.appendChild(toTocLink);
 
