@@ -30,12 +30,14 @@ export async function loadChapterIndex() {
 
 /**
  * 加载单个章节的完整内容。
- * @param {string} filePath - 章节内容文件的路径 (例如: 'chapters/intro.json')。
+ * @param {string} filePath - 章节内容文件的路径 (例如: 'chapters/1.json')。
  * @returns {Promise<Object>} - 单个章节的完整数据。
  */
 export async function loadSingleChapterContent(filePath) {
   try {
     // 确保这里拼接的路径是相对于网站根目录的正确路径
+    // 如果 filePath 本身已包含 'data/' (例如 'data/chapters/1.json')，
+    // 则在 chapters.json 中应将其改为 'chapters/1.json'
     const res = await fetch(`data/${filePath}`);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status} - Check 'data/${filePath}' path and server.`);
@@ -92,7 +94,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
   currentChapterData = chapterContent; // 更新当前显示的章节数据
 
   const title = document.createElement('h2');
-  title.id = chapterContent.id;
+  title.id = chapterContent.id; // 确保章节标题有其ID
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
@@ -145,6 +147,30 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
       chaptersContainer.appendChild(wrapper);
     }
   });
+
+  // --- 新增：文章末尾导航链接 ---
+  const navSection = document.createElement('div');
+  navSection.classList.add('chapter-nav-links'); // 添加一个类名，用于CSS样式
+
+  // 1. 返回本篇文章开头
+  const toTopLink = document.createElement('a');
+  toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节标题的ID
+  toTopLink.textContent = '返回本篇文章开头';
+  toTopLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
+  navSection.appendChild(toTopLink);
+
+  // 添加一个分隔符（可选）
+  const separator = document.createTextNode(' | ');
+  navSection.appendChild(separator);
+
+  // 2. 返回目录
+  const toTocLink = document.createElement('a');
+  toTocLink.href = '#toc'; // 链接到目录的ID（在index.html中是<nav id="toc">）
+  toTocLink.textContent = '返回目录';
+  toTocLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
+  navSection.appendChild(toTocLink);
+
+  chaptersContainer.appendChild(navSection); // 将导航部分添加到章节容器
 }
 
 // 导出 getter，以便其他模块可以访问全局词频数据
