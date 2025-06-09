@@ -157,16 +157,6 @@ body {
   padding-bottom: 10px;
   margin-top: 0;
 }
-#chapters p {
-  text-align: justify;
-  line-height: 1.6;
-  margin-bottom: 1em;
-  /* 允许在单词中间添加连字符进行断行，提高对齐效果的视觉质量 */
-  hyphens: auto;
-  -webkit-hyphens: auto; /* 兼容 Safari */
-  -moz-hyphens: auto;    /* 兼容 Firefox */
-}
-/* assets/style.css */
 
 /* 为文章内容段落设置两端对齐 */
 #chapters p {
