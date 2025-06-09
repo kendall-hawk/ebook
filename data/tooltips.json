@@ -1,17 +1,226 @@
 {
-  "recipes": {
-    "title": "Recipes",
+  "invention": {
+    "title": "invention",
     "partOfSpeech": "noun",
-    "description": "instructions for making food",
-    "Image Description": "An open cookbook with a pasta dish",
-    "example": "She loves trying new recipes from the internet.",
-    "image": "",
+    "description": "the act of creating something new, or the thing that has been created.",
+    "Image Description": "A bright lightbulb appearing above a creative mind, symbolizing a new idea or product coming into existence.",
+    "example": "Have you heard the story that Marco Polo brought noodles back to Italy, leading to the invention of pasta?",
+    "category": "Creation/Innovation"
+  },
+  "unspecified": {
+    "title": "unspecified",
+    "partOfSpeech": "adjective",
+    "description": "not stated clearly or exactly; not known or mentioned.",
+    "Image Description": "A blurry calendar or a clock with no hands, suggesting an unknown or vague moment in time.",
+    "example": "Here, the phrase at one point or another means at some unspecified time in the past.",
+    "category": "Description/Time"
+  },
+  "idiom": {
+    "title": "idiom",
+    "partOfSpeech": "noun",
+    "description": "a group of words established by usage as having a meaning not deducible from those of the individual words.",
+    "Image Description": "A speech bubble containing a confusing image (like raining cats and dogs) that conveys a figurative meaning, not literal.",
+    "example": "And finally, the idiom to push the boundaries means to do things which challenge normal acceptable behaviour.",
+    "category": "Language/Linguistics"
+  },
+  "boundaries": {
+    "title": "boundaries",
+    "partOfSpeech": "noun",
+    "description": "a line that marks the limits of an area; often used figuratively to refer to the limits of what is considered normal or acceptable.",
+    "Image Description": "A clear line on the ground being stepped over, or a fence being pushed through, symbolizing the breaking of limits.",
+    "example": "If you push the boundaries, you act in a way which challenges normal acceptable behaviour.",
+    "category": "Limits/Behavior"
+  },
+  "acceptable": {
+    "title": "acceptable",
+    "partOfSpeech": "adjective",
+    "description": "able to be agreed on; suitable or pleasing, especially to a particular group.",
+    "Image Description": "A hand giving a thumbs-up gesture, or a person nodding in approval, indicating something is within limits or agreeable.",
+    "example": "If you push the boundaries, you act in a way which challenges normal acceptable behaviour.",
+    "category": "Quality/Norms"
+  },
+  "fresh": {
+    "title": "fresh",
+    "partOfSpeech": "adjective",
+    "description": "(of food) newly made or gathered; not preserved by canning, freezing, etc.",
+    "Image Description": "A close-up of vibrant, dewy vegetables just picked, or dough being kneaded with flour, emphasizing newness and natural state.",
+    "example": "Well, some people buy them dried in a packet, others make them fresh from wheat or rice, but there is little doubt that noodles are popular around the world.",
+    "category": "Food Quality"
+  },
+  "popular": {
+    "title": "popular",
+    "partOfSpeech": "adjective",
+    "description": "liked, enjoyed, or admired by many people.",
+    "Image Description": "A large crowd of diverse people smiling and engaged, or a product with many hands reaching for it, indicating wide appeal.",
+    "example": "Well, some people buy them dried in a packet, others make them fresh from wheat or rice, but there is little doubt that noodles are popular around the world.",
+    "category": "Social Acceptance"
+  },
+  "origins": {
+    "title": "origins",
+    "partOfSpeech": "noun",
+    "description": "the point or place where something begins, arises, or is derived.",
+    "Image Description": "A map with a starting point highlighted, or the intricate root system of a large tree, showing the beginning of something.",
+    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "category": "Beginning/Source"
+  },
+  "recipes": {
+    "title": "recipes",
+    "partOfSpeech": "noun",
+    "description": "a set of instructions for preparing a particular dish, including a list of the ingredients required.",
+    "Image Description": "An open cookbook with handwritten notes and illustrations, or a chef carefully following steps with ingredients laid out.",
+    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
     "category": "Food Term"
   },
+  "spread": {
+    "title": "spread",
+    "partOfSpeech": "verb",
+    "description": "to extend over a large or increasing area; to distribute over an area.",
+    "Image Description": "Ripples expanding across a pond, or a map with dotted lines extending from a central point, illustrating diffusion.",
+    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "category": "Movement/Distribution"
+  },
   "traders": {
-    "title": "Traders",
-    "description": "People who buy and sell goods as part of business, often moving between places or countries.",
-    "Image Description": "Picture a dusty road along the Silk Road, with camels carrying bags of goods. Merchants wearing robes and hats are exchanging items like spices and silk, speaking different languages as they make deals in busy markets.",
-    "category": "Historical Term"
+    "title": "traders",
+    "partOfSpeech": "noun",
+    "description": "people who buy and sell goods.",
+    "Image Description": "A bustling ancient marketplace with merchants haggling over goods, or a caravan traversing a desert trade route.",
+    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "category": "Occupation/Commerce"
+  },
+  "destination": {
+    "title": "destination",
+    "partOfSpeech": "noun",
+    "description": "the place to which someone or something is going or being sent.",
+    "Image Description": "A signpost with multiple arrows pointing to different cities, or a train arriving at a station platform, signifying an end point.",
+    "example": "At each destination along the road, people gave noodles a twist, adding different flavours and ingredients to create a new dish.",
+    "category": "Place/Travel"
+  },
+  "flavour": {
+    "title": "flavour",
+    "partOfSpeech": "noun",
+    "description": "the distinctive taste of a food or drink.",
+    "Image Description": "A close-up of steam rising from a fragrant bowl of food, or a tongue with activated taste buds, representing the sensory experience of taste.",
+    "example": "At each destination along the road, people gave noodles a twist, adding different flavours and ingredients to create a new dish.",
+    "category": "Food Term"
+  },
+  "ingredients": {
+    "title": "ingredients",
+    "partOfSpeech": "noun",
+    "description": "any of the foods or substances that are combined to make a particular dish.",
+    "Image Description": "Assorted fresh vegetables, herbs, and spices neatly arranged in bowls on a kitchen counter, ready for cooking.",
+    "example": "At each destination along the road, people gave noodles a twist, adding different flavours and ingredients to create a new dish.",
+    "category": "Food Term"
+  },
+  "varieties": {
+    "title": "varieties",
+    "partOfSpeech": "noun",
+    "description": "a number or collection of different kinds of something; different types.",
+    "Image Description": "A diverse array of different colored and shaped noodles, or a spectrum of similar objects showing distinct variations.",
+    "example": "In this programme, we'll visit the United States and Japan, two countries which have taken noodles and created exciting new varieties.",
+    "category": "Diversity/Types"
+  },
+  "investigated": {
+    "title": "investigated",
+    "partOfSpeech": "verb",
+    "description": "to carry out a systematic or formal inquiry to discover and examine the facts of (an incident, allegation, etc.) so as to establish the truth.",
+    "Image Description": "A detective holding a magnifying glass over scattered clues, or a researcher poring over documents in a library, symbolizing diligent inquiry.",
+    "example": "BBC World Service programme, The Food Chain, investigated how noodles spread from Asia through Europe to America.",
+    "category": "Action/Research"
+  },
+  "uncovered": {
+    "title": "uncovered",
+    "partOfSpeech": "verb",
+    "description": "to discover something previously secret or unknown.",
+    "Image Description": "Hands pulling back a curtain or lid to reveal a surprising truth or hidden object underneath.",
+    "example": "They uncovered a surprising story: that pasta comes from noodles brought back to Italy by Marco Polo in the 13th century.",
+    "category": "Action/Discovery"
+  },
+  "exotic": {
+    "title": "exotic",
+    "partOfSpeech": "adjective",
+    "description": "unusual and exciting because of coming from far away.",
+    "Image Description": "A vibrant, unusually colored bird perched on a branch in a lush, faraway jungle, or a mysterious, foreign artifact glowing with intrigue.",
+    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "category": "Description/Origin"
+  },
+  "association": {
+    "title": "association",
+    "partOfSpeech": "noun",
+    "description": "an organization of people with a common interest or purpose.",
+    "Image Description": "A group of diverse individuals gathered in a meeting room, united by a common logo or emblem, symbolizing a collective body.",
+    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "category": "Organization/Group"
+  },
+  "promote": {
+    "title": "promote",
+    "partOfSpeech": "verb",
+    "description": "to support or actively encourage (a cause, venture, etc.); to further the progress of something.",
+    "Image Description": "A person holding a megaphone or a spotlight shining on a product, emphasizing publicity and active encouragement.",
+    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "category": "Action/Marketing"
+  },
+  "manufacturing": {
+    "title": "manufacturing",
+    "partOfSpeech": "noun",
+    "description": "the making of articles on a large scale using machinery; the act of producing goods.",
+    "Image Description": "An assembly line with automated robotic arms constructing products, or a busy factory floor with machinery in operation, illustrating industrial production.",
+    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "category": "Industry/Process"
+  },
+  "meaning": {
+    "title": "meaning",
+    "partOfSpeech": "verb",
+    "description": "used to indicate the significance of what is being said.",
+    "Image Description": "A speech bubble pointing from a complex word to a simpler, clarifying phrase, showing an explanation or definition.",
+    "example": "In the 1920s, noodles were popular because they were exotic, meaning foreign, unusual and exciting.",
+    "category": "Language/Explanation"
+  },
+  "foreign": {
+    "title": "foreign",
+    "partOfSpeech": "adjective",
+    "description": "of, from, in, or characteristic of a country or language other than one's own.",
+    "Image Description": "A collection of international flags, or a passport with stamps from various countries, representing different nationalities and cultures.",
+    "example": "In the 1920s, noodles were popular because they were exotic, meaning foreign, unusual and exciting.",
+    "category": "Description/Origin"
+  },
+  "localise": {
+    "title": "localise",
+    "partOfSpeech": "verb",
+    "description": "to adapt (something) for use in a particular place or country.",
+    "Image Description": "A world map with a magnifying glass zooming in on a specific region, or a dish being garnished with local ingredients, illustrating adaptation to a new context.",
+    "example": "And at one point or another, different chefs decided to localise these dishes.",
+    "category": "Action/Adaptation"
+  },
+  "slices": {
+    "title": "slices",
+    "partOfSpeech": "noun",
+    "description": "a thin, broad piece of food or other material cut from a larger portion.",
+    "Image Description": "Evenly cut, thin pieces of bread or meat neatly arranged on a cutting board, highlighting uniformity and precision in cutting.",
+    "example": "By making these tweaks, adding new toppings and slices of beef or chicken, Japanese chefs created the noodle dish we know today as ramen.",
+    "category": "Food Term/Quantity"
+  },
+  "gradually": {
+    "title": "gradually",
+    "partOfSpeech": "adverb",
+    "description": "in a slow, steady way; by degrees.",
+    "Image Description": "A plant slowly unfurling new leaves over time, or a series of steps leading upwards, suggesting a gentle, incremental progression.",
+    "example": "Frank thinks that Japanese ramen continues to evolve – to develop and change gradually in response to new developments and ideas.",
+    "category": "Manner/Time"
+  },
+  "response": {
+    "title": "response",
+    "partOfSpeech": "noun",
+    "description": "a verbal or written answer; a reaction to something.",
+    "Image Description": "Ripples spreading outwards in water from a dropped stone, or a person reacting visibly to a piece of news, depicting a consequence or reply.",
+    "example": "Frank thinks that Japanese ramen continues to evolve – to develop and change gradually in response to new developments and ideas.",
+    "category": "Reaction/Action"
+  },
+  "traditional": {
+    "title": "traditional",
+    "partOfSpeech": "adjective",
+    "description": "existing in or as part of a tradition; handed down from generation to generation.",
+    "Image Description": "An antique scroll or a classic, timeless architectural structure, symbolizing enduring customs and heritage passed down through time.",
+    "example": "Unlike other traditional food such as sushi, modern versions of ramen push the boundaries.",
+    "category": "Description/Culture"
   }
 }
