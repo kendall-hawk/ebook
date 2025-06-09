@@ -1,226 +1,226 @@
 {
-  "invention": {
+  "invention-noun": {
     "title": "invention",
     "partOfSpeech": "noun",
-    "description": "the act of creating something new, or the thing that has been created.",
+    "description": "a new thing or idea that someone has made or thought of.",
     "Image Description": "A bright lightbulb appearing above a creative mind, symbolizing a new idea or product coming into existence.",
-    "example": "Have you heard the story that Marco Polo brought noodles back to Italy, leading to the invention of pasta?",
+    "example": "The internet was a truly groundbreaking invention that changed how people connect.",
     "category": "Creation/Innovation"
   },
-  "unspecified": {
+  "unspecified-adjective": {
     "title": "unspecified",
     "partOfSpeech": "adjective",
-    "description": "not stated clearly or exactly; not known or mentioned.",
+    "description": "not clearly stated or named.",
     "Image Description": "A blurry calendar or a clock with no hands, suggesting an unknown or vague moment in time.",
-    "example": "Here, the phrase at one point or another means at some unspecified time in the past.",
+    "example": "The meeting is scheduled for an unspecified time next week.",
     "category": "Description/Time"
   },
-  "idiom": {
+  "idiom-noun": {
     "title": "idiom",
     "partOfSpeech": "noun",
-    "description": "a group of words established by usage as having a meaning not deducible from those of the individual words.",
+    "description": "a group of words whose meaning is not clear from the individual words.",
     "Image Description": "A speech bubble containing a confusing image (like raining cats and dogs) that conveys a figurative meaning, not literal.",
-    "example": "And finally, the idiom to push the boundaries means to do things which challenge normal acceptable behaviour.",
+    "example": "\"Break a leg\" is an idiom used to wish someone good luck, not for actual injury.",
     "category": "Language/Linguistics"
   },
-  "boundaries": {
+  "boundaries-noun": {
     "title": "boundaries",
     "partOfSpeech": "noun",
-    "description": "a line that marks the limits of an area; often used figuratively to refer to the limits of what is considered normal or acceptable.",
+    "description": "the limits or edges of something, often rules or acceptable behavior.",
     "Image Description": "A clear line on the ground being stepped over, or a fence being pushed through, symbolizing the breaking of limits.",
-    "example": "If you push the boundaries, you act in a way which challenges normal acceptable behaviour.",
+    "example": "It's important to respect personal boundaries in friendships.",
     "category": "Limits/Behavior"
   },
-  "acceptable": {
+  "acceptable-adjective": {
     "title": "acceptable",
     "partOfSpeech": "adjective",
-    "description": "able to be agreed on; suitable or pleasing, especially to a particular group.",
+    "description": "good enough; allowed or agreed upon.",
     "Image Description": "A hand giving a thumbs-up gesture, or a person nodding in approval, indicating something is within limits or agreeable.",
-    "example": "If you push the boundaries, you act in a way which challenges normal acceptable behaviour.",
+    "example": "Her grades were acceptable, but she hoped to do better next semester.",
     "category": "Quality/Norms"
   },
-  "fresh": {
+  "fresh-adjective": {
     "title": "fresh",
     "partOfSpeech": "adjective",
-    "description": "(of food) newly made or gathered; not preserved by canning, freezing, etc.",
+    "description": "newly made, gathered, or produced; not old or frozen.",
     "Image Description": "A close-up of vibrant, dewy vegetables just picked, or dough being kneaded with flour, emphasizing newness and natural state.",
-    "example": "Well, some people buy them dried in a packet, others make them fresh from wheat or rice, but there is little doubt that noodles are popular around the world.",
+    "example": "We bought fresh bread from the bakery this morning.",
     "category": "Food Quality"
   },
-  "popular": {
+  "popular-adjective": {
     "title": "popular",
     "partOfSpeech": "adjective",
-    "description": "liked, enjoyed, or admired by many people.",
-    "Image Description": "A large crowd of diverse people smiling and engaged, or a product with many hands reaching for it, indicating wide appeal.",
-    "example": "Well, some people buy them dried in a packet, others make them fresh from wheat or rice, but there is little doubt that noodles are popular around the world.",
+    "description": "liked or enjoyed by many people.",
+    "Image Description": "A large crowd cheering, many hands reaching for something, a widely recognized symbol.",
+    "example": "That new song is very popular right now; everyone is listening to it.",
     "category": "Social Acceptance"
   },
-  "origins": {
+  "origins-noun": {
     "title": "origins",
     "partOfSpeech": "noun",
-    "description": "the point or place where something begins, arises, or is derived.",
-    "Image Description": "A map with a starting point highlighted, or the intricate root system of a large tree, showing the beginning of something.",
-    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "description": "the beginning or source of something.",
+    "Image Description": "A map with a starting point, roots of a tree, an ancient artifact.",
+    "example": "The origins of this ancient custom are still unknown.",
     "category": "Beginning/Source"
   },
-  "recipes": {
+  "recipes-noun": {
     "title": "recipes",
     "partOfSpeech": "noun",
-    "description": "a set of instructions for preparing a particular dish, including a list of the ingredients required.",
-    "Image Description": "An open cookbook with handwritten notes and illustrations, or a chef carefully following steps with ingredients laid out.",
-    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "description": "sets of instructions for making food.",
+    "Image Description": "An open cookbook with ingredients laid out, someone following cooking instructions.",
+    "example": "My grandmother has many old recipes for delicious cakes.",
     "category": "Food Term"
   },
-  "spread": {
+  "spread-verb": {
     "title": "spread",
     "partOfSpeech": "verb",
-    "description": "to extend over a large or increasing area; to distribute over an area.",
-    "Image Description": "Ripples expanding across a pond, or a map with dotted lines extending from a central point, illustrating diffusion.",
-    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "description": "to move or make something move over a wide area.",
+    "Image Description": "A hand scattering seeds, ripples in water, a map with expanding arrows.",
+    "example": "The news of the discovery quickly spread around the world.",
     "category": "Movement/Distribution"
   },
-  "traders": {
+  "traders-noun": {
     "title": "traders",
     "partOfSpeech": "noun",
-    "description": "people who buy and sell goods.",
-    "Image Description": "A bustling ancient marketplace with merchants haggling over goods, or a caravan traversing a desert trade route.",
-    "example": "From their origins, probably somewhere in China, noodle recipes were spread by traders on the ancient Silk Road.",
+    "description": "people who buy and sell things.",
+    "Image Description": "Merchants in a bustling marketplace, a caravan on a trade route, people exchanging goods.",
+    "example": "In ancient times, traders traveled long distances to exchange goods.",
     "category": "Occupation/Commerce"
   },
-  "destination": {
+  "destination-noun": {
     "title": "destination",
     "partOfSpeech": "noun",
-    "description": "the place to which someone or something is going or being sent.",
-    "Image Description": "A signpost with multiple arrows pointing to different cities, or a train arriving at a station platform, signifying an end point.",
-    "example": "At each destination along the road, people gave noodles a twist, adding different flavours and ingredients to create a new dish.",
+    "description": "the place you are going to.",
+    "Image Description": "A signpost pointing a way, a train arriving at a station, a pinpoint on a map.",
+    "example": "After a long journey, we finally arrived at our tropical destination.",
     "category": "Place/Travel"
   },
-  "flavour": {
+  "flavour-noun": {
     "title": "flavour",
     "partOfSpeech": "noun",
-    "description": "the distinctive taste of a food or drink.",
-    "Image Description": "A close-up of steam rising from a fragrant bowl of food, or a tongue with activated taste buds, representing the sensory experience of taste.",
-    "example": "At each destination along the road, people gave noodles a twist, adding different flavours and ingredients to create a new dish.",
+    "description": "the special taste of a food or drink.",
+    "Image Description": "Steam rising from a delicious dish, spices in a bowl, a taste bud on a tongue.",
+    "example": "This ice cream has a rich chocolate flavour.",
     "category": "Food Term"
   },
-  "ingredients": {
+  "ingredients-noun": {
     "title": "ingredients",
     "partOfSpeech": "noun",
-    "description": "any of the foods or substances that are combined to make a particular dish.",
-    "Image Description": "Assorted fresh vegetables, herbs, and spices neatly arranged in bowls on a kitchen counter, ready for cooking.",
-    "example": "At each destination along the road, people gave noodles a twist, adding different flavours and ingredients to create a new dish.",
+    "description": "the foods or items used to make a dish or product.",
+    "Image Description": "Various items laid out on a kitchen counter before cooking, bowls of spices and chopped vegetables.",
+    "example": "All the ingredients for the cake are in the cupboard.",
     "category": "Food Term"
   },
-  "varieties": {
+  "varieties-noun": {
     "title": "varieties",
     "partOfSpeech": "noun",
-    "description": "a number or collection of different kinds of something; different types.",
-    "Image Description": "A diverse array of different colored and shaped noodles, or a spectrum of similar objects showing distinct variations.",
-    "example": "In this programme, we'll visit the United States and Japan, two countries which have taken noodles and created exciting new varieties.",
+    "description": "different kinds or types of something.",
+    "Image Description": "A diverse collection of items, different colors of the same object, multiple pathways.",
+    "example": "This store sells many varieties of cheese.",
     "category": "Diversity/Types"
   },
-  "investigated": {
+  "investigated-verb": {
     "title": "investigated",
     "partOfSpeech": "verb",
-    "description": "to carry out a systematic or formal inquiry to discover and examine the facts of (an incident, allegation, etc.) so as to establish the truth.",
-    "Image Description": "A detective holding a magnifying glass over scattered clues, or a researcher poring over documents in a library, symbolizing diligent inquiry.",
-    "example": "BBC World Service programme, The Food Chain, investigated how noodles spread from Asia through Europe to America.",
+    "description": "looked into something carefully to find facts or truth.",
+    "Image Description": "A detective looking through clues, a scientist examining a sample, a magnifying glass over documents.",
+    "example": "The police investigated the cause of the accident.",
     "category": "Action/Research"
   },
-  "uncovered": {
+  "uncovered-verb": {
     "title": "uncovered",
     "partOfSpeech": "verb",
-    "description": "to discover something previously secret or unknown.",
-    "Image Description": "Hands pulling back a curtain or lid to reveal a surprising truth or hidden object underneath.",
-    "example": "They uncovered a surprising story: that pasta comes from noodles brought back to Italy by Marco Polo in the 13th century.",
+    "description": "found something that was hidden or unknown.",
+    "Image Description": "Lifting a blanket to reveal something, digging up a hidden treasure, pulling back a curtain.",
+    "example": "Researchers uncovered ancient ruins deep in the jungle.",
     "category": "Action/Discovery"
   },
-  "exotic": {
+  "exotic-adjective": {
     "title": "exotic",
     "partOfSpeech": "adjective",
-    "description": "unusual and exciting because of coming from far away.",
-    "Image Description": "A vibrant, unusually colored bird perched on a branch in a lush, faraway jungle, or a mysterious, foreign artifact glowing with intrigue.",
-    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "description": "unusual and interesting because it comes from a faraway place.",
+    "Image Description": "A vibrant, colorful bird from a rainforest, a mysterious temple in a distant land, a unique spice from a foreign market.",
+    "example": "We saw many exotic plants at the botanical garden.",
     "category": "Description/Origin"
   },
-  "association": {
+  "association-noun": {
     "title": "association",
     "partOfSpeech": "noun",
-    "description": "an organization of people with a common interest or purpose.",
-    "Image Description": "A group of diverse individuals gathered in a meeting room, united by a common logo or emblem, symbolizing a collective body.",
-    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "description": "an organized group of people with a shared goal.",
+    "Image Description": "A group of people meeting, a logo of a professional body, interconnected gears.",
+    "example": "She joined a local community association to help improve the neighborhood.",
     "category": "Organization/Group"
   },
-  "promote": {
+  "promote-verb": {
     "title": "promote",
     "partOfSpeech": "verb",
-    "description": "to support or actively encourage (a cause, venture, etc.); to further the progress of something.",
-    "Image Description": "A person holding a megaphone or a spotlight shining on a product, emphasizing publicity and active encouragement.",
-    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "description": "to help something grow or be successful.",
+    "Image Description": "A megaphone, a person advertising, a product being displayed prominently.",
+    "example": "The company launched a new campaign to promote their eco-friendly products.",
     "category": "Action/Marketing"
   },
-  "manufacturing": {
+  "manufacturing-noun": {
     "title": "manufacturing",
     "partOfSpeech": "noun",
-    "description": "the making of articles on a large scale using machinery; the act of producing goods.",
-    "Image Description": "An assembly line with automated robotic arms constructing products, or a busy factory floor with machinery in operation, illustrating industrial production.",
-    "example": "So, noodles were very exotic in the 1920s and 30s in the United States, and there was a new pasta association in America that wanted to promote the manufacturing of dried pasta.",
+    "description": "the process of making things, especially in large amounts, in a factory.",
+    "Image Description": "An assembly line, factory smoke stacks, machines producing items.",
+    "example": "The country is known for its strong auto manufacturing industry.",
     "category": "Industry/Process"
   },
-  "meaning": {
+  "meaning-verb": {
     "title": "meaning",
     "partOfSpeech": "verb",
-    "description": "used to indicate the significance of what is being said.",
-    "Image Description": "A speech bubble pointing from a complex word to a simpler, clarifying phrase, showing an explanation or definition.",
-    "example": "In the 1920s, noodles were popular because they were exotic, meaning foreign, unusual and exciting.",
+    "description": "explaining what something refers to or what it implies.",
+    "Image Description": "A definition in a dictionary, an arrow pointing from a word to its explanation, a thought bubble with clarification.",
+    "example": "The word \"fast\" can refer to speed, meaning quick movement, or to not eating, meaning a period without food.",
     "category": "Language/Explanation"
   },
-  "foreign": {
+  "foreign-adjective": {
     "title": "foreign",
     "partOfSpeech": "adjective",
-    "description": "of, from, in, or characteristic of a country or language other than one's own.",
-    "Image Description": "A collection of international flags, or a passport with stamps from various countries, representing different nationalities and cultures.",
-    "example": "In the 1920s, noodles were popular because they were exotic, meaning foreign, unusual and exciting.",
+    "description": "from another country or language.",
+    "Image Description": "A passport, a different country's flag, someone speaking an unfamiliar language.",
+    "example": "Learning a foreign language can open up new opportunities.",
     "category": "Description/Origin"
   },
-  "localise": {
+  "localise-verb": {
     "title": "localise",
     "partOfSpeech": "verb",
-    "description": "to adapt (something) for use in a particular place or country.",
+    "description": "to change something to make it suitable for a local area.",
     "Image Description": "A world map with a magnifying glass zooming in on a specific region, or a dish being garnished with local ingredients, illustrating adaptation to a new context.",
-    "example": "And at one point or another, different chefs decided to localise these dishes.",
+    "example": "The company decided to localise its advertising campaign to fit the culture of each country.",
     "category": "Action/Adaptation"
   },
-  "slices": {
+  "slices-noun": {
     "title": "slices",
     "partOfSpeech": "noun",
-    "description": "a thin, broad piece of food or other material cut from a larger portion.",
-    "Image Description": "Evenly cut, thin pieces of bread or meat neatly arranged on a cutting board, highlighting uniformity and precision in cutting.",
-    "example": "By making these tweaks, adding new toppings and slices of beef or chicken, Japanese chefs created the noodle dish we know today as ramen.",
+    "description": "thin flat pieces cut from something larger.",
+    "Image Description": "A knife cutting food into thin pieces, evenly cut pieces of bread or meat.",
+    "example": "Please give me two slices of pizza.",
     "category": "Food Term/Quantity"
   },
-  "gradually": {
+  "gradually-adverb": {
     "title": "gradually",
     "partOfSpeech": "adverb",
-    "description": "in a slow, steady way; by degrees.",
-    "Image Description": "A plant slowly unfurling new leaves over time, or a series of steps leading upwards, suggesting a gentle, incremental progression.",
-    "example": "Frank thinks that Japanese ramen continues to evolve – to develop and change gradually in response to new developments and ideas.",
+    "description": "slowly and little by little.",
+    "Image Description": "A plant slowly growing, a sunrise over time-lapse, footsteps moving slowly up a hill.",
+    "example": "The weather is gradually getting warmer as summer approaches.",
     "category": "Manner/Time"
   },
-  "response": {
+  "response-noun": {
     "title": "response",
     "partOfSpeech": "noun",
-    "description": "a verbal or written answer; a reaction to something.",
+    "description": "a reaction or answer to something.",
     "Image Description": "Ripples spreading outwards in water from a dropped stone, or a person reacting visibly to a piece of news, depicting a consequence or reply.",
-    "example": "Frank thinks that Japanese ramen continues to evolve – to develop and change gradually in response to new developments and ideas.",
+    "example": "Her quiet response showed that she was deep in thought.",
     "category": "Reaction/Action"
   },
-  "traditional": {
+  "traditional-adjective": {
     "title": "traditional",
     "partOfSpeech": "adjective",
-    "description": "existing in or as part of a tradition; handed down from generation to generation.",
-    "Image Description": "An antique scroll or a classic, timeless architectural structure, symbolizing enduring customs and heritage passed down through time.",
-    "example": "Unlike other traditional food such as sushi, modern versions of ramen push the boundaries.",
+    "description": "following old customs or beliefs that have existed for a long time.",
+    "Image Description": "An old scroll or book, an ancient ceremony, a classic, timeless object.",
+    "example": "We had a traditional Thanksgiving dinner with turkey and all the trimmings.",
     "category": "Description/Culture"
   }
 }
