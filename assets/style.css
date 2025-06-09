@@ -170,9 +170,10 @@ body {
 
 /* 为文章内容段落设置两端对齐 */
 #chapters p {
-  text-align: justify; /* 文本两端对齐 */
-  line-height: 1.6;    /* 增加行高，提升可读性，尤其在两端对齐时 */
-  margin-bottom: 1em;  /* 段落之间增加一些间距 */
+  text-align: left; /* 或者直接删除 text-align 属性，因为默认就是 left */
+  line-height: 1.6;
+  margin-bottom: 1em;
+  /* 移除 hyphens 相关的属性 */
 }
 
 /* 确保主章节容器的宽度，以便对齐效果明显 */
