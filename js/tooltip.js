@@ -1,17 +1,11 @@
 // js/tooltip.js
-// 假设你使用 Marked.js 进行 Markdown 渲染
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 
-// 初始化 marked，可以添加配置，例如 GFM (GitHub Flavored Markdown)
 marked.setOptions({
-  gfm: true, // 启用 GitHub Flavored Markdown
-  breaks: true // 启用换行符
+  gfm: true,
+  breaks: true
 });
 
-/**
- * 异步加载 tooltips.json 数据。
- * @returns {Promise<Object>} - tooltips 数据对象。
- */
 export async function loadTooltips() {
     try {
         const res = await fetch('data/tooltips.json');
@@ -27,13 +21,11 @@ export async function loadTooltips() {
 
 /**
  * 将 Markdown 文本中的关键词包装成带有 tooltip 的 span，并渲染 Markdown。
- * @param {string} md - 原始 Markdown 文本。
- * @param {Object} tooltipData - tooltips 数据。
- * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map (word -> count)。
- * @param {number} maxFreq - 词语的最高频率。
- * @param {number} baseFontSize - 基础字体大小 (px)。
- * @param {number} maxFontSizeIncrease - 最大字体增加量 (px)。
- * @returns {string} - 渲染后的 HTML 字符串。
+ * 核心逻辑：
+ * 1. 首先处理自定义的 [[word|tooltipId]] 语法，生成带有特定 data-tooltip-id 的 span。
+ * 这些 span 不会再被第二步的正则匹配到。
+ * 2. 然后，对剩余的（没有被第一步处理的）普通单词，进行高频词字体大小计算和自动 tooltip 匹配。
+ * 3. 最后，将处理后的字符串传递给 marked.parse 进行整体的 Markdown 渲染。
  */
 export function renderMarkdownWithTooltips(
     md,
@@ -41,71 +33,103 @@ export function renderMarkdownWithTooltips(
     wordFrequenciesMap,
     maxFreq,
     baseFontSize = 16,
-    maxFontSizeIncrease = 12 // 最高频率的词增加 12px，即 16+12=28px
+    maxFontSizeIncrease = 12
 ) {
-    const tooltipWords = Object.keys(tooltipData);
-    // 使用更精确的单词匹配模式，只匹配字母数字词语
-    const wordPattern = /\b[a-zA-Z0-9'-]+\b/g;
+    // 用于临时存储自定义 span 的唯一占位符
+    const customSpanPlaceholders = {};
+    let placeholderCounter = 0;
 
-    const markedWithSpan = md.replace(wordPattern, (match) => {
-        const lowerMatch = match.toLowerCase();
-        const freq = wordFrequenciesMap.get(lowerMatch) || 0; // 获取词语频率
+    // --- 步骤 1: 处理自定义 [[word|tooltipId]] 语法 ---
+    // 这个正则表达式捕获：[[  (word) | (tooltipId) ]]
+    const customTooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
+    let mdWithCustomSpans = md.replace(customTooltipPattern, (match, word, tooltipId) => {
+        const lowerWord = word.toLowerCase();
+        const freq = wordFrequenciesMap.get(lowerWord) || 0; // 根据原始单词计算频率
         let fontSizeStyle = '';
 
-        // 如果该词是高频词（并且 getWordFrequencies 已过滤停用词）
-        if (freq > 0 && maxFreq > 0) { // 避免除以零
-            // 计算字体大小：频率越高，字体越大
-            // 简单线性映射：(当前频率 / 最高频率) * 最大增加量 + 基础字体
+        if (freq > 0 && maxFreq > 0) {
             const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
             fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
         }
 
-        // 判断是否是 tooltip 词，如果是，则同时应用 tooltip 样式和字体大小
+        // 创建一个唯一的临时占位符，并将完整的 span 存储起来
+        const placeholder = `__CUSTOM_SPAN_PLACEHOLDER_${placeholderCounter++}__`;
+        // 注意：这里生成的 span 必须包含 class="word" 才能被 setupTooltips 识别
+        customSpanPlaceholders[placeholder] = `<span data-tooltip-id="${tooltipId}" class="word" style="${fontSizeStyle}">${word}</span>`;
+        return placeholder; // 在文本中用占位符替换原始的 [[...]] 语法
+    });
+
+
+    // --- 步骤 2: 处理剩余的普通单词（高频词和自动 tooltip）---
+    // 此时 mdWithCustomSpans 中已经没有 [[...]] 语法了，只有纯文本和我们的占位符。
+    // 我们需要确保不对占位符内部的文本进行匹配。
+    // 这通过一个更复杂的正则表达式实现，它会忽略 HTML 标签内部的文本。
+    const tooltipWords = Object.keys(tooltipData);
+    // 这个正则表达式会匹配单词，但不会匹配那些位于 HTML 标签内部的单词。
+    // (?<!<[^>]*>) 负向后瞻：确保不是在 <...> 标签的开头之后
+    // (\b[a-zA-Z0-9'-]+\b) 匹配单词本身
+    // (?![^<]*>) 负向前瞻：确保不是在 <...> 标签的结尾之前
+    // 注意：JavaScript 的正则表达式对负向后瞻 (lookbehind) 的支持有限，尤其在旧版本或某些环境下。
+    // 如果这个正则在你的手机上不工作，可能需要回退到更简单的策略，但会失去一些精度。
+    // 更通用但可能略微复杂的版本：
+    const regularWordPattern = /(\b[a-zA-Z0-9'-]+\b)(?![^<]*>)/g; // 匹配单词，但忽略标签内部的词
+
+
+    let finalProcessedMd = mdWithCustomSpans.replace(regularWordPattern, (match) => {
+        const lowerMatch = match.toLowerCase();
+        const freq = wordFrequenciesMap.get(lowerMatch) || 0;
+        let fontSizeStyle = '';
+
+        if (freq > 0 && maxFreq > 0) {
+            const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
+            fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
+        }
+
+        // 只有当这个单词在 tooltipData 中有对应的条目时，才给它添加 data-tooltip-id 和 class="word"
+        // 且它不是我们之前替换的占位符（由步骤1处理）。
         if (tooltipWords.includes(lowerMatch)) {
-            // 注意：data-tooltip-id 应该是小写，因为它对应 tooltipData 的键
             return `<span data-tooltip-id="${lowerMatch}" class="word" style="${fontSizeStyle}">${match}</span>`;
         } else if (fontSizeStyle) {
             // 如果不是 tooltip 词，但因为高频而需要调整字体大小
             return `<span style="${fontSizeStyle}">${match}</span>`;
         }
-        // 否则，不作任何改变
-        return match;
+        return match; // 否则，不作任何改变
     });
 
-    return marked.parse(markedWithSpan);
+    // --- 步骤 3: 将自定义 span 的占位符替换回实际的 span ---
+    Object.keys(customSpanPlaceholders).forEach(placeholder => {
+        // 创建一个正则表达式来匹配占位符，并转义特殊字符
+        const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+        finalProcessedMd = finalProcessedMd.replace(regex, customSpanPlaceholders[placeholder]);
+    });
+
+    // --- 步骤 4: 渲染 Markdown ---
+    return marked.parse(finalProcessedMd);
 }
 
-/**
- * 设置工具提示功能。
- * 这个函数需要在 DOM 渲染完成后调用，并且在每次新内容渲染后重新调用。
- * @param {Object} tooltipData - tooltips 数据。
- */
+
 export function setupTooltips(tooltipData) {
-    // 移除所有旧的事件监听器，避免重复绑定（如果之前有绑定的话）
+    // 移除所有旧的事件监听器，避免重复绑定
     document.querySelectorAll('.word').forEach(span => {
         span.removeEventListener('mouseover', showTooltip);
-        span.removeEventListener('mouseout', hideTooltip);
+        span.removeEventListener('mouseout', hideTooltip); // 旧的 mouseout 移除
     });
 
-    // ！！！ 关键修改 ！！！ 匹配 index.html 中的 ID "react-tooltips"
     const tooltipDiv = document.getElementById('react-tooltips');
     if (!tooltipDiv) {
         console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
         return;
     }
-    // tooltipDiv.style.cssText 应该被 style.css 中的类覆盖，这里仅作为 fallback 或临时调试
-    // 确保 CSS 中有 #react-tooltips 的样式来控制其行为
-    // tooltipDiv.style.cssText = 'position: absolute; display: none; background: #333; color: #fff; padding: 5px 10px; border-radius: 4px; z-index: 10000;';
-
 
     // 绑定新的事件监听器
     document.querySelectorAll('.word').forEach(span => {
         span.addEventListener('mouseover', showTooltip);
-        span.removeEventListener('mouseout', hideTooltip); // 确保只绑定一次
+        // 不再绑定 mouseout 到每个 span，而是通过 document click 和 tooltipDiv mouseleave 统一管理
     });
 
     // 绑定全局点击事件，点击页面其他地方隐藏tooltip
     document.addEventListener('click', (e) => {
+        // 如果 tooltip 可见，并且点击的不是一个 .word 元素（或其子元素）
         if (tooltipDiv.classList.contains('visible') && !e.target.closest('.word')) {
             hideTooltip();
         }
@@ -113,6 +137,7 @@ export function setupTooltips(tooltipData) {
 
     // 确保鼠标移出 tooltip 后也隐藏
     tooltipDiv.addEventListener('mouseleave', hideTooltip);
+
 
     function showTooltip(e) {
         e.stopPropagation(); // 阻止事件冒泡到 document 的点击事件
@@ -123,11 +148,11 @@ export function setupTooltips(tooltipData) {
         if (data) {
             let htmlContent = '';
 
-            // 标题
+            // 标题 (通常是单词本身)
             if (data.title) {
                 htmlContent += `<strong>${data.title}</strong><br>`;
             } else {
-                htmlContent += `<strong>${wordId}</strong><br>`; // 如果没有title，显示id
+                htmlContent += `<strong>${wordId.split('-')[0]}</strong><br>`; // 如果没有title，显示ID的单词部分
             }
 
             // 词性
@@ -142,7 +167,7 @@ export function setupTooltips(tooltipData) {
                 htmlContent += `${data.definition}<br>`;
             }
 
-            // 画面感 (Image Description) - 注意你的 JSON 字段名是 "Image Description"
+            // 画面感 (Image Description)
             if (data["Image Description"]) {
                 htmlContent += `${data["Image Description"]}<br>`;
             }
@@ -158,7 +183,7 @@ export function setupTooltips(tooltipData) {
             }
 
             tooltipDiv.innerHTML = htmlContent;
-            tooltipDiv.style.display = 'block'; // 显示 tooltipDiv
+            tooltipDiv.style.display = 'block';
             tooltipDiv.classList.add('visible'); // 添加 visible 类，触发 CSS 动画
 
             // 定位 tooltip
@@ -185,7 +210,7 @@ export function setupTooltips(tooltipData) {
     }
 
     function hideTooltip() {
-        tooltipDiv.style.display = 'none'; // 隐藏 tooltipDiv
-        tooltipDiv.classList.remove('visible'); // 移除 visible 类
+        tooltipDiv.style.display = 'none';
+        tooltipDiv.classList.remove('visible');
     }
 }
