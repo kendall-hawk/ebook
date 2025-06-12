@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BBC 6 Minutes English</title>
-  <link rel="stylesheet" href="assets/style.css" />
-
-  <script src="https://www.youtube.com/iframe_api" async></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Reader</title>
+    <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+    <header>
+        <h1>Chapter List</h1>
+    </header>
 
-<h1 id="top">BBC 6 Minutes English</h1>
+    <main>
+        <nav id="toc" class="chapter-list-grid">
+            </nav>
 
-<h2>Table of Contents</h2>
-<nav id="toc"></nav>
+        <section id="chapters" style="display: none;">
+            </section>
+    </main>
 
-<div id="chapters"></div>
+    <div id="react-tooltips" class="tooltip"></div>
 
-<div id="react-tooltips"></div> <script type="module" src="js/main.js"></script>
-
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
