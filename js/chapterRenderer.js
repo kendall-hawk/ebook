@@ -2,15 +2,12 @@
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
-let allChapterIndex = []; // 存储所有章节的索引数据（id, title, file）
+let allChapterIndex = []; // 存储所有章节的索引数据（id, title, file, thumbnail）
 let currentChapterData = null; // 存储当前加载并显示的章节完整数据
 let globalWordFrequenciesMap = new Map(); // 存储所有章节的词频
 let globalMaxFreq = 1; // 存储所有章节中的最高词频
 
-/**
- * 加载章节索引数据。
- * @returns {Promise<Array<Object>>} - 章节索引数组。
- */
+
 export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
@@ -18,25 +15,17 @@ export async function loadChapterIndex() {
       throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
     }
     const data = await res.json();
-    allChapterIndex = data.chapters; // 存储到全局变量
+    allChapterIndex = data.chapters; // 确保 allChapterIndex 被填充
     return allChapterIndex;
   } catch (error) {
     console.error('加载章节索引数据失败:', error);
-    // 返回空数组，避免后续操作出错
     return [];
   }
 }
 
-/**
- * 加载单个章节的完整内容。
- * @param {string} filePath - 章节内容文件的路径 (例如: 'chapters/1.json')。
- * @returns {Promise<Object>} - 单个章节的完整数据。
- */
+
 export async function loadSingleChapterContent(filePath) {
   try {
-    // 确保这里拼接的路径是相对于网站根目录的正确路径
-    // 如果 filePath 本身已包含 'data/' (例如 'data/chapters/1.json')，
-    // 则在 chapters.json 中应将其改为 'chapters/1.json'
     const res = await fetch(`data/${filePath}`);
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status} - Check 'data/${filePath}' path and server.`);
@@ -49,7 +38,7 @@ export async function loadSingleChapterContent(filePath) {
 }
 
 /**
- * 渲染章节目录到 DOM。
+ * 渲染章节目录到 DOM (现在用于主页的缩略图列表)。
  * @param {Array<Object>} chapterIndex - 章节索引数组。
  * @param {Function} onChapterClick - 点击章节时触发的回调函数。
  */
@@ -62,27 +51,47 @@ export function renderChapterToc(chapterIndex, onChapterClick) {
   toc.innerHTML = ''; // 清空旧目录
 
   chapterIndex.forEach(ch => {
-    const link = document.createElement('a');
-    link.href = `#${ch.id}`;
-    link.textContent = ch.title;
-    link.dataset.filePath = ch.file; // 存储文件路径
-    link.addEventListener('click', (e) => {
+    const itemLink = document.createElement('a');
+    itemLink.href = `#${ch.id}`; // 链接到章节ID
+    itemLink.classList.add('chapter-list-item'); // 添加 CSS 类
+
+    // 添加缩略图
+    if (ch.thumbnail) {
+      const img = document.createElement('img');
+      img.src = ch.thumbnail;
+      img.alt = ch.title; // 设置alt文本，提高可访问性
+      itemLink.appendChild(img);
+    } else {
+      // 如果没有缩略图，可以显示一个默认图片或占位符
+      const defaultImg = document.createElement('img');
+      defaultImg.src = 'assets/default_thumbnail.jpg'; // 请准备一个默认缩略图
+      defaultImg.alt = 'Default Chapter Thumbnail';
+      itemLink.appendChild(defaultImg);
+    }
+
+    // 添加标题
+    const title = document.createElement('h3');
+    title.textContent = ch.title;
+    itemLink.appendChild(title);
+
+    itemLink.dataset.filePath = ch.file; // 存储文件路径
+    itemLink.addEventListener('click', (e) => {
       e.preventDefault();
-      // 调用传入的回调函数来处理章节加载和渲染
-      onChapterClick(ch.id, ch.file);
+      onChapterClick(ch.id, ch.file); // 调用回调函数加载章节内容
     });
-    toc.appendChild(link);
+    toc.appendChild(itemLink);
   });
 }
 
 /**
  * 渲染单个章节内容到 DOM。
- * @param {Object} chapterContent - 单个章节的完整数据。
+ * @param {Object} chapterContent - 当前章节的完整数据。
  * @param {Object} tooltipData - tooltips 数据。
  * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
  * @param {number} maxFreq - 词语的最高频率。
+ * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
  */
-export function renderSingleChapterContent(chapterContent, tooltipData, wordFrequenciesMap, maxFreq) {
+export function renderSingleChapterContent(chapterContent, tooltipData, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
   const chaptersContainer = document.getElementById('chapters');
   if (!chaptersContainer) {
     console.error('未找到 #chapters 容器。');
@@ -106,16 +115,12 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
           maxFreq
       );
 
-      // --- 关键修正：确保Markdown渲染的块级元素（如H2）直接添加到容器 ---
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = renderedHtml;
 
-      // 遍历临时div的子元素，并将它们逐个添加到 chaptersContainer
-      // 这会确保 Markdown 渲染的 H2/H3/P 等都是 #chapters 的直接子元素
       Array.from(tempDiv.children).forEach(child => {
           chaptersContainer.appendChild(child);
       });
-      // --- 修正结束 ---
 
     } else if (item.video) {
       const videoUrl = item.video;
@@ -139,16 +144,12 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
       });
       iframe.frameBorder = '0';
       iframe.allowFullscreen = true;
-      // 关键：允许画中画，autoplay 必须在 enablejsapi=1 的情况下才能通过 API 控制
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          // ！！！ 关键修正 ！！！ 使用正确的 YouTube 嵌入 URL 格式
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}?enablejsapi=1`);
       } else {
-          // 如果是完整的 YouTube URL，也要确保 enablejsapi=1
-          // 这里假设 videoUrl 已经是完整的嵌入 URL，否则 extractVideoId 会失败
           iframe.src = ensureEnableJsApi(videoUrl);
       }
 
@@ -157,32 +158,73 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
     }
   });
 
-  // --- 新增：文章末尾导航链接 ---
   const navSection = document.createElement('div');
-  navSection.classList.add('chapter-nav-links'); // 添加一个类名，用于CSS样式
+  navSection.classList.add('chapter-nav-links');
 
-  // 1. 返回本篇文章开头
+  // 获取当前章节在 allChapterIndex 中的位置
+  const currentIndex = allChapterIndex.findIndex(ch => ch.id === chapterContent.id);
+
+  // --- 添加“上一篇”按钮 ---
+  if (currentIndex > 0) {
+    const prevChapter = allChapterIndex[currentIndex - 1];
+    const prevLink = document.createElement('a');
+    prevLink.href = `#${prevChapter.id}`;
+    prevLink.textContent = '上一篇';
+    prevLink.classList.add('chapter-nav-link');
+    prevLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 调用从 main.js 传入的回调函数进行导航
+      navigateToChapterCallback(prevChapter.id, prevChapter.file);
+    });
+    navSection.appendChild(prevLink);
+  }
+
+  // --- 添加分隔符 ---
+  // 如果有上一篇和下一篇，或有上一篇和回到顶部，则添加分隔符
+  if (currentIndex > 0 && (currentIndex < allChapterIndex.length - 1 || chapterContent.id)) {
+    const separator1 = document.createTextNode(' | ');
+    navSection.appendChild(separator1);
+  }
+
+  // --- 保留“返回本篇文章开头”按钮 ---
   const toTopLink = document.createElement('a');
-  toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节标题的ID
+  toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节的ID
   toTopLink.textContent = '返回本篇文章开头';
-  toTopLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
+  toTopLink.classList.add('chapter-nav-link');
+  toTopLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 平滑滚动到当前章节标题的顶部
+      document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+  });
   navSection.appendChild(toTopLink);
 
-  // 添加一个分隔符（可选）
-  const separator = document.createTextNode(' | ');
-  navSection.appendChild(separator);
 
-  // 2. 返回目录
-  const toTocLink = document.createElement('a');
-  toTocLink.href = '#toc'; // 链接到目录的ID（在index.html中是<nav id="toc">）
-  toTocLink.textContent = '返回目录';
-  toTocLink.classList.add('chapter-nav-link'); // 添加一个类名，用于CSS样式
-  navSection.appendChild(toTocLink);
+  // --- 添加分隔符 ---
+  // 如果有下一篇和上一篇，或有下一篇和回到顶部，则添加分隔符
+  if (currentIndex < allChapterIndex.length - 1 && (currentIndex > 0 || chapterContent.id)) {
+    const separator2 = document.createTextNode(' | ');
+    navSection.appendChild(separator2);
+  }
 
-  chaptersContainer.appendChild(navSection); // 将导航部分添加到章节容器
+
+  // --- 添加“下一篇”按钮 ---
+  if (currentIndex < allChapterIndex.length - 1) {
+    const nextChapter = allChapterIndex[currentIndex + 1];
+    const nextLink = document.createElement('a');
+    nextLink.href = `#${nextChapter.id}`;
+    nextLink.textContent = '下一篇';
+    nextLink.classList.add('chapter-nav-link');
+    nextLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 调用从 main.js 传入的回调函数进行导航
+      navigateToChapterCallback(nextChapter.id, nextChapter.file);
+    });
+    navSection.appendChild(nextLink);
+  }
+
+  chaptersContainer.appendChild(navSection);
 }
 
-// 导出 getter，以便其他模块可以访问全局词频数据
 export function getGlobalWordFrequenciesMap() {
   return globalWordFrequenciesMap;
 }
@@ -191,7 +233,6 @@ export function getGlobalMaxFreq() {
   return globalMaxFreq;
 }
 
-// 导出 setter，以便 main.js 可以设置全局词频数据
 export function setGlobalWordFrequencies(map, maxF) {
   globalWordFrequenciesMap = map;
   globalMaxFreq = maxF;
