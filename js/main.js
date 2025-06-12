@@ -1,97 +1,128 @@
 // js/main.js
-import { loadTooltips, setupTooltips } from './tooltip.js';
 import {
-  loadChapterIndex,
-  loadSingleChapterContent,
-  renderChapterToc,
-  renderSingleChapterContent,
-  setGlobalWordFrequencies,
-  getGlobalWordFrequenciesMap,
-  getGlobalMaxFreq
+    loadChapterIndex,
+    loadSingleChapterContent,
+    renderChapterToc,
+    renderSingleChapterContent,
+    getGlobalWordFrequenciesMap,
+    getGlobalMaxFreq,
+    setGlobalWordFrequencies
 } from './chapterRenderer.js';
-import { setupVideoAutoPause, setupFloatingYouTube } from './youtube.js';
-import { getWordFrequencies, getWordFrequenciesMap } from './utils.js';
+import { loadTooltips, setupTooltips } from './tooltip.js';
+import { getWordFrequencies } from './wordFrequency.js';
 
-let allParagraphTexts = []; // 用于存储所有章节的原始文本，以便进行全局词频统计
-let tooltipData = {};       // 存储 tooltipData，供后续调用
+let tooltipsData = {}; // 全局存储 tooltips 数据
 
-/**
- * 页面初始化函数。
- */
-async function init() {
-  try {
-    // 加载数据
-    tooltipData = await loadTooltips(); // 加载工具提示数据
+document.addEventListener('DOMContentLoaded', async () => {
+    // 预加载所有数据
+    const chapterIndex = await loadChapterIndex(); // 这会填充 chapterRenderer.js 中的 allChapterIndex
+    tooltipsData = await loadTooltips(); // 加载 tooltips 数据
 
-    // 1. 加载章节索引 (data/chapters.json)
-    const chapterIndex = await loadChapterIndex();
     if (chapterIndex.length === 0) {
-        console.warn("未找到章节索引，或者索引为空。请检查 data/chapters.json 文件。");
-        // 如果没有章节，这里应该停止，否则后续操作可能会出错
+        console.error('章节索引为空，无法渲染。');
         return;
     }
 
-    // 2. 在后台加载所有章节的内容，以获取完整的文本进行全局词频统计
-    // 这一步会发起多个请求，但不会阻塞页面渲染
-    const allChapterContentsPromises = chapterIndex.map(ch =>
-      loadSingleChapterContent(ch.file)
-    );
-    const allChapterContents = await Promise.all(allChapterContentsPromises);
-
-    // 过滤掉加载失败的章节内容 (null)
-    const validChapterContents = allChapterContents.filter(content => content !== null);
-
-    // 3. 从所有章节内容中提取所有段落文本
-    allParagraphTexts = validChapterContents.flatMap(chapter =>
-      chapter.paragraphs.filter(p => typeof p === 'string')
-    );
-
-    // 4. 准备受保护的关键词（来自 tooltipData 的键）
-    const protectedWords = new Set(Object.keys(tooltipData));
-
-    // 5. 统计所有章节的全局词频
-    const wordFrequencies = getWordFrequencies(allParagraphTexts, undefined, protectedWords);
-    const wordFrequenciesMap = getWordFrequenciesMap(wordFrequencies);
-    // 确保 maxFreq 至少为 1，避免除以零的错误
-    const maxFreq = wordFrequencies.length > 0 ? wordFrequencies[0].count : 1;
-
-    // 6. 将全局词频数据存储到 chapterRenderer 中，供渲染时使用
-    setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
-
-    // 7. 渲染章节目录，并设置点击回调
-    renderChapterToc(chapterIndex, async (chapterId, filePath) => {
-      const content = await loadSingleChapterContent(filePath); // 加载单个章节内容
-      if (content) {
-        // 使用全局词频数据渲染单个章节
-        renderSingleChapterContent(content, tooltipData, getGlobalWordFrequenciesMap(), getGlobalMaxFreq());
-        // 每次加载新章节后，需要重新设置工具提示功能，因为 DOM 元素已更新
-        // setupTooltips 内部会移除并重新绑定监听器
-        setupTooltips(tooltipData);
-        // setupFloatingYouTube() 只需要在应用启动时调用一次，此处不需要重复调用
-      }
-    });
-
-    // 8. 初始加载第一个章节（或根据需要加载默认章节）
-    if (chapterIndex.length > 0) {
-      const firstChapter = chapterIndex[0];
-      const content = await loadSingleChapterContent(firstChapter.file);
-      if (content) {
-        renderSingleChapterContent(content, tooltipData, getGlobalWordFrequenciesMap(), getGlobalMaxFreq());
-      }
+    // --- 为所有章节内容计算并存储全局词频 ---
+    const allParagraphs = [];
+    for (const chapterMeta of chapterIndex) {
+        const chapterContent = await loadSingleChapterContent(chapterMeta.file);
+        if (chapterContent && chapterContent.paragraphs) {
+            chapterContent.paragraphs.forEach(p => {
+                if (typeof p === 'string') {
+                    allParagraphs.push(p);
+                }
+            });
+        }
     }
 
-    // 9. 设置工具提示功能 (首次加载时)
-    // 这一步很重要，确保在第一次渲染后立即为所有初始元素绑定事件
-    setupTooltips(tooltipData);
+    const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs.join(' '));
+    setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
+    // --- 词频计算结束 ---
 
-    // 10. 设置视频自动暂停和浮动视频功能 (只需要在应用启动时调用一次)
-    setupVideoAutoPause();
-    setupFloatingYouTube(); // 这个调用应该只发生一次
+    // 渲染主页的章节列表
+    renderChapterToc(chapterIndex, handleChapterClick); // handleChapterClick 作为回调传递
 
-  } catch (error) {
-    console.error("初始化应用时发生错误:", error);
-  }
+    // 检查URL hash，如果存在，则直接加载对应章节
+    const initialChapterId = window.location.hash.substring(1);
+    if (initialChapterId) {
+        const chapterMeta = chapterIndex.find(ch => ch.id === initialChapterId);
+        if (chapterMeta) {
+            handleChapterClick(chapterMeta.id, chapterMeta.file);
+        } else {
+            // 如果初始hash无效，显示目录
+            document.getElementById('toc').style.display = 'grid';
+            document.getElementById('chapters').style.display = 'none';
+        }
+    } else {
+         // 如果没有hash，默认显示目录
+        document.getElementById('toc').style.display = 'grid';
+        document.getElementById('chapters').style.display = 'none';
+    }
+});
+
+/**
+ * 处理章节点击事件的回调函数。
+ * 这个函数现在作为主导航函数，由 renderChapterToc 和 renderSingleChapterContent 中的上一篇/下一篇按钮调用。
+ * @param {string} chapterId - 被点击章节的 ID。
+ * @param {string} filePath - 被点击章节的文件路径。
+ */
+async function handleChapterClick(chapterId, filePath) {
+    // 隐藏章节列表，显示章节内容容器
+    document.getElementById('toc').style.display = 'none';
+    document.getElementById('chapters').style.display = 'block';
+
+    const chapterContent = await loadSingleChapterContent(filePath);
+    if (chapterContent) {
+        // 将 handleChapterClick 本身作为回调函数传递给 renderSingleChapterContent，
+        // 这样章节内的导航按钮就可以调用它来加载其他章节。
+        renderSingleChapterContent(
+            chapterContent,
+            tooltipsData,
+            getGlobalWordFrequenciesMap(),
+            getGlobalMaxFreq(),
+            handleChapterClick // <--- 关键：将自身作为导航回调传入
+        );
+        setupTooltips(tooltipsData); // 渲染新内容后，重新设置 Tooltip
+
+        // 更新URL hash，以便直接分享或刷新
+        window.location.hash = chapterId;
+
+        // 确保滚动到章节顶部，防止从长章节的底部跳到另一个章节的中间
+        document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+    } else {
+        // 如果加载失败，可以显示错误信息或返回目录
+        alert('无法加载章节内容！');
+        // 显示目录
+        document.getElementById('toc').style.display = 'grid'; // 恢复网格显示
+        document.getElementById('chapters').style.display = 'none';
+        window.location.hash = ''; // 清除 hash
+    }
 }
 
-// 当 DOM 完全加载后，初始化应用
-document.addEventListener('DOMContentLoaded', init);
+// 监听 URL hash 变化，实现前进/后退按钮的导航
+window.addEventListener('hashchange', async () => {
+    const chapterId = window.location.hash.substring(1);
+    const chapterIndex = await loadChapterIndex(); // 确保章节索引已加载
+
+    if (chapterId) {
+        const chapterMeta = chapterIndex.find(ch => ch.id === chapterId);
+        if (chapterMeta) {
+            // 如果 hash 变化指向一个章节，且当前未显示该章节，则加载
+            const currentDisplayedChapterId = document.getElementById('chapters').querySelector('h2')?.id;
+            if (document.getElementById('chapters').style.display === 'none' ||
+                currentDisplayedChapterId !== chapterId) {
+                handleChapterClick(chapterMeta.id, chapterMeta.file);
+            }
+        } else {
+            // 如果 hash 指向无效章节，显示目录并清除 hash
+            document.getElementById('toc').style.display = 'grid';
+            document.getElementById('chapters').style.display = 'none';
+            window.location.hash = '';
+        }
+    } else {
+        // 如果 hash 为空，显示目录
+        document.getElementById('toc').style.display = 'grid';
+        document.getElementById('chapters').style.display = 'none';
+    }
+});
