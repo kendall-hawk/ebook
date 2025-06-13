@@ -1,18 +1,55 @@
-/* assets/style.css - 完整且修正后的 CSS 代码 */
+/* assets/style.css - Complete CSS for Merriweather & Open Sans Typography */
 
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap'); /* <-- 新增：引入 Merriweather 字体 */
+/* --- Font Imports --- */
+/* Imports Merriweather (Regular 400, Bold 700) and Open Sans (Regular 400, Bold 700) from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;700&display=swap');
 
-/* --- 全局基本样式 --- */
+/* --- Global Base Styles --- */
 body {
-  font-family: 'Merriweather', serif; /* <-- 修改：使用 Merriweather 字体 */
-  line-height: 1.6;
+  font-family: 'Merriweather', serif; /* Primary font for body text */
+  font-size: 17px; /* Base font size for comfortable reading */
+  line-height: 1.7; /* Generous line height for improved readability */
   margin: 0;
   padding: 20px;
-  background-color: #f4f4f4;
-  color: #333;
+  background-color: #f4f4f4; /* Light background for contrast */
+  color: #333; /* Dark gray text for good contrast */
+  -webkit-font-smoothing: antialiased; /* Enhances font rendering on WebKit browsers (e.g., Chrome, Safari) */
+  -moz-osx-font-smoothing: grayscale; /* Enhances font rendering on macOS Firefox */
 }
 
-/* --- 目录 (Table of Contents) 样式 --- */
+/* --- Content Sections & Typography --- */
+#chapters {
+  background-color: #fff; /* White background for content */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  max-width: 800px; /* Limits content width for optimal line length */
+  margin: 20px auto; /* Centers the content block */
+  padding: 0 15px; /* Horizontal padding within the content block */
+}
+
+/* Headings within chapters */
+#chapters h2 {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for headings */
+  font-weight: 700; /* Bold weight for emphasis */
+  font-size: 1.8em; /* Larger size for main chapter titles (relative to body font-size) */
+  line-height: 1.3; /* Tighter line height for headings */
+  color: #0056b3; /* Primary blue for headings */
+  border-bottom: 2px solid #0056b3; /* Underline for separation */
+  padding-bottom: 10px;
+  margin-top: 0;
+  margin-bottom: 0.8em; /* Space below headings */
+}
+
+/* Paragraph spacing */
+#chapters p {
+  line-height: 1.7; /* Consistent line height for paragraphs */
+  margin-bottom: 1.5em; /* Ample space between paragraphs */
+  /* text-align: justify; */ /* Uncomment for justified text if desired, but be aware of potential uneven word spacing */
+}
+
+/* --- Navigation & Auxiliary Text Styles --- */
+/* Table of Contents links */
 #toc {
   margin-bottom: 30px;
   background-color: #e9e9e9;
@@ -21,6 +58,7 @@ body {
 }
 
 #toc a {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for TOC links */
   display: block;
   padding: 8px 10px;
   text-decoration: none;
@@ -37,75 +75,7 @@ body {
   color: #0056b3;
 }
 
-/* --- 章节内容区域样式 --- */
-#chapters {
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 800px; /* 限制内容宽度 */
-  margin: 20px auto; /* 居中显示 */
-  padding: 0 15px;   /* 左右内边距，避免内容紧贴边缘 */
-}
-
-#chapters h2 {
-  color: #0056b3;
-  border-bottom: 2px solid #0056b3;
-  padding-bottom: 10px;
-  margin-top: 0;
-}
-
-#chapters p {
-  text-align: left; /* 保持两端对齐，或删除此行使用默认 */
-  line-height: 1.6;
-  margin-bottom: 1em;
-}
-
-/* --- 浮动视频框样式 --- */
-.floating-video {
-  position: fixed;
-  width: 320px; /* 默认宽度 */
-  height: 180px; /* 默认高度 (16:9 比例) */
-  bottom: 10px;
-  right: 10px;
-  background-color: #000;
-  border: 1px solid #444;
-  border-radius: 6px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  cursor: grab; /* 拖动光标 */
-  user-select: none;
-  overflow: hidden; /* 确保内容不溢出圆角边框 */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* 增加阴影效果 */
-}
-
-.video-header {
-  background: #222;
-  color: #fff;
-  padding: 4px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9em;
-  cursor: grab;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 0 5px;
-  line-height: 1;
-}
-
-.close-btn:hover {
-  color: #f00;
-}
-
-/* --- 章节末尾导航链接样式 --- */
+/* Chapter navigation links (Prev/Next) */
 .chapter-nav-links {
   text-align: center;
   margin-top: 30px;
@@ -121,6 +91,7 @@ body {
 }
 
 .chapter-nav-link {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for nav links */
   display: inline-block;
   padding: 8px 15px;
   background-color: #007bff;
@@ -129,24 +100,23 @@ body {
   border-radius: 5px;
   transition: background-color 0.3s ease;
   font-size: 0.95em;
-  border: 1px solid #007bff; /* 保持与旧样式一致的边框 */
-  transition: all 0.3s ease; /* 兼容旧的过渡效果 */
+  border: 1px solid #007bff;
+  transition: all 0.3s ease;
 }
 
 .chapter-nav-link:hover {
   background-color: #0056b3;
-  color: #fff; /* 悬停时颜色也变白 */
-  transform: translateY(-2px); /* 鼠标悬停时轻微上浮 */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 阴影效果 */
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* 分隔符样式 */
 .chapter-nav-links > text {
   color: #666;
   margin: 0 5px;
 }
 
-/* --- 主页章节列表容器样式 --- */
+/* Chapter list grid on homepage */
 .chapter-list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -156,7 +126,6 @@ body {
   margin: 20px auto;
 }
 
-/* 单个章节卡片的样式 */
 .chapter-list-item {
   background-color: #f9f9f9;
   border: 1px solid #ddd;
@@ -182,13 +151,14 @@ body {
 }
 
 .chapter-list-item h3 {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for card titles */
   margin: 15px;
   font-size: 1.2em;
   color: #0056b3;
   flex-grow: 1;
 }
 
-/* --- 分类导航栏样式 --- */
+/* Category navigation buttons */
 #category-nav {
   text-align: center;
   padding: 15px 0;
@@ -202,6 +172,7 @@ body {
 }
 
 .category-button {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for category buttons */
   background-color: #007bff;
   color: white;
   border: none;
@@ -225,38 +196,38 @@ body {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* --- Tooltip 样式 --- */
+/* --- Tooltip Styles --- */
 #react-tooltips {
   position: absolute;
-  display: none;
+  display: none; /* Hidden by default */
   opacity: 0;
-  transform: translateY(5px);
+  transform: translateY(5px); /* Starts slightly below target */
 
-  background-color: #f8f9fa;
-  color: #343a40;
+  font-family: 'Open Sans', sans-serif; /* Open Sans for tooltip content */
+  background-color: #f8f9fa; /* Light background for tooltip */
+  color: #343a40; /* Dark text for tooltip */
   padding: 12px 18px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* More prominent shadow */
   border: 1px solid #ced4da;
 
-  max-width: 300px;
-  z-index: 10000;
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-  pointer-events: auto;
+  max-width: 300px; /* Constrains tooltip width */
+  z-index: 10000; /* Ensures tooltip is on top */
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* Smooth transition */
+  pointer-events: auto; /* Allows interaction with tooltip content */
 
-  line-height: 1.4;
+  line-height: 1.4; /* Adjusted line height for tooltip content */
 }
 
-/* Tooltip 可见状态 */
 #react-tooltips.visible {
   display: block;
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0); /* Slides up into view */
 }
 
-/* Tooltip 内部内容间距控制 */
+/* Tooltip internal content styles */
 #react-tooltips strong {
-  color: #007bff;
+  color: #007bff; /* Highlight color for bold text */
   font-size: 1.1em;
   display: block;
   margin: 0;
@@ -265,7 +236,7 @@ body {
 }
 
 #react-tooltips em {
-  color: #6c757d;
+  color: #6c757d; /* Muted color for emphasis */
   font-size: 0.9em;
   display: block;
   margin: 0;
@@ -280,25 +251,82 @@ body {
 }
 
 #react-tooltips br {
-  line-height: 0.5;
+  line-height: 0.5; /* Reduce line height for <br> for tighter spacing */
 }
 
-/* --- 带有 Tooltip 的单词样式 --- */
+/* --- Word with Tooltip Styles --- */
 .word {
-  cursor: help;
-  border-bottom: 2px dotted #007bff;
-  text-decoration: none;
+  cursor: help; /* Cursor hint for clickable/hoverable element */
+  border-bottom: 2px dotted #007bff; /* Dotted underline for visual cue */
+  text-decoration: none; /* Ensure no default underline */
 }
 
-/* 可选：鼠标悬停在 .word 上时，给一个更强的视觉反馈 */
 .word:hover {
-  color: #0056b3;
-  border-bottom-color: #0056b3;
+  color: #0056b3; /* Darker blue on hover */
+  border-bottom-color: #0056b3; /* Dotted line changes color on hover */
 }
 
-/* --- 媒体查询：在小屏幕上隐藏浮动视频 --- */
+/* --- Floating Video Player Styles --- */
+.floating-video {
+  position: fixed;
+  width: 320px;
+  height: 180px;
+  bottom: 10px;
+  right: 10px;
+  background-color: #000;
+  border: 1px solid #444;
+  border-radius: 6px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.video-header {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for video header */
+  background: #222;
+  color: #fff;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9em;
+  cursor: grab;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #f00;
+}
+
+/* --- Media Queries --- */
 @media (max-width: 767px) {
   .floating-video {
-    display: none !important; /* 强制隐藏 */
+    display: none !important; /* Hides floating video on smaller screens */
+  }
+
+  body {
+    padding: 10px; /* Reduce global padding on small screens */
+  }
+
+  #chapters {
+    margin: 10px auto; /* Adjust margin for small screens */
+    padding: 0 10px;
+  }
+
+  #chapters h2 {
+    font-size: 1.5em; /* Slightly smaller headings on small screens */
   }
 }
