@@ -1,8 +1,10 @@
 /* assets/style.css - 完整且修正后的 CSS 代码 */
 
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap'); /* <-- 新增：引入 Merriweather 字体 */
+
 /* --- 全局基本样式 --- */
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Merriweather', serif; /* <-- 修改：使用 Merriweather 字体 */
   line-height: 1.6;
   margin: 0;
   padding: 20px;
@@ -240,7 +242,7 @@ body {
   max-width: 300px;
   z-index: 10000;
   transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-  pointer-events: auto; /* 允许鼠标事件穿透，以便点击内部链接等 */
+  pointer-events: auto;
 
   line-height: 1.4;
 }
@@ -281,18 +283,11 @@ body {
   line-height: 0.5;
 }
 
-#react-tooltips > * {
-  /* margin: 0; */ /* 这条规则不是必须的，因为上面的特定选择器已处理 */
-  /* padding: 0; */
-}
-
 /* --- 带有 Tooltip 的单词样式 --- */
 .word {
   cursor: help;
   border-bottom: 2px dotted #007bff;
   text-decoration: none;
-  /* !!! 这里不需要设置固定的 font-size !!! */
-  /* font-size 会由 JavaScript 通过内联样式动态设置 */
 }
 
 /* 可选：鼠标悬停在 .word 上时，给一个更强的视觉反馈 */
