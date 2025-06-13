@@ -37,13 +37,16 @@ export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS, pr
     }
     const words = paragraph
       .toLowerCase()
-      // 优化：一次性替换掉所有标点符号和特殊字符
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'“”，。？！\[\]\{\}]/g, '') // 增加方括号和大括号
+      // 优化：一次性替换掉所有标点符号和特殊字符，但保留内部的连字符和撇号
+      // 这里对标点符号的替换更为精确，避免移除单词内部的有效字符。
+      // 注意：如果你的单词会包含数字，可能需要调整 [^a-z0-9'-]
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'“”，。？！\[\]\{\}\s+]/g, ' ') // 替换标点为单个空格
       .split(/\s+/) // 使用一个或多个空格作为分隔符
       .filter(word => word.length > 0); // 过滤掉空字符串
 
     words.forEach(word => {
       // 只有当词语不在停用词列表，或者它在受保护的关键词列表时，才进行统计
+      // 这里的逻辑已经确保了 protectedWords 优先级更高
       if (!stopWords.has(word) || protectedWords.has(word)) {
         const currentCount = (wordCounts.get(word) || 0) + 1;
         wordCounts.set(word, currentCount);
@@ -56,10 +59,3 @@ export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS, pr
 
   return { wordFrequenciesMap: wordCounts, maxFreq: maxFreq };
 }
-
-// 注意：getWordFrequenciesMap 函数不再需要单独导出，因为 getWordFrequencies 直接返回 Map 了
-// 如果其他地方仍然需要转换，可以保留这个辅助函数，但它的主要作用已经集成到 getWordFrequencies 中。
-// 鉴于你目前的结构，我们可以简化。
-
-// 如果你之前在其他地方单独调用过 getWordFrequenciesMap，你需要调整调用方式。
-// 现在 getWordFrequencies 直接返回一个对象，里面包含了 map 和 maxFreq。
