@@ -51,38 +51,6 @@ body {
 
 /* --- Tooltip 样式 --- */
 #react-tooltips {
-    position: absolute;
-    /* 初始状态：隐藏，透明 */
-    display: none; /* 初始状态是隐藏的 */
-    opacity: 0;
-    transform: translateY(5px); /* 初始稍微向下偏移，配合过渡动画 */
-
-    background-color: #f8f9fa; /* 浅色背景，更现代 */
-    color: #343a40; /* 深色文本，对比度更高 */
-    padding: 12px 18px; /* 增加内边距 */
-    border-radius: 8px; /* 圆角更大 */
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* 更柔和的阴影 */
-    border: 1px solid #ced4da; /* 边框，增加质感 */
-
-    max-width: 300px; /* 限制最大宽度 */
-    z-index: 10000; /* 确保在最顶层 */
-
-    /* 平滑过渡效果 */
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-
-    /* 允许鼠标事件与 tooltip 交互，这样鼠标移到 tooltip 上时它不会消失 */
-    pointer-events: auto;
-}
-
-/* Tooltip 可见状态 */
-#react-tooltips.visible {
-    display: block; /* 核心：当有 .visible 类时，显示元素 */
-    opacity: 1; /* 完全不透明 */
-    transform: translateY(0); /* 恢复到原位 */
-}
-
-/* --- Tooltip 样式 --- */
-#react-tooltips {
     /* ... 保持你现有的 #react-tooltips 样式不变 ... */
     position: absolute;
     display: none;
