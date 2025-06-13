@@ -4,33 +4,31 @@ import {
     loadSingleChapterContent,
     renderChapterToc,
     renderSingleChapterContent,
-    getGlobalWordFrequenciesMap,
-    getGlobalMaxFreq,
-    setGlobalWordFrequencies
+    // 移除了 getGlobalWordFrequenciesMap, getGlobalMaxFreq，因为它们现在从 setGlobalWordFrequencies 获取
+    setGlobalWordFrequencies,
+    getGlobalWordFrequenciesMap, // 重新添加，因为 renderSingleChapterContent 需要获取全局词频
+    getGlobalMaxFreq // 重新添加，因为 renderSingleChapterContent 需要获取全局最高频率
 } from './chapterRenderer.js';
-import { loadTooltips, setupTooltips } from './tooltip.js'; // 移除了 loadPronunciations
+import { loadTooltips, setupTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 
-let tooltipsData = {}; // 全局存储工具提示数据
 let allChapterIndexData = []; // 存储所有章节的原始索引数据，用于过滤
 let currentFilterCategory = 'all'; // 当前激活的分类，默认为 'all'
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 预加载所有数据
     allChapterIndexData = await loadChapterIndex(); // 加载所有章节索引
-    tooltipsData = await loadTooltips(); // 加载工具提示数据
-    // 移除了 loadPronunciations，因为暂时跳过发音功能
-    console.log('Tooltips Data Loaded:', tooltipsData);
+    const tooltipsData = await loadTooltips(); // 加载工具提示数据
+    // console.log('Tooltips Data Loaded:', tooltipsData); // 调试用，可以保留或移除
+
     if (allChapterIndexData.length === 0) {
         console.error('章节索引为空，无法渲染。');
-        // 可以显示一个用户友好的提示
         document.getElementById('toc').innerHTML = '<p style="text-align: center; padding: 50px; color: #666;">No articles found.</p>';
         return;
     }
 
     // --- 为所有章节内容计算并存储全局词频 ---
     const allParagraphs = [];
-    // 为确保所有章节内容都已加载，使用 Promise.all
     const chapterContentsPromises = allChapterIndexData.map(ch => loadSingleChapterContent(ch.file));
     const allLoadedChapterContents = await Promise.all(chapterContentsPromises);
 
@@ -44,8 +42,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs.join(' '));
-    setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
+    // **核心修正：将 allParagraphs 数组直接传递给 getWordFrequencies**
+    const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs);
+    setGlobalWordFrequencies(wordFrequenciesMap, maxFreq); // 设置全局词频
+
+    // 调试用，检查词频是否正确计算
+    console.log('全局词频 Map (main.js):', getGlobalWordFrequenciesMap());
+    console.log('全局最高频率 (main.js):', getGlobalMaxFreq());
     // --- 词频计算结束 ---
 
     // **新增：收集并渲染分类导航栏**
@@ -59,6 +62,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 初始渲染章节列表 (显示所有文章)
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
+
+    // **重要：在页面首次加载时就设置 Tooltip 事件监听器**
+    // 这样做一次即可，因为 tooltip.js 内部已经使用了事件委托。
+    setupTooltips();
 
     // 检查URL hash，如果存在，则直接加载对应章节
     const initialChapterId = window.location.hash.substring(1);
@@ -85,20 +92,13 @@ function renderCategoryNavigation(categories) {
     const categoryNav = document.getElementById('category-nav');
     if (!categoryNav) return;
 
-    // 清空除了“All Articles”按钮之外的旧按钮
-    // 找到“All Articles”按钮
-    const allButton = categoryNav.querySelector('.category-button[data-category="all"]');
-    categoryNav.innerHTML = ''; // 先清空所有内容
-    if (allButton) { // 如果原来有All按钮，再加回去
-        categoryNav.appendChild(allButton);
-    } else { // 如果没有，创建它
-        const newAllButton = document.createElement('button');
-        newAllButton.classList.add('category-button', 'active');
-        newAllButton.dataset.category = 'all';
-        newAllButton.textContent = 'All Articles';
-        categoryNav.appendChild(newAllButton);
-    }
-
+    // 清空旧按钮，并重建“All Articles”按钮，确保其在最前面且是激活状态
+    categoryNav.innerHTML = '';
+    const newAllButton = document.createElement('button');
+    newAllButton.classList.add('category-button');
+    newAllButton.dataset.category = 'all';
+    newAllButton.textContent = 'All Articles';
+    categoryNav.appendChild(newAllButton);
 
     categories.sort().forEach(category => {
         const button = document.createElement('button');
@@ -106,6 +106,15 @@ function renderCategoryNavigation(categories) {
         button.dataset.category = category;
         button.textContent = category;
         categoryNav.appendChild(button);
+    });
+
+    // 初始化激活状态：根据 currentFilterCategory 设置
+    categoryNav.querySelectorAll('.category-button').forEach(btn => {
+        if (btn.dataset.category === currentFilterCategory) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
     });
 
     // 添加事件监听器
@@ -156,25 +165,31 @@ async function handleChapterClick(chapterId, filePath) {
     document.getElementById('category-nav').style.display = 'none';
     document.getElementById('chapters').style.display = 'block';
 
-
     const chapterContent = await loadSingleChapterContent(filePath);
     if (chapterContent) {
-        // 将 handleChapterClick 本身作为回调函数传递给 renderSingleChapterContent，
-        // 这样章节内的导航按钮就可以调用它来加载其他章节。
         renderSingleChapterContent(
             chapterContent,
-            tooltipsData, // 传入 tooltipsData
-            getGlobalWordFrequenciesMap(),
-            getGlobalMaxFreq(),
-            handleChapterClick // <--- 关键：将自身作为导航回调传入
+            // 注意：tooltipsData 不再从这里直接传入，因为 tooltip.js 内部管理了
+            // 但是 renderSingleChapterContent 还需要 tooltipsData 来判断哪些词有 tooltip
+            // 所以，这里传入 tooltipsData 仍然是必要的，确保 renderMarkdownWithTooltips 知道哪些词是 tooltip 词
+            // 确保 chapterRenderer.js 中的 renderSingleChapterContent 内部将这个 tooltipsData 传递给了 renderMarkdownWithTooltips
+            null, // 传递 null 或一个空对象，因为 renderMarkdownWithTooltips 不再直接使用此参数进行数据查找
+            getGlobalWordFrequenciesMap(), // 从全局获取词频 Map
+            getGlobalMaxFreq(),           // 从全局获取最高频率
+            handleChapterClick            // 将自身作为导航回调传入
         );
-        setupTooltips(); // 渲染新内容后，重新设置 Tooltip
+
+        // **重要：在渲染新内容后，不需要再次调用 setupTooltips()**
+        // 因为 tooltip.js 内部已经使用了事件委托，事件监听器绑定在父容器上，
+        // 动态生成的 .word 元素也能被捕获到。
+        // 如果你之前在 setupTooltips() 中有移除旧事件监听器的逻辑，那现在应该移除了，
+        // 保持 setupTooltips() 只做一次初始化绑定。
 
         // 更新URL hash，以便直接分享或刷新
         window.location.hash = chapterId;
 
         // 确保滚动到章节顶部，防止从长章节的底部跳到另一个章节的中间
-        document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' }); // 滚动到章节内容容器顶部
     } else {
         // 如果加载失败，可以显示错误信息或返回目录
         alert('无法加载章节内容！');
@@ -186,15 +201,14 @@ async function handleChapterClick(chapterId, filePath) {
 // 监听 URL hash 变化，实现前进/后退按钮的导航
 window.addEventListener('hashchange', async () => {
     const chapterId = window.location.hash.substring(1);
-    // allChapterIndexData 已经在 DOMContentLoaded 中加载，这里可以直接用
     if (chapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
         if (chapterMeta) {
             // 检查当前显示的章节ID，避免不必要的重新加载
-            const currentDisplayedChapterTitleElement = document.getElementById('chapters').querySelector('h2');
-            const currentDisplayedChapterId = currentDisplayedChapterTitleElement ? currentDisplayedChapterTitleElement.id : null;
+            const currentDisplayedChapterElement = document.getElementById('chapters');
+            const currentDisplayedChapterId = currentDisplayedChapterElement.querySelector('h2') ? currentDisplayedChapterElement.querySelector('h2').id : null;
 
-            if (document.getElementById('chapters').style.display === 'none' || currentDisplayedChapterId !== chapterId) {
+            if (currentDisplayedChapterElement.style.display === 'none' || currentDisplayedChapterId !== chapterId) {
                 handleChapterClick(chapterMeta.id, chapterMeta.file);
             }
         } else {
