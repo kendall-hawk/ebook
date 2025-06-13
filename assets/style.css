@@ -49,30 +49,72 @@ body {
   margin-bottom: 1em;
 }
 
-/* Tooltip 样式 */
-#react-tooltips { /* 确保这个 ID 与 index.html 和 tooltip.js 中的查找匹配 */
+/* --- Tooltip 样式 --- */
+#react-tooltips {
     position: absolute;
-    display: none; /* 初始隐藏 */
-    background: #333;
-    color: #fff;
-    padding: 5px 10px;
-    border-radius: 4px;
-    z-index: 10000;
-    pointer-events: none; /* 允许鼠标事件穿透，不阻挡下方内容 */
-    /* 添加一些平滑过渡 */
-    transition: opacity 0.2s ease-in-out;
+    /* 初始状态：隐藏，透明 */
+    display: none; /* 初始状态是隐藏的 */
     opacity: 0;
+    transform: translateY(5px); /* 初始稍微向下偏移，配合过渡动画 */
+
+    background-color: #f8f9fa; /* 浅色背景，更现代 */
+    color: #343a40; /* 深色文本，对比度更高 */
+    padding: 12px 18px; /* 增加内边距 */
+    border-radius: 8px; /* 圆角更大 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* 更柔和的阴影 */
+    border: 1px solid #ced4da; /* 边框，增加质感 */
+
+    max-width: 300px; /* 限制最大宽度 */
+    z-index: 10000; /* 确保在最顶层 */
+
+    /* 平滑过渡效果 */
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+
+    /* 允许鼠标事件与 tooltip 交互，这样鼠标移到 tooltip 上时它不会消失 */
+    pointer-events: auto;
 }
+
+/* Tooltip 可见状态 */
 #react-tooltips.visible {
-    opacity: 1;
+    display: block; /* 核心：当有 .visible 类时，显示元素 */
+    opacity: 1; /* 完全不透明 */
+    transform: translateY(0); /* 恢复到原位 */
+}
+
+/* Tooltip 内容样式 */
+#react-tooltips strong {
+    color: #007bff; /* 标题或关键词颜色 */
+    font-size: 1.1em;
+    display: block; /* 标题独占一行 */
+    margin-bottom: 4px;
+}
+
+#react-tooltips em {
+    color: #6c757d; /* 词性或次要信息颜色 */
+    font-size: 0.9em;
+    display: block;
+    margin-bottom: 4px;
+}
+
+#react-tooltips p {
+    margin-top: 8px;
+    margin-bottom: 0; /* 移除默认段落间距 */
+    line-height: 1.5;
 }
 
 /* 带有 tooltip 的单词样式 */
 .word {
   cursor: help; /* 鼠标悬停时显示问号光标 */
-  border-bottom: 1px dotted #007bff; /* 下划线样式 */
+  border-bottom: 2px dotted #007bff; /* 下划线样式，稍粗一点，颜色更明显 */
+  text-decoration: none; /* 确保没有默认下划线 */
   /* 可以添加一个背景色或颜色变化来区分 */
   /* color: #007bff; */
+}
+
+/* 可选：鼠标悬停在 .word 上时，给一个更强的视觉反馈 */
+.word:hover {
+    color: #0056b3; /* 悬停时颜色变深 */
+    border-bottom-color: #0056b3;
 }
 
 /* 浮动视频框样式 */
