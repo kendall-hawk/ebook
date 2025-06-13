@@ -7,13 +7,11 @@ marked.setOptions({
 });
 
 // --- 新增：Tooltip 数据在 tooltip.js 内部管理 ---
-// 这个变量将存储从 data/tooltips.json 加载的数据。
-// _ 是一个约定，表示这个变量是模块内部私有的，不会与外部文件冲突。
 let _internalTooltipsData = {};
 
 // --- 新增：Tooltip 状态管理变量，用于精确控制显示/隐藏 ---
-let _currentHideTimeout = null; // 用于控制 Tooltip 隐藏的计时器
-let _currentActiveTooltipSpan = null; // 存储当前激活的 Tooltip 对应的 span 元素
+let _currentHideTimeout = null;
+let _currentActiveTooltipSpan = null;
 
 // loadTooltips 函数：它现在将数据存储在 _internalTooltipsData 中
 export async function loadTooltips() {
@@ -34,9 +32,7 @@ export async function loadTooltips() {
 // renderMarkdownWithTooltips 函数：保持不变，但现在它会使用内部的 _internalTooltipsData
 export function renderMarkdownWithTooltips(
     md,
-    // 这里传入的 tooltipData 参数，现在在函数内部不再直接使用它来查找数据，
-    // 而是使用 _internalTooltipsData。但这不影响外部文件的调用。
-    _unusedTooltipDataFromMain, // 占位符，表示这个参数现在未使用
+    _unusedTooltipDataFromMain,
     wordFrequenciesMap,
     maxFreq,
     baseFontSize = 16,
@@ -77,7 +73,6 @@ export function renderMarkdownWithTooltips(
             fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
         }
 
-        // 关键：这里使用内部的 _internalTooltipsData 来检查单词是否存在
         if (_internalTooltipsData.hasOwnProperty(lowerMatch)) {
             return `<span data-tooltip-id="${lowerMatch}" class="word" style="${fontSizeStyle}">${match}</span>`;
         } else if (fontSizeStyle) {
@@ -96,7 +91,7 @@ export function renderMarkdownWithTooltips(
 
 
 // setupTooltips 函数：它现在不再接收 tooltipData 参数
-export function setupTooltips() { // 移除 tooltipData 参数，因为它现在使用内部变量
+export function setupTooltips() {
     const tooltipDiv = document.getElementById('react-tooltips');
     if (!tooltipDiv) {
         console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
@@ -104,7 +99,6 @@ export function setupTooltips() { // 移除 tooltipData 参数，因为它现在
     }
 
     // 移除所有旧的事件监听器，避免重复绑定
-    // 使用 cloneNode(true) 替换元素以移除所有事件监听器，是最彻底的方法
     document.querySelectorAll('.word').forEach(oldSpan => {
         const newSpan = oldSpan.cloneNode(true);
         oldSpan.parentNode.replaceChild(newSpan, oldSpan);
@@ -112,15 +106,14 @@ export function setupTooltips() { // 移除 tooltipData 参数，因为它现在
 
     // 绑定新的事件监听器 - 核心修改：改为 'click' 事件
     document.querySelectorAll('.word').forEach(span => {
-        span.addEventListener('click', showTooltip); // 🚀 手机端点击触发
+        span.addEventListener('click', showTooltip); // 手机端点击触发
     });
 
     // 绑定全局点击事件，点击页面其他地方隐藏tooltip
     document.addEventListener('click', (e) => {
-        // 如果 tooltip 可见，并且点击的不是 Tooltip 触发词，也不是 Tooltip 容器本身，就隐藏 Tooltip
         if (tooltipDiv.classList.contains('visible') &&
-            !e.target.closest('.word') && // 点击的不是一个 .word 元素或其子元素
-            !e.target.closest('#react-tooltips')) { // 点击的不是 Tooltip 容器或其子元素
+            !e.target.closest('.word') &&
+            !e.target.closest('#react-tooltips')) {
             hideTooltip();
         }
     });
@@ -130,26 +123,33 @@ export function setupTooltips() { // 移除 tooltipData 参数，因为它现在
 
     // 鼠标进入 tooltip 区域时取消隐藏计时器 (防止在鼠标移动到 Tooltip 上时被隐藏)
     tooltipDiv.addEventListener('mouseenter', () => {
-        clearTimeout(_currentHideTimeout); // 使用内部计时器变量
+        clearTimeout(_currentHideTimeout);
     });
+
+    // --- 新增：监听页面滚动事件，隐藏 Tooltip ---
+    // 使用 document.addEventListener 监听 scroll 事件，并在滚动时隐藏 Tooltip
+    // 注意：这里使用了 'scroll' 事件，适用于页面滚动。如果你的内容是内部可滚动区域，可能需要监听该区域的滚动。
+    document.addEventListener('scroll', () => {
+        // 只有当 Tooltip 可见时才执行隐藏操作，避免不必要的调用
+        if (tooltipDiv.classList.contains('visible')) {
+            hideTooltip();
+        }
+    }, { passive: true }); // 使用 { passive: true } 提高滚动性能
 
 
     function showTooltip(e) {
-        clearTimeout(_currentHideTimeout); // 任何时候显示时，都清除之前的隐藏计时器
-        e.stopPropagation(); // 阻止事件冒泡到 document 的点击事件
+        clearTimeout(_currentHideTimeout);
+        e.stopPropagation();
 
-        // 如果点击的是当前已经显示的 Tooltip 对应的单词，则隐藏它
-        if (_currentActiveTooltipSpan === e.target) { // 使用内部变量
+        if (_currentActiveTooltipSpan === e.target) {
             hideTooltip();
-            _currentActiveTooltipSpan = null; // 清除当前激活的 span
-            return; // 阻止再次显示
+            _currentActiveTooltipSpan = null;
+            return;
         }
 
-        // 保存当前激活的 span，用于判断是否重复点击
-        _currentActiveTooltipSpan = e.target; // 使用内部变量
-
+        _currentActiveTooltipSpan = e.target;
         const wordId = e.target.dataset.tooltipId;
-        const data = _internalTooltipsData[wordId]; // 关键：使用内部的 _internalTooltipsData 获取数据
+        const data = _internalTooltipsData[wordId];
 
         if (data) {
             let htmlContent = '';
@@ -208,12 +208,12 @@ export function setupTooltips() { // 移除 tooltipData 参数，因为它现在
     }
 
     function hideTooltip() {
-        clearTimeout(_currentHideTimeout); // 使用内部计时器变量
-        _currentHideTimeout = setTimeout(() => { // 使用内部计时器变量
+        clearTimeout(_currentHideTimeout);
+        _currentHideTimeout = setTimeout(() => {
             tooltipDiv.classList.remove('visible');
             setTimeout(() => {
                 tooltipDiv.style.display = 'none';
-                _currentActiveTooltipSpan = null; // 隐藏时清除激活的 span
+                _currentActiveTooltipSpan = null;
             }, 300);
         }, 100);
     }
