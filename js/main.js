@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     allChapterIndexData = await loadChapterIndex(); // 加载所有章节索引
     tooltipsData = await loadTooltips(); // 加载工具提示数据
     // 移除了 loadPronunciations，因为暂时跳过发音功能
-
+    console.log('Tooltips Data Loaded:', tooltipsData);
     if (allChapterIndexData.length === 0) {
         console.error('章节索引为空，无法渲染。');
         // 可以显示一个用户友好的提示
