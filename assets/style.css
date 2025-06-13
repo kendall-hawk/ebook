@@ -49,87 +49,6 @@ body {
   margin-bottom: 1em;
 }
 
-/* --- Tooltip 样式 --- */
-#react-tooltips {
-    /* ... 保持你现有的 #react-tooltips 样式不变 ... */
-    position: absolute;
-    display: none;
-    opacity: 0;
-    transform: translateY(5px);
-
-    background-color: #f8f9fa; /* 浅色背景，更现代 */
-    color: #343a40; /* 深色文本，对比度更高 */
-    padding: 12px 18px; /* 增加内边距 */
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border: 1px solid #ced4da;
-
-    max-width: 300px;
-    z-index: 10000;
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-    pointer-events: auto;
-}
-
-/* Tooltip 可见状态 */
-#react-tooltips.visible {
-    display: block;
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* --- 核心修改：Tooltip 内部元素间距调整 --- */
-
-/* 标题样式：减少底部间距 */
-#react-tooltips strong {
-    color: #007bff;
-    font-size: 1.1em;
-    display: block;
-    margin-bottom: 2px; /* 减少底部间距，可以调整这个值 */
-}
-
-/* 词性样式：减少上下间距 */
-#react-tooltips em {
-    color: #6c757d;
-    font-size: 0.9em;
-    display: block;
-    margin-top: 2px;    /* 减少顶部间距，可以调整这个值 */
-    margin-bottom: 4px; /* 减少底部间距，可以调整这个值 */
-}
-
-/* 其他内容（例如描述、例句等）可能被包裹在其他标签中，
-   如果它们也有间距问题，可能需要针对性调整，例如： */
-#react-tooltips p {
-    margin-top: 4px; /* 减少段落顶部间距 */
-    margin-bottom: 4px; /* 减少段落底部间距 */
-    line-height: 1.5;
-}
-
-/* 确保所有 Tooltip 内容的默认间距都尽可能小 */
-#react-tooltips > * {
-    margin: 0; /* 强制移除所有直接子元素的默认 margin */
-    padding: 0; /* 强制移除所有直接子元素的默认 padding */
-}
-
-/* 针对特定的行内容，如果它们后面跟了 <br>，可以微调间距 */
-#react-tooltips br {
-    line-height: 0.5; /* 减少 <br> 带来的行高，这可能有助于减少视觉间距 */
-}
-
-
-/* 带有 tooltip 的单词样式 */
-.word {
-  cursor: help;
-  border-bottom: 2px dotted #007bff;
-  text-decoration: none;
-}
-
-/* 可选：鼠标悬停在 .word 上时，给一个更强的视觉反馈 */
-.word:hover {
-    color: #0056b3;
-    border-bottom-color: #0056b3;
-}
-
-
 /* 浮动视频框样式 */
 .floating-video {
   position: fixed;
@@ -350,6 +269,94 @@ body {
     font-weight: bold;
     transform: translateY(-2px);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+/* --- Tooltip 样式 --- */
+#react-tooltips {
+    /* ... 保持你现有的 #react-tooltips 样式不变 ... */
+    position: absolute;
+    display: none;
+    opacity: 0;
+    transform: translateY(5px);
+
+    background-color: #f8f9fa; /* 浅色背景 */
+    color: #343a40; /* 深色文本 */
+    padding: 12px 18px; /* 内边距 */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #ced4da;
+
+    max-width: 300px;
+    z-index: 10000;
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    pointer-events: auto;
+
+    /* 确保整体文本行高适中 */
+    line-height: 1.4; /* 整体设置一个基础行高 */
+}
+
+/* Tooltip 可见状态 */
+#react-tooltips.visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* --- 核心修改：精确控制 Tooltip 内部的间距 --- */
+
+/* 标题样式：彻底移除默认间距，只靠 line-height 决定与下一行的距离 */
+#react-tooltips strong {
+    color: #007bff;
+    font-size: 1.1em;
+    display: block; /* 独占一行 */
+    margin: 0; /* 彻底移除所有外边距 */
+    padding: 0; /* 彻底移除所有内边距 */
+    line-height: 1.2; /* 紧凑的行高 */
+}
+
+/* 词性样式：这是最关键的调整！ */
+#react-tooltips em {
+    color: #6c757d;
+    font-size: 0.9em;
+    display: block; /* 依然让它独占一行，便于控制间距 */
+    margin: 0; /* **非常重要：彻底移除所有默认外边距** */
+    padding: 0; /* **非常重要：彻底移除所有默认内边距** */
+    line-height: 1.2; /* **非常重要：设置一个紧凑的行高** */
+    /* 如果你希望词性与描述之间有非常小的间距，可以尝试： */
+    /* margin-bottom: 2px; */
+}
+
+/* 描述、例句等内容的样式：确保它们没有过大的默认间距 */
+#react-tooltips p {
+    margin: 0; /* 移除段落的默认外边距 */
+    padding: 0; /* 移除段落的默认内边距 */
+    line-height: 1.5; /* 保持内容可读性 */
+}
+
+/* 如果 Tooltip 内容中使用了 <br> 标签，可以尝试减小其带来的行高 */
+#react-tooltips br {
+    line-height: 0.5; /* 减少 <br> 带来的行高，这可能有助于减少视觉间距 */
+}
+
+/* 确保所有 Tooltip 内容的直接子元素都重置间距，防止其他标签影响 */
+#react-tooltips > * {
+    /* 这条规则是兜底的，确保任何直接子元素都移除了默认 margin 和 padding */
+    /* 之前的 strong, em, p 规则会覆盖它，但它能处理其他未定义的标签 */
+    /* margin: 0; */
+    /* padding: 0; */
+}
+
+
+/* 带有 tooltip 的单词样式 */
+.word {
+  cursor: help;
+  border-bottom: 2px dotted #007bff;
+  text-decoration: none;
+}
+
+/* 可选：鼠标悬停在 .word 上时，给一个更强的视觉反馈 */
+.word:hover {
+    color: #0056b3;
+    border-bottom-color: #0056b3;
 }
 
 }
