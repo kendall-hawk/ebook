@@ -1,86 +1,58 @@
 // js/utils.js
 
 /**
- * 确保 YouTube URL 包含 enablejsapi=1 参数，且只添加一次。
- * @param {string} videoUrl - 原始的 YouTube 视频 URL。
- * @returns {string} - 处理后的 YouTube 视频 URL。
+ * 确保 YouTube 视频 URL 包含 enablejsapi=1 参数，以启用 JavaScript API 控制。
+ * 这个函数也应该处理 URL 中的无效部分。
+ * @param {string} urlString - 原始的 YouTube 视频 URL。
+ * @returns {string} - 包含 enablejsapi=1 参数的 URL。
  */
-export function ensureEnableJsApi(videoUrl) {
-  try {
-    const url = new URL(videoUrl);
-    const params = new URLSearchParams(url.search);
-    if (!params.has('enablejsapi')) {
-      params.append('enablejsapi', '1');
-      url.search = params.toString();
+export function ensureEnableJsApi(urlString) {
+    if (!urlString) return '';
+    try {
+        const url = new URL(urlString);
+        // 确保主机名是 YouTube 相关的
+        if (!['www.youtube.com', 'youtube.com', 'youtu.be', 'm.youtube.com', 'music.youtube.com'].includes(url.hostname)) {
+            // 如果不是 YouTube 域名，可能是一个自定义的视频URL，直接返回原URL
+            return urlString;
+        }
+
+        const params = new URLSearchParams(url.search);
+        if (!params.has('enablejsapi')) {
+            params.set('enablejsapi', '1');
+            url.search = params.toString();
+        }
+        return url.toString();
+    } catch (e) {
+        console.error('ensureEnableJsApi: 无效的视频URL或处理出错:', urlString, e);
+        return urlString; // 返回原始URL以防出错
     }
-    return url.toString();
-  } catch (e) {
-    console.error('无效的视频URL:', videoUrl, e);
-    return videoUrl; // 返回原始URL以防出错
-  }
 }
 
 /**
  * 从各种 YouTube URL 格式中提取视频 ID。
  * @param {string} url - YouTube 视频的 URL。
- * @returns {string} - 提取到的视频 ID，如果没有找到则返回空字符串。
+ * @returns {string|null} - 提取到的视频 ID，如果没有找到则返回 null。
  */
 export function extractVideoId(url) {
-  const regex = /(?:youtube\.com\/(?:embed\/|watch\?v=)|youtu\.be\/)([^&?/]+)/;
-  const m = url.match(regex);
-  return m ? m[1] : '';
-}
+    if (!url) return null;
+    // 这是一个更全面和健壮的正则表达式，可以匹配多种 YouTube URL 格式
+    // 包括标准链接、短链接、嵌入链接等
+    const regex = /(?:youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=)|youtu\.be\/|m\.youtube\.com\/watch\?v=|music\.youtube\.com\/watch\?v=)([^&?/]+)/;
+    const m = url.match(regex);
 
-// --- 词频统计相关 ---
-
-// 简单的英文停用词列表 (小写)
-const STOP_WORDS = new Set([
-  "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it",
-  "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these",
-  "they", "this", "to", "was", "will", "with", "he", "she", "him", "her", "his", "hers", "we", "us", "our", "ours",
-  "you", "your", "yours", "i", "me", "my", "mine", "them", "their", "theirs", "what", "which", "who", "whom",
-  "whose", "where", "when", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
-  "some", "such", "no", "nor", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
-  "just", "don", "should", "now", "ve", "ll", "re", "m", "has", "had", "would", "could", "did", "do", "does", "get",
-  "neil", "beth"
-]);
-
-
-/**
- * 统计文本中单词的频率。
- * @param {Array<string>} allParagraphTexts - 包含所有章节段落文本的数组。
- * @param {Set<string>} [stopWords=STOP_WORDS] - 可选的停用词Set。
- * @param {Set<string>} [protectedWords=new Set()] - 无论如何都不能被过滤的词语集合（例如tooltip关键词）。
- * @returns {Array<{word: string, count: number}>} - 按频率降序排列的单词频率列表。
- */
-export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS, protectedWords = new Set()) {
-  const wordCounts = new Map();
-
-  allParagraphTexts.forEach(paragraph => {
-    const words = paragraph
-      .toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'“”，。？！]/g, '')
-      .split(/\s+/)
-      .filter(word => word.length > 0); // 先只过滤空字符串
-
-    words.forEach(word => {
-      // 只有当词语不在停用词列表，或者它在受保护的关键词列表时，才进行统计
-      if (!stopWords.has(word) || protectedWords.has(word)) {
-        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
-      }
-    });
-  });
-
-  return Array.from(wordCounts.entries())
-    .map(([word, count]) => ({ word, count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-// 增加一个辅助函数，用于将词频列表转换为 Map，方便查找
-export function getWordFrequenciesMap(wordFrequencies) {
-  const map = new Map();
-  wordFrequencies.forEach(item => {
-    map.set(item.word, item.count);
-  });
-  return map;
+    // 确保返回的ID是干净的，没有额外的查询参数或哈希
+    if (m && m[1]) {
+        let videoId = m[1];
+        // 移除任何 # 或 ? 后面跟着的额外参数
+        const queryParamIndex = videoId.indexOf('?');
+        if (queryParamIndex !== -1) {
+            videoId = videoId.substring(0, queryParamIndex);
+        }
+        const hashIndex = videoId.indexOf('#');
+        if (hashIndex !== -1) {
+            videoId = videoId.substring(0, hashIndex);
+        }
+        return videoId;
+    }
+    return null; // 如果没有匹配到，返回 null
 }
