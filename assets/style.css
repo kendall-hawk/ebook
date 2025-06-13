@@ -81,41 +81,86 @@ body {
     transform: translateY(0); /* 恢复到原位 */
 }
 
-/* Tooltip 内容样式 */
-#react-tooltips strong {
-    color: #007bff; /* 标题或关键词颜色 */
-    font-size: 1.1em;
-    display: block; /* 标题独占一行 */
-    margin-bottom: 4px;
+/* --- Tooltip 样式 --- */
+#react-tooltips {
+    /* ... 保持你现有的 #react-tooltips 样式不变 ... */
+    position: absolute;
+    display: none;
+    opacity: 0;
+    transform: translateY(5px);
+
+    background-color: #f8f9fa; /* 浅色背景，更现代 */
+    color: #343a40; /* 深色文本，对比度更高 */
+    padding: 12px 18px; /* 增加内边距 */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #ced4da;
+
+    max-width: 300px;
+    z-index: 10000;
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    pointer-events: auto;
 }
 
+/* Tooltip 可见状态 */
+#react-tooltips.visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* --- 核心修改：Tooltip 内部元素间距调整 --- */
+
+/* 标题样式：减少底部间距 */
+#react-tooltips strong {
+    color: #007bff;
+    font-size: 1.1em;
+    display: block;
+    margin-bottom: 2px; /* 减少底部间距，可以调整这个值 */
+}
+
+/* 词性样式：减少上下间距 */
 #react-tooltips em {
-    color: #6c757d; /* 词性或次要信息颜色 */
+    color: #6c757d;
     font-size: 0.9em;
     display: block;
-    margin-bottom: 4px;
+    margin-top: 2px;    /* 减少顶部间距，可以调整这个值 */
+    margin-bottom: 4px; /* 减少底部间距，可以调整这个值 */
 }
 
+/* 其他内容（例如描述、例句等）可能被包裹在其他标签中，
+   如果它们也有间距问题，可能需要针对性调整，例如： */
 #react-tooltips p {
-    margin-top: 8px;
-    margin-bottom: 0; /* 移除默认段落间距 */
+    margin-top: 4px; /* 减少段落顶部间距 */
+    margin-bottom: 4px; /* 减少段落底部间距 */
     line-height: 1.5;
 }
 
+/* 确保所有 Tooltip 内容的默认间距都尽可能小 */
+#react-tooltips > * {
+    margin: 0; /* 强制移除所有直接子元素的默认 margin */
+    padding: 0; /* 强制移除所有直接子元素的默认 padding */
+}
+
+/* 针对特定的行内容，如果它们后面跟了 <br>，可以微调间距 */
+#react-tooltips br {
+    line-height: 0.5; /* 减少 <br> 带来的行高，这可能有助于减少视觉间距 */
+}
+
+
 /* 带有 tooltip 的单词样式 */
 .word {
-  cursor: help; /* 鼠标悬停时显示问号光标 */
-  border-bottom: 2px dotted #007bff; /* 下划线样式，稍粗一点，颜色更明显 */
-  text-decoration: none; /* 确保没有默认下划线 */
-  /* 可以添加一个背景色或颜色变化来区分 */
-  /* color: #007bff; */
+  cursor: help;
+  border-bottom: 2px dotted #007bff;
+  text-decoration: none;
 }
 
 /* 可选：鼠标悬停在 .word 上时，给一个更强的视觉反馈 */
 .word:hover {
-    color: #0056b3; /* 悬停时颜色变深 */
+    color: #0056b3;
     border-bottom-color: #0056b3;
 }
+
 
 /* 浮动视频框样式 */
 .floating-video {
