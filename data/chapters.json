@@ -5,7 +5,7 @@
             "title": "What's your favourite kind of noodle?",
             "file": "chapters/1.json",
             "thumbnail": "https://img.youtube.com/vi/aOiuSsnWEik/maxresdefault.jpg",
-            "categories": "BBC Learn English"
+            "categories": ["BBC Learn English"]
         }
     ]
 }
