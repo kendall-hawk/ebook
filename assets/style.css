@@ -7,7 +7,8 @@
 /* --- Global Base Styles --- */
 body {
   font-family: 'Merriweather', serif; /* Primary font for body text */
-  font-size: 17px; /* Base font size for comfortable reading */
+  font-size: 18px; /* Adjusted: Increased from 17px to 18px for larger text */
+  font-weight: 400; /* Merriweather's regular weight. Consider 500 or 600 if available for a specific font, but Merriweather typically has 400 and 700. */
   line-height: 1.7; /* Generous line height for improved readability */
   margin: 0;
   padding: 20px;
@@ -43,7 +44,7 @@ body {
 
 /* Paragraph spacing */
 #chapters p {
-  line-height: 1.7; /* Consistent line height for paragraphs */
+  line-height: 1.8; /* Adjusted: Increased from 1.7 to 1.8 for more comfortable spacing with larger font */
   margin-bottom: 1.5em; /* Ample space between paragraphs */
   /* text-align: justify; */ /* Uncomment for justified text if desired, but be aware of potential uneven word spacing */
 }
@@ -319,6 +320,7 @@ body {
 
   body {
     padding: 10px; /* Reduce global padding on small screens */
+    font-size: 17px; /* Slightly reduce font size for smaller screens */
   }
 
   #chapters {
