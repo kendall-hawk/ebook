@@ -2,7 +2,7 @@
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
-let allChapterIndex = []; // 存储所有章节的索引数据（id, title, file, thumbnail）
+let allChapterIndex = []; // 存储所有章节的索引数据（id, title, file, thumbnail, categories）
 let currentChapterData = null; // 存储当前加载并显示的章节完整数据
 let globalWordFrequenciesMap = new Map(); // 存储所有章节的词频
 let globalMaxFreq = 1; // 存储所有章节中的最高词频
@@ -41,8 +41,9 @@ export async function loadSingleChapterContent(filePath) {
  * 渲染章节目录到 DOM (现在用于主页的缩略图列表)。
  * @param {Array<Object>} chapterIndex - 章节索引数组。
  * @param {Function} onChapterClick - 点击章节时触发的回调函数。
+ * @param {string} [filterCategory='all'] - 用于过滤的分类名称，'all' 表示不过滤。
  */
-export function renderChapterToc(chapterIndex, onChapterClick) {
+export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 'all') {
   const toc = document.getElementById('toc');
   if (!toc) {
     console.error('未找到 #toc 容器。');
@@ -50,7 +51,23 @@ export function renderChapterToc(chapterIndex, onChapterClick) {
   }
   toc.innerHTML = ''; // 清空旧目录
 
-  chapterIndex.forEach(ch => {
+  // 根据 filterCategory 过滤章节
+  const filteredChapters = chapterIndex.filter(ch => {
+    if (filterCategory === 'all') {
+      return true; // 显示所有章节
+    }
+    // 确保 ch.categories 是一个数组
+    return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
+  });
+
+
+  if (filteredChapters.length === 0) {
+      toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
+      return;
+  }
+
+
+  filteredChapters.forEach(ch => {
     const itemLink = document.createElement('a');
     itemLink.href = `#${ch.id}`; // 链接到章节ID
     itemLink.classList.add('chapter-list-item'); // 添加 CSS 类
@@ -148,9 +165,10 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}?enablejsapi=1`);
+          // 确保这里使用的是正确的 YouTube embed URL 格式
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
       } else {
-          iframe.src = ensureEnableJsApi(videoUrl);
+          iframe.src = ensureEnableJsApi(videoUrl); // Fallback for non-YouTube URLs or if ID not found
       }
 
       wrapper.appendChild(iframe);
@@ -173,7 +191,6 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
     prevLink.classList.add('chapter-nav-link');
     prevLink.addEventListener('click', (e) => {
       e.preventDefault();
-      // 调用从 main.js 传入的回调函数进行导航
       navigateToChapterCallback(prevChapter.id, prevChapter.file);
     });
     navSection.appendChild(prevLink);
@@ -216,11 +233,28 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
     nextLink.classList.add('chapter-nav-link');
     nextLink.addEventListener('click', (e) => {
       e.preventDefault();
-      // 调用从 main.js 传入的回调函数进行导航
       navigateToChapterCallback(nextChapter.id, nextChapter.file);
     });
     navSection.appendChild(nextLink);
   }
+
+  // **新增：返回章节列表按钮** - 这个按钮只在文章页显示，方便返回分类列表
+  const backToTocLink = document.createElement('a');
+  backToTocLink.href = '#'; // 回到主页（无hash）
+  backToTocLink.textContent = '返回文章列表';
+  backToTocLink.classList.add('chapter-nav-link');
+  backToTocLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 触发 main.js 中的返回目录逻辑
+      navigateToChapterCallback(''); // 传入空字符串，表示返回主页
+  });
+  // 仅当存在其他导航链接时添加分隔符
+  if (navSection.children.length > 0) {
+      const separator3 = document.createTextNode(' | ');
+      navSection.appendChild(separator3);
+  }
+  navSection.appendChild(backToTocLink);
+
 
   chaptersContainer.appendChild(navSection);
 }
