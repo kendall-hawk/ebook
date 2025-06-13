@@ -90,33 +90,54 @@ export function renderMarkdownWithTooltips(
 }
 
 
-// setupTooltips 函数：它现在不再接收 tooltipData 参数
+// setupTooltips 函数：使用事件委托
 export function setupTooltips() {
     const tooltipDiv = document.getElementById('react-tooltips');
+    // 你需要有一个包裹所有文本内容的父容器，例如 #content 或 body
+    // 这里我假设你的文本内容最终会渲染到 `document.body` 或某个主内容区域，
+    // 或者你可以创建一个特定的容器 ID 来包裹所有带有 `.word` 的文本。
+    // 如果没有一个明确的父容器，直接绑定到 document 也是可以的，但更推荐限定范围。
+    const contentContainer = document.getElementById('content-area') || document.body; // 假设你的内容在 id 为 'content-area' 的元素中，如果没有则使用 body
+
     if (!tooltipDiv) {
         console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
         return;
     }
 
-    // 移除所有旧的事件监听器，避免重复绑定
-    document.querySelectorAll('.word').forEach(oldSpan => {
-        const newSpan = oldSpan.cloneNode(true);
-        oldSpan.parentNode.replaceChild(newSpan, oldSpan);
+    // 移除之前的全局点击事件监听器，避免重复绑定
+    // 这是一个清理步骤，确保每次调用 setupTooltips 时不会重复添加相同的事件
+    if (window._tooltipGlobalClickListener) {
+        document.removeEventListener('click', window._tooltipGlobalClickListener);
+    }
+    if (window._tooltipScrollListener) {
+        document.removeEventListener('scroll', window._tooltipScrollListener);
+    }
+
+    // 使用事件委托绑定点击事件到父容器
+    // 这样，即使 .word 元素是动态生成的，也能捕获到点击事件
+    contentContainer.addEventListener('click', function(e) {
+        const targetSpan = e.target.closest('.word');
+        if (targetSpan) {
+            showTooltip(e, targetSpan); // 传入 targetSpan 确保操作的是点击的元素
+        } else if (tooltipDiv.classList.contains('visible') &&
+            !e.target.closest('#react-tooltips')) { // 确保点击的不是 tooltip 本身
+            hideTooltip();
+        }
     });
 
-    // 绑定新的事件监听器 - 核心修改：改为 'click' 事件
-    document.querySelectorAll('.word').forEach(span => {
-        span.addEventListener('click', showTooltip); // 手机端点击触发
-    });
 
     // 绑定全局点击事件，点击页面其他地方隐藏tooltip
-    document.addEventListener('click', (e) => {
+    // 将函数引用保存起来，以便后续移除
+    window._tooltipGlobalClickListener = (e) => {
+        // 如果点击的目标是 tooltip 本身，或者点击的目标是 .word 元素（已经由上面的委托处理），则不隐藏
         if (tooltipDiv.classList.contains('visible') &&
             !e.target.closest('.word') &&
             !e.target.closest('#react-tooltips')) {
             hideTooltip();
         }
-    });
+    };
+    document.addEventListener('click', window._tooltipGlobalClickListener);
+
 
     // 鼠标离开 tooltip 区域时也隐藏 tooltip (对桌面端和某些模拟事件有用)
     tooltipDiv.addEventListener('mouseleave', hideTooltip);
@@ -128,36 +149,39 @@ export function setupTooltips() {
 
     // --- 新增：监听页面滚动事件，隐藏 Tooltip ---
     // 使用 document.addEventListener 监听 scroll 事件，并在滚动时隐藏 Tooltip
-    // 注意：这里使用了 'scroll' 事件，适用于页面滚动。如果你的内容是内部可滚动区域，可能需要监听该区域的滚动。
-    document.addEventListener('scroll', () => {
-        // 只有当 Tooltip 可见时才执行隐藏操作，避免不必要的调用
+    window._tooltipScrollListener = () => {
         if (tooltipDiv.classList.contains('visible')) {
             hideTooltip();
         }
-    }, { passive: true }); // 使用 { passive: true } 提高滚动性能
+    };
+    document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
 
 
-    function showTooltip(e) {
+    function showTooltip(e, clickedSpan) { // 接收点击的 span 元素
         clearTimeout(_currentHideTimeout);
         e.stopPropagation();
 
-        if (_currentActiveTooltipSpan === e.target) {
+        // 如果点击的是当前已经激活的 span，则隐藏并重置
+        if (_currentActiveTooltipSpan === clickedSpan) {
             hideTooltip();
             _currentActiveTooltipSpan = null;
             return;
         }
 
-        _currentActiveTooltipSpan = e.target;
-        const wordId = e.target.dataset.tooltipId;
+        _currentActiveTooltipSpan = clickedSpan; // 更新当前激活的 span
+        const wordId = clickedSpan.dataset.tooltipId; // 从点击的 span 获取 ID
         const data = _internalTooltipsData[wordId];
 
         if (data) {
             let htmlContent = '';
 
+            // 保持你的内容生成逻辑不变
             if (data.title) {
                 htmlContent += `<strong>${data.title}</strong><br>`;
             } else {
-                htmlContent += `<strong>${wordId.split('-')[0]}</strong><br>`;
+                // wordId.split('-')[0] 对于自定义 tooltip [[word|tooltipId]] 可能是 tooltipId，需要确认你的数据结构
+                // 如果是 regular word，wordId 就是 word 本身
+                htmlContent += `<strong>${wordId}</strong><br>`;
             }
 
             if (data.partOfSpeech) {
@@ -186,7 +210,7 @@ export function setupTooltips() {
             tooltipDiv.style.display = 'block';
             tooltipDiv.classList.add('visible');
 
-            const spanRect = e.target.getBoundingClientRect();
+            const spanRect = clickedSpan.getBoundingClientRect(); // 使用点击的 span 的位置
             const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
             const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
             const scrollX = window.scrollX || window.pageXOffset;
@@ -197,7 +221,7 @@ export function setupTooltips() {
 
             if (left < scrollX + 10) left = scrollX + 10;
             if (left + tooltipDiv.offsetWidth > scrollX + viewportWidth - 10) left = scrollX + viewportWidth - tooltipDiv.offsetWidth - 10;
-            if (top < scrollY + 10) top = spanRect.bottom + scrollY + 10;
+            if (top < scrollY + 10) top = spanRect.bottom + scrollY + 10; // 如果上方空间不足，则在下方显示
 
             tooltipDiv.style.left = `${left}px`;
             tooltipDiv.style.top = `${top}px`;
@@ -213,8 +237,8 @@ export function setupTooltips() {
             tooltipDiv.classList.remove('visible');
             setTimeout(() => {
                 tooltipDiv.style.display = 'none';
-                _currentActiveTooltipSpan = null;
-            }, 300);
-        }, 100);
+                _currentActiveTooltipSpan = null; // 重置当前激活的 span
+            }, 300); // 应该和 CSS transition duration 一致
+        }, 100); // 稍微延迟，以便鼠标从 span 移动到 tooltip
     }
 }
