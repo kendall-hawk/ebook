@@ -1,13 +1,13 @@
+// js/tooltip.js
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 
 marked.setOptions({ gfm: true, breaks: true });
 
-// 内部状态变量
 let _internalTooltipsData = {};
 let _currentHideTimeout = null;
 let _currentActiveTooltipSpan = null;
 
-// 加载 Tooltip 数据
+// 加载 tooltip 数据
 export async function loadTooltips() {
     try {
         const res = await fetch('data/tooltips.json');
@@ -21,7 +21,7 @@ export async function loadTooltips() {
     }
 }
 
-// 渲染 markdown 并处理词频与 tooltip
+// 渲染 markdown（带 tooltip 和词频字体大小）
 export function renderMarkdownWithTooltips(
     md,
     _unused,
@@ -33,69 +33,94 @@ export function renderMarkdownWithTooltips(
     const customPlaceholders = {};
     let counter = 0;
 
-    // 处理 [[word|tooltipId]]
+    // 处理 tooltip 特殊语法 [[word|id]]
     md = md.replace(/\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g, (_, word, id) => {
-        const freq = wordFrequenciesMap.get(word.toLowerCase()) || 0;
-        const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
-        const placeholder = `__CUSTOM_SPAN_${counter++}__`;
-        customPlaceholders[placeholder] = `<span class="word" data-tooltip-id="${id}" style="font-size:${size.toFixed(1)}px">${word}</span>`;
-        return placeholder;
-    });
-
-    // 普通词处理
-    md = md.replace(/\b([a-zA-Z0-9'-]+)\b/g, (word) => {
-        if (customPlaceholders[word]) return word;
         const lower = word.toLowerCase();
         const freq = wordFrequenciesMap.get(lower) || 0;
         const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
-        if (_internalTooltipsData.hasOwnProperty(lower)) {
-            return `<span class="word" data-tooltip-id="${lower}" style="font-size:${size.toFixed(1)}px">${word}</span>`;
-        } else if (freq > 0) {
-            return `<span style="font-size:${size.toFixed(1)}px">${word}</span>`;
-        }
-        return word;
+        const key = `__PLACEHOLDER_${counter++}__`;
+        customPlaceholders[key] = `<span class="word" data-tooltip-id="${id}" style="font-size:${size.toFixed(1)}px">${word}</span>`;
+        return key;
     });
 
-    // 插入占位 span
-    for (const [ph, html] of Object.entries(customPlaceholders)) {
-        md = md.replaceAll(ph, html);
+    // 将 Markdown 转 HTML（不再覆盖 placeholder）
+    let html = marked.parse(md);
+
+    // 恢复带 tooltip 的 span 占位符
+    for (const [key, value] of Object.entries(customPlaceholders)) {
+        html = html.replaceAll(key, value);
     }
 
-    return marked.parse(md);
+    // 用 DOM 处理其余普通单词，应用词频大小
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+
+    const walkTextNodes = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const fragment = document.createDocumentFragment();
+            const parts = node.textContent.split(/\b/);
+            parts.forEach(text => {
+                const wordMatch = /^[a-zA-Z0-9'-]+$/.test(text);
+                if (wordMatch) {
+                    const lower = text.toLowerCase();
+                    const freq = wordFrequenciesMap.get(lower) || 0;
+                    const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
+
+                    if (_internalTooltipsData.hasOwnProperty(lower)) {
+                        const span = document.createElement('span');
+                        span.className = 'word';
+                        span.dataset.tooltipId = lower;
+                        span.style.fontSize = `${size.toFixed(1)}px`;
+                        span.textContent = text;
+                        fragment.appendChild(span);
+                    } else if (freq > 0) {
+                        const span = document.createElement('span');
+                        span.style.fontSize = `${size.toFixed(1)}px`;
+                        span.textContent = text;
+                        fragment.appendChild(span);
+                    } else {
+                        fragment.appendChild(document.createTextNode(text));
+                    }
+                } else {
+                    fragment.appendChild(document.createTextNode(text));
+                }
+            });
+            node.replaceWith(fragment);
+        } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes) {
+            [...node.childNodes].forEach(walkTextNodes);
+        }
+    };
+
+    walkTextNodes(wrapper);
+    return wrapper.innerHTML;
 }
 
-// 初始化 tooltip 行为（事件委托、位置计算等）
+// 初始化 tooltip 事件
 export function setupTooltips() {
     const tooltip = document.getElementById('react-tooltips');
     const container = document.getElementById('content-area') || document.body;
-
     if (!tooltip) {
         console.warn('#react-tooltips not found.');
         return;
     }
 
-    // 清除旧事件
     if (window._tooltipGlobalClickListener) document.removeEventListener('click', window._tooltipGlobalClickListener);
     if (window._tooltipScrollListener) document.removeEventListener('scroll', window._tooltipScrollListener);
 
-    // 委托点击处理 word 元素
     container.addEventListener('click', (e) => {
         const span = e.target.closest('.word');
         if (span) showTooltip(span);
         else if (!e.target.closest('#react-tooltips')) hideTooltip();
     });
 
-    // 全局点击关闭
     window._tooltipGlobalClickListener = (e) => {
         if (!e.target.closest('.word') && !e.target.closest('#react-tooltips')) hideTooltip();
     };
     document.addEventListener('click', window._tooltipGlobalClickListener);
 
-    // 鼠标移出 tooltip
     tooltip.addEventListener('mouseleave', hideTooltip);
     tooltip.addEventListener('mouseenter', () => clearTimeout(_currentHideTimeout));
 
-    // 滚动关闭 tooltip
     window._tooltipScrollListener = () => {
         if (tooltip.classList.contains('visible')) hideTooltip();
     };
@@ -126,7 +151,6 @@ export function setupTooltips() {
         tooltip.style.display = 'block';
         tooltip.classList.add('visible');
 
-        // 位置计算
         const rect = span.getBoundingClientRect();
         const scrollX = window.scrollX;
         const scrollY = window.scrollY;
