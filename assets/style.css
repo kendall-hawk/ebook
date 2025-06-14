@@ -1,56 +1,50 @@
-/* assets/style.css - Complete CSS for Merriweather & Open Sans Typography */
-
 /* --- Font Imports --- */
-/* Imports Merriweather (Regular 400, Bold 700) and Open Sans (Regular 400, Bold 700) from Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;700&display=swap');
 
 /* --- Global Base Styles --- */
 body {
-  font-family: 'Merriweather', serif; /* Primary font for body text */
-  font-size: 18px; /* Adjusted: Increased from 17px to 18px for larger text */
-  font-weight: 400; /* Merriweather's regular weight. Consider 500 or 600 if available for a specific font, but Merriweather typically has 400 and 700. */
-  line-height: 1.7; /* Generous line height for improved readability */
+  font-family: 'Merriweather', serif, Georgia, 'Times New Roman', Times;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.7;
   margin: 0;
   padding: 20px;
-  background-color: #f4f4f4; /* Light background for contrast */
-  color: #333; /* Dark gray text for good contrast */
-  -webkit-font-smoothing: antialiased; /* Enhances font rendering on WebKit browsers (e.g., Chrome, Safari) */
-  -moz-osx-font-smoothing: grayscale; /* Enhances font rendering on macOS Firefox */
+  background-color: #f4f4f4;
+  color: #333;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- Content Sections & Typography --- */
+/* --- Content Container --- */
 #chapters {
-  background-color: #fff; /* White background for content */
-  padding: 20px;
+  background-color: #fff;
+  padding: 0 15px 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-  max-width: 800px; /* Limits content width for optimal line length */
-  margin: 20px auto; /* Centers the content block */
-  padding: 0 15px; /* Horizontal padding within the content block */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 20px auto;
 }
 
-/* Headings within chapters */
+/* --- Headings --- */
 #chapters h2 {
-  font-family: 'Open Sans', sans-serif; /* Open Sans for headings */
-  font-weight: 700; /* Bold weight for emphasis */
-  font-size: 1.8em; /* Larger size for main chapter titles (relative to body font-size) */
-  line-height: 1.3; /* Tighter line height for headings */
-  color: #0056b3; /* Primary blue for headings */
-  border-bottom: 2px solid #0056b3; /* Underline for separation */
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.8em;
+  line-height: 1.3;
+  color: #0056b3;
+  border-bottom: 2px solid #0056b3;
   padding-bottom: 10px;
-  margin-top: 0;
-  margin-bottom: 0.8em; /* Space below headings */
+  margin: 0 0 0.8em;
 }
 
-/* Paragraph spacing */
+/* --- Paragraphs --- */
 #chapters p {
-  line-height: 1.8; /* Adjusted: Increased from 1.7 to 1.8 for more comfortable spacing with larger font */
-  margin-bottom: 1.5em; /* Ample space between paragraphs */
-  /* text-align: justify; */ /* Uncomment for justified text if desired, but be aware of potential uneven word spacing */
+  line-height: 1.8;
+  margin-bottom: 1.5em;
+  /* text-align: justify; */
 }
 
-/* --- Navigation & Auxiliary Text Styles --- */
-/* Table of Contents links */
+/* --- Table of Contents --- */
 #toc {
   margin-bottom: 30px;
   background-color: #e9e9e9;
@@ -59,7 +53,7 @@ body {
 }
 
 #toc a {
-  font-family: 'Open Sans', sans-serif; /* Open Sans for TOC links */
+  font-family: 'Open Sans', sans-serif;
   display: block;
   padding: 8px 10px;
   text-decoration: none;
@@ -76,11 +70,10 @@ body {
   color: #0056b3;
 }
 
-/* Chapter navigation links (Prev/Next) */
+/* --- Chapter Navigation --- */
 .chapter-nav-links {
   text-align: center;
-  margin-top: 30px;
-  margin-bottom: 50px;
+  margin: 30px 0 50px;
   padding: 10px;
   background-color: #f0f0f0;
   border-radius: 5px;
@@ -92,14 +85,13 @@ body {
 }
 
 .chapter-nav-link {
-  font-family: 'Open Sans', sans-serif; /* Open Sans for nav links */
+  font-family: 'Open Sans', sans-serif;
   display: inline-block;
   padding: 8px 15px;
   background-color: #007bff;
   color: white;
   text-decoration: none;
   border-radius: 5px;
-  transition: background-color 0.3s ease;
   font-size: 0.95em;
   border: 1px solid #007bff;
   transition: all 0.3s ease;
@@ -117,7 +109,7 @@ body {
   margin: 0 5px;
 }
 
-/* Chapter list grid on homepage */
+/* --- Chapter List Grid --- */
 .chapter-list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -152,14 +144,14 @@ body {
 }
 
 .chapter-list-item h3 {
-  font-family: 'Open Sans', sans-serif; /* Open Sans for card titles */
+  font-family: 'Open Sans', sans-serif;
   margin: 15px;
   font-size: 1.2em;
   color: #0056b3;
   flex-grow: 1;
 }
 
-/* Category navigation buttons */
+/* --- Category Navigation --- */
 #category-nav {
   text-align: center;
   padding: 15px 0;
@@ -173,7 +165,7 @@ body {
 }
 
 .category-button {
-  font-family: 'Open Sans', sans-serif; /* Open Sans for category buttons */
+  font-family: 'Open Sans', sans-serif;
   background-color: #007bff;
   color: white;
   border: none;
@@ -197,38 +189,35 @@ body {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* --- Tooltip Styles --- */
+/* --- Tooltip Container --- */
 #react-tooltips {
   position: absolute;
-  display: none; /* Hidden by default */
+  display: none;
   opacity: 0;
-  transform: translateY(5px); /* Starts slightly below target */
-
-  font-family: 'Open Sans', sans-serif; /* Open Sans for tooltip content */
-  background-color: #f8f9fa; /* Light background for tooltip */
-  color: #343a40; /* Dark text for tooltip */
+  transform: translateY(5px);
+  font-family: 'Open Sans', sans-serif;
+  background-color: #f8f9fa;
+  color: #343a40;
   padding: 12px 18px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* More prominent shadow */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border: 1px solid #ced4da;
-
-  max-width: 300px; /* Constrains tooltip width */
-  z-index: 10000; /* Ensures tooltip is on top */
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* Smooth transition */
-  pointer-events: auto; /* Allows interaction with tooltip content */
-
-  line-height: 1.4; /* Adjusted line height for tooltip content */
+  max-width: 300px;
+  z-index: 10000;
+  pointer-events: auto;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  will-change: opacity, transform;
+  line-height: 1.4;
 }
 
 #react-tooltips.visible {
   display: block;
   opacity: 1;
-  transform: translateY(0); /* Slides up into view */
+  transform: translateY(0);
 }
 
-/* Tooltip internal content styles */
 #react-tooltips strong {
-  color: #007bff; /* Highlight color for bold text */
+  color: #007bff;
   font-size: 1.1em;
   display: block;
   margin: 0;
@@ -237,7 +226,7 @@ body {
 }
 
 #react-tooltips em {
-  color: #6c757d; /* Muted color for emphasis */
+  color: #6c757d;
   font-size: 0.9em;
   display: block;
   margin: 0;
@@ -252,22 +241,26 @@ body {
 }
 
 #react-tooltips br {
-  line-height: 0.5; /* Reduce line height for <br> for tighter spacing */
+  line-height: 0.5;
 }
 
-/* --- Word with Tooltip Styles --- */
+/* --- Word Tooltip Styles --- */
 .word {
-  cursor: help; /* Cursor hint for clickable/hoverable element */
-  border-bottom: 2px dotted #007bff; /* Dotted underline for visual cue */
-  text-decoration: none; /* Ensure no default underline */
+  cursor: help;
+  border-bottom: 2px dotted #007bff;
+  text-decoration: none;
+  display: inline-block;
+  vertical-align: baseline;
+  font-size: inherit;
+  line-height: 1.2;
 }
 
 .word:hover {
-  color: #0056b3; /* Darker blue on hover */
-  border-bottom-color: #0056b3; /* Dotted line changes color on hover */
+  color: #0056b3;
+  border-bottom-color: #0056b3;
 }
 
-/* --- Floating Video Player Styles --- */
+/* --- Floating Video Player --- */
 .floating-video {
   position: fixed;
   width: 320px;
@@ -287,7 +280,7 @@ body {
 }
 
 .video-header {
-  font-family: 'Open Sans', sans-serif; /* Open Sans for video header */
+  font-family: 'Open Sans', sans-serif;
   background: #222;
   color: #fff;
   padding: 4px 8px;
@@ -312,23 +305,23 @@ body {
   color: #f00;
 }
 
-/* --- Media Queries --- */
+/* --- Responsive Adjustments --- */
 @media (max-width: 767px) {
   .floating-video {
-    display: none !important; /* Hides floating video on smaller screens */
+    display: none !important;
   }
 
   body {
-    padding: 10px; /* Reduce global padding on small screens */
-    font-size: 17px; /* Slightly reduce font size for smaller screens */
+    padding: 10px;
+    font-size: 17px;
   }
 
   #chapters {
-    margin: 10px auto; /* Adjust margin for small screens */
-    padding: 0 10px;
+    margin: 10px auto;
+    padding: 0 10px 20px;
   }
 
   #chapters h2 {
-    font-size: 1.5em; /* Slightly smaller headings on small screens */
+    font-size: 1.5em;
   }
 }
