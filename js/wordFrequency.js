@@ -1,7 +1,7 @@
 // js/wordFrequency.js
 
-// 简单的英文停用词列表 (小写)
-const STOP_WORDS = new Set([
+// 简单英文停用词集合，方便外部扩展和复用
+export const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it",
   "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these",
   "they", "this", "to", "was", "will", "with", "he", "she", "him", "her", "his", "hers", "we", "us", "our", "ours",
@@ -9,53 +9,47 @@ const STOP_WORDS = new Set([
   "whose", "where", "when", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
   "some", "such", "no", "nor", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will",
   "just", "don", "should", "now", "ve", "ll", "re", "m", "has", "had", "would", "could", "did", "do", "does", "get",
-  "neil", "beth" // 根据你的需求，这里可以添加其他停用词
+  "neil", "beth" // 根据需要自定义或扩展
 ]);
 
-
 /**
- * 统计文本中单词的频率。
- * @param {Array<string>} allParagraphTexts - 包含所有章节段落文本的数组。
- * @param {Set<string>} [stopWords=STOP_WORDS] - 可选的停用词Set。
- * @param {Set<string>} [protectedWords=new Set()] - 无论如何都不能被过滤的词语集合（例如tooltip关键词）。
- * @returns {{wordFrequenciesMap: Map<string, number>, maxFreq: number}} - 包含单词频率Map和最高频率。
+ * 统计文本中单词的频率
+ * @param {string[]|string} allParagraphTexts - 章节段落文本数组或单一字符串
+ * @param {Set<string>} [stopWords=STOP_WORDS] - 停用词集合，默认英文停用词
+ * @param {Set<string>} [protectedWords=new Set()] - 需强制保留统计的词语集合（例如 tooltip 关键词）
+ * @returns {{wordFrequenciesMap: Map<string, number>, maxFreq: number}} - 单词频率 Map 和最大频率
  */
-export function getWordFrequencies(allParagraphTexts, stopWords = STOP_WORDS, protectedWords = new Set()) {
+export const getWordFrequencies = (
+  allParagraphTexts,
+  stopWords = STOP_WORDS,
+  protectedWords = new Set()
+) => {
   const wordCounts = new Map();
-  let maxFreq = 0; // 初始化最高频率
+  let maxFreq = 0;
 
-  // 确保 allParagraphTexts 是数组，且其元素是字符串
-  if (!Array.isArray(allParagraphTexts)) {
-      console.warn("getWordFrequencies: Input allParagraphTexts is not an array. Converting to array with single element.");
-      allParagraphTexts = [String(allParagraphTexts)];
-  }
+  // 确保 allParagraphTexts 为字符串数组
+  const paragraphs = Array.isArray(allParagraphTexts) 
+    ? allParagraphTexts.filter(p => typeof p === 'string') 
+    : [String(allParagraphTexts)];
 
-  allParagraphTexts.forEach(paragraph => {
-    if (typeof paragraph !== 'string') {
-        console.warn("getWordFrequencies: Non-string element found in allParagraphTexts, skipping:", paragraph);
-        return;
-    }
+  paragraphs.forEach(paragraph => {
+    // 转小写，替换除字母、数字、连字符、撇号外的所有字符为空格
     const words = paragraph
       .toLowerCase()
-      // 优化：一次性替换掉所有标点符号和特殊字符，但保留内部的连字符和撇号
-      // 这里对标点符号的替换更为精确，避免移除单词内部的有效字符。
-      // 注意：如果你的单词会包含数字，可能需要调整 [^a-z0-9'-]
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'“”，。？！\[\]\{\}\s+]/g, ' ') // 替换标点为单个空格
-      .split(/\s+/) // 使用一个或多个空格作为分隔符
-      .filter(word => word.length > 0); // 过滤掉空字符串
+      .replace(/[^a-z0-9'-]+/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
 
     words.forEach(word => {
-      // 只有当词语不在停用词列表，或者它在受保护的关键词列表时，才进行统计
-      // 这里的逻辑已经确保了 protectedWords 优先级更高
+      // 统计条件：不在停用词或在 protectedWords 中
       if (!stopWords.has(word) || protectedWords.has(word)) {
-        const currentCount = (wordCounts.get(word) || 0) + 1;
-        wordCounts.set(word, currentCount);
-        if (currentCount > maxFreq) {
-          maxFreq = currentCount; // 更新最高频率
-        }
+        const count = (wordCounts.get(word) || 0) + 1;
+        wordCounts.set(word, count);
+        if (count > maxFreq) maxFreq = count;
       }
     });
   });
 
-  return { wordFrequenciesMap: wordCounts, maxFreq: maxFreq };
-}
+  return { wordFrequenciesMap: wordCounts, maxFreq };
+};
