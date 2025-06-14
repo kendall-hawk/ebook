@@ -1,42 +1,28 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>互动文章阅读器</title>
+    <title>Chapter Reader</title>
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <header class="app-header">
-        <h1>互动文章阅读器</h1>
-    </header>
 
-    <main class="app-main">
-        <nav id="category-nav" class="category-nav">
+    <nav id="category-nav">
+        <button class="category-button active" data-category="all">All Articles</button>
+        </nav>
+
+    <main>
+        <nav id="toc" class="chapter-list-grid">
             </nav>
 
-        <section id="toc" class="chapter-toc">
-            <p class="loading-message">加载章节目录中...</p>
-        </section>
-
-        <section id="chapters" class="chapter-content-section hidden">
-            <p class="loading-message">加载章节内容中...</p>
-            <div class="chapter-content-nav">
-                <button id="back-to-toc-btn" class="nav-button">返回文章列表</button>
-                <button id="back-to-top-btn" class="nav-button">返回文章开头</button>
-                <button id="prev-chapter-btn" class="nav-button">上一篇</button>
-                <button id="next-chapter-btn" class="nav-button">下一篇</button>
-            </div>
-            <article id="current-chapter-article" class="current-chapter-article"></article>
-        </section>
+        <section id="chapters" style="display: none;">
+            </section>
     </main>
 
-    <footer class="app-footer">
-        <p>&copy; 2024 互动文章阅读器. All rights reserved.</p>
-    </footer>
-
-    <div id="react-tooltips" class="custom-tooltip"></div>
+    <div id="react-tooltips" class="tooltip"></div>
 
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
+index.html
