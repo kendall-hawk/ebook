@@ -3,179 +3,219 @@ import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 
 marked.setOptions({ gfm: true, breaks: true });
 
-let tooltipsData = {};
-let hideTimeout = null;
-let activeSpan = null;
+let _internalTooltipsData = {};
+let _currentHideTimeout = null;
+let _currentActiveTooltipSpan = null;
 
-// 加载 tooltip 数据
+/**
+ * 加载 tooltip 数据
+ * @returns {Promise<Object>} tooltip 数据对象
+ */
 export async function loadTooltips() {
-    try {
-        const res = await fetch('data/tooltips.json');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        tooltipsData = await res.json();
-        return tooltipsData;
-    } catch (err) {
-        console.error('加载 tooltip 数据失败:', err);
-        tooltipsData = {};
-        return {};
-    }
+  try {
+    const res = await fetch('data/tooltips.json');
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    _internalTooltipsData = await res.json();
+    return _internalTooltipsData;
+  } catch (error) {
+    console.error('加载 tooltip 数据失败:', error);
+    _internalTooltipsData = {};
+    return {};
+  }
 }
 
-// 渲染 markdown，并插入 tooltip 与词频样式
-export function renderMarkdownWithTooltips(md, _unused, freqMap, maxFreq, baseSize = 16, maxInc = 12) {
-    const placeholderMap = {};
-    let counter = 0;
+/**
+ * 渲染 Markdown 字符串，支持 [[word|id]] 语法，且根据词频设置字体大小
+ * @param {string} md markdown 字符串
+ * @param {*} _unused 占位参数（可忽略）
+ * @param {Map<string, number>} wordFrequenciesMap 词频映射
+ * @param {number} maxFreq 词频最大值
+ * @param {number} baseFontSize 基础字体大小，默认16
+ * @param {number} maxFontSizeIncrease 最大字体增量，默认12
+ * @returns {string} 渲染后的 HTML
+ */
+export function renderMarkdownWithTooltips(
+  md,
+  _unused,
+  wordFrequenciesMap,
+  maxFreq,
+  baseFontSize = 16,
+  maxFontSizeIncrease = 12
+) {
+  const customPlaceholders = {};
+  let counter = 0;
 
-    // 匹配 [[word|id]] 并生成 placeholder
-    md = md.replace(/\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g, (_, word, id) => {
-        const lw = word.toLowerCase();
-        const freq = freqMap.get(lw) || 0;
-        const size = freq > 0 ? baseSize + (freq / maxFreq) * maxInc : baseSize;
-        const key = `__PLACEHOLDER_${counter++}__`;
-        placeholderMap[key] = `<span class="word" data-tooltip-id="${id}" style="font-size:${size.toFixed(1)}px">${word}</span>`;
-        return key;
-    });
+  // 处理 tooltip 特殊语法 [[word|id]]
+  md = md.replace(/\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g, (_, word, id) => {
+    const lower = word.toLowerCase();
+    const freq = wordFrequenciesMap.get(lower) || 0;
+    const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
+    const key = `__PLACEHOLDER_${counter++}__`;
+    customPlaceholders[key] = `<span class="word" data-tooltip-id="${id}" style="font-size:${size.toFixed(1)}px">${word}</span>`;
+    return key;
+  });
 
-    // 转换为 HTML
-    let html = marked.parse(md);
+  // 将 Markdown 转 HTML（不再覆盖 placeholder）
+  let html = marked.parse(md);
 
-    // 替换占位符为真实 span
-    for (const [ph, span] of Object.entries(placeholderMap)) {
-        html = html.replaceAll(ph, span);
-    }
+  // 恢复带 tooltip 的 span 占位符
+  for (const [key, value] of Object.entries(customPlaceholders)) {
+    html = html.replaceAll(key, value);
+  }
 
-    // 应用词频样式与 tooltip（普通文本）
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
+  // 用 DOM 处理其余普通单词，应用词频大小
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
 
-    const applyFreqStyling = (node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-            const frag = document.createDocumentFragment();
-            const parts = node.textContent.split(/\b/);
+  const walkTextNodes = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const fragment = document.createDocumentFragment();
+      const parts = node.textContent.split(/\b/);
+      parts.forEach(text => {
+        const wordMatch = /^[a-zA-Z0-9'-]+$/.test(text);
+        if (wordMatch) {
+          const lower = text.toLowerCase();
+          const freq = wordFrequenciesMap.get(lower) || 0;
+          const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
 
-            for (const part of parts) {
-                const isWord = /^[a-zA-Z0-9'-]+$/.test(part);
-                if (isWord) {
-                    const lw = part.toLowerCase();
-                    const freq = freqMap.get(lw) || 0;
-                    const size = freq > 0 ? baseSize + (freq / maxFreq) * maxInc : baseSize;
-
-                    const span = document.createElement('span');
-                    span.textContent = part;
-                    span.style.fontSize = `${size.toFixed(1)}px`;
-
-                    if (tooltipsData.hasOwnProperty(lw)) {
-                        span.className = 'word';
-                        span.dataset.tooltipId = lw;
-                    }
-
-                    frag.appendChild(span);
-                } else {
-                    frag.appendChild(document.createTextNode(part));
-                }
-            }
-
-            node.replaceWith(frag);
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-            [...node.childNodes].forEach(applyFreqStyling);
+          if (_internalTooltipsData.hasOwnProperty(lower)) {
+            const span = document.createElement('span');
+            span.className = 'word';
+            span.dataset.tooltipId = lower;
+            span.style.fontSize = `${size.toFixed(1)}px`;
+            span.textContent = text;
+            fragment.appendChild(span);
+          } else if (freq > 0) {
+            const span = document.createElement('span');
+            span.style.fontSize = `${size.toFixed(1)}px`;
+            span.textContent = text;
+            fragment.appendChild(span);
+          } else {
+            fragment.appendChild(document.createTextNode(text));
+          }
+        } else {
+          fragment.appendChild(document.createTextNode(text));
         }
-    };
+      });
+      node.replaceWith(fragment);
+    } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes) {
+      [...node.childNodes].forEach(walkTextNodes);
+    }
+  };
 
-    applyFreqStyling(wrapper);
-    return wrapper.innerHTML;
+  walkTextNodes(wrapper);
+  return wrapper.innerHTML;
 }
 
-// 初始化 tooltip 功能
+/**
+ * 方便使用的接口：传入字符串数组自动合并成 markdown 渲染带 tooltip 的 HTML
+ * @param {string[]} paragraphs 段落数组
+ * @param {Map<string, number>} wordFrequenciesMap 词频映射
+ * @param {number} maxFreq 词频最大值
+ * @param {number} baseFontSize 基础字体大小
+ * @param {number} maxFontSizeIncrease 最大字体增量
+ * @returns {string} 渲染后的 HTML
+ */
+export function renderParagraphArrayToHtml(
+  paragraphs,
+  wordFrequenciesMap,
+  maxFreq,
+  baseFontSize = 16,
+  maxFontSizeIncrease = 12
+) {
+  const fullMarkdown = paragraphs.join('\n\n');
+  return renderMarkdownWithTooltips(
+    fullMarkdown,
+    null,
+    wordFrequenciesMap,
+    maxFreq,
+    baseFontSize,
+    maxFontSizeIncrease
+  );
+}
+
+/**
+ * 初始化 tooltip 事件（必须调用一次）
+ */
 export function setupTooltips() {
-    const tooltip = document.getElementById('react-tooltips');
-    const container = document.getElementById('content-area') || document.body;
+  const tooltip = document.getElementById('react-tooltips');
+  const container = document.getElementById('content-area') || document.body;
+  if (!tooltip) {
+    console.warn('#react-tooltips not found.');
+    return;
+  }
 
-    if (!tooltip) {
-        console.warn('未找到 #react-tooltips 元素');
-        return;
+  if (window._tooltipGlobalClickListener) document.removeEventListener('click', window._tooltipGlobalClickListener);
+  if (window._tooltipScrollListener) document.removeEventListener('scroll', window._tooltipScrollListener);
+
+  container.addEventListener('click', (e) => {
+    const span = e.target.closest('.word');
+    if (span) showTooltip(span);
+    else if (!e.target.closest('#react-tooltips')) hideTooltip();
+  });
+
+  window._tooltipGlobalClickListener = (e) => {
+    if (!e.target.closest('.word') && !e.target.closest('#react-tooltips')) hideTooltip();
+  };
+  document.addEventListener('click', window._tooltipGlobalClickListener);
+
+  tooltip.addEventListener('mouseleave', hideTooltip);
+  tooltip.addEventListener('mouseenter', () => clearTimeout(_currentHideTimeout));
+
+  window._tooltipScrollListener = () => {
+    if (tooltip.classList.contains('visible')) hideTooltip();
+  };
+  document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
+
+  function showTooltip(span) {
+    clearTimeout(_currentHideTimeout);
+    if (_currentActiveTooltipSpan === span) {
+      hideTooltip();
+      _currentActiveTooltipSpan = null;
+      return;
     }
 
-    // 清理旧监听器
-    document.removeEventListener('click', window._tooltipGlobalClickListener);
-    document.removeEventListener('scroll', window._tooltipScrollListener);
+    _currentActiveTooltipSpan = span;
+    const id = span.dataset.tooltipId;
+    const data = _internalTooltipsData[id];
+    if (!data) return console.warn(`No tooltip for ID: ${id}`), hideTooltip();
 
-    // 点击展示 tooltip
-    container.addEventListener('click', (e) => {
-        const target = e.target.closest('.word');
-        if (target) {
-            showTooltip(target);
-        } else if (!e.target.closest('#react-tooltips')) {
-            hideTooltip();
-        }
-    });
+    let html = `<strong>${data.title || id}</strong><br>`;
+    if (data.partOfSpeech) html += `<em>(${data.partOfSpeech})</em><br>`;
+    if (data.description) html += `${data.description}<br>`;
+    else if (data.definition) html += `${data.definition}<br>`;
+    if (data["Image Description"]) html += `${data["Image Description"]}<br>`;
+    if (data.example) html += `${data.example}<br>`;
+    if (data.category) html += `${data.category}`;
 
-    // 全局点击隐藏
-    window._tooltipGlobalClickListener = (e) => {
-        if (!e.target.closest('.word') && !e.target.closest('#react-tooltips')) hideTooltip();
-    };
-    document.addEventListener('click', window._tooltipGlobalClickListener);
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.classList.add('visible');
 
-    // 鼠标离开隐藏 tooltip
-    tooltip.addEventListener('mouseleave', hideTooltip);
-    tooltip.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+    const rect = span.getBoundingClientRect();
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-    // 滚动隐藏 tooltip
-    window._tooltipScrollListener = () => {
-        if (tooltip.classList.contains('visible')) hideTooltip();
-    };
-    document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
+    let left = rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2;
+    let top = rect.top + scrollY - tooltip.offsetHeight - 10;
+    if (left < 10) left = 10;
+    if (left + tooltip.offsetWidth > vw - 10) left = vw - tooltip.offsetWidth - 10;
+    if (top < 10) top = rect.bottom + scrollY + 10;
 
-    function showTooltip(span) {
-        clearTimeout(hideTimeout);
-        if (activeSpan === span) {
-            hideTooltip();
-            activeSpan = null;
-            return;
-        }
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
 
-        activeSpan = span;
-        const id = span.dataset.tooltipId;
-        const data = tooltipsData[id];
-        if (!data) {
-            console.warn(`缺少 tooltip 数据: ${id}`);
-            return hideTooltip();
-        }
-
-        const lines = [
-            `<strong>${data.title || id}</strong>`,
-            data.partOfSpeech ? `<em>(${data.partOfSpeech})</em>` : '',
-            data.description || data.definition || '',
-            data["Image Description"] || '',
-            data.example || '',
-            data.category || ''
-        ].filter(Boolean);
-
-        tooltip.innerHTML = lines.join('<br>');
-        tooltip.style.display = 'block';
-        tooltip.classList.add('visible');
-
-        // 计算位置
-        const rect = span.getBoundingClientRect();
-        const { scrollX, scrollY, innerWidth: vw } = window;
-
-        let left = rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2;
-        let top = rect.top + scrollY - tooltip.offsetHeight - 10;
-
-        left = Math.max(10, Math.min(left, vw - tooltip.offsetWidth - 10));
-        if (top < 10) top = rect.bottom + scrollY + 10;
-
-        tooltip.style.left = `${left}px`;
-        tooltip.style.top = `${top}px`;
-    }
-
-    function hideTooltip() {
-        clearTimeout(hideTimeout);
-        hideTimeout = setTimeout(() => {
-            tooltip.classList.remove('visible');
-            setTimeout(() => {
-                tooltip.style.display = 'none';
-                activeSpan = null;
-            }, 300);
-        }, 100);
-    }
+  function hideTooltip() {
+    clearTimeout(_currentHideTimeout);
+    _currentHideTimeout = setTimeout(() => {
+      tooltip.classList.remove('visible');
+      setTimeout(() => {
+        tooltip.style.display = 'none';
+        _currentActiveTooltipSpan = null;
+      }, 300);
+    }, 100);
+  }
 }
