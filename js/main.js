@@ -1,221 +1,174 @@
-// js/tooltip.js
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+import {
+    loadChapterIndex,
+    loadSingleChapterContent,
+    renderChapterToc,
+    renderSingleChapterContent,
+    setGlobalWordFrequencies,
+    getGlobalWordFrequenciesMap,
+    getGlobalMaxFreq
+} from './chapterRenderer.js';
+import { loadTooltips, setupTooltips } from './tooltip.js';
+import { getWordFrequencies } from './wordFrequency.js';
 
-marked.setOptions({ gfm: true, breaks: true });
+let allChapterIndexData = [];
+let currentFilterCategory = 'all';
 
-let _internalTooltipsData = {};
-let _currentHideTimeout = null;
-let _currentActiveTooltipSpan = null;
+document.addEventListener('DOMContentLoaded', async () => {
+    const tocEl = document.getElementById('toc');
+    const chaptersEl = document.getElementById('chapters');
+    const navEl = document.getElementById('category-nav');
 
-/**
- * 加载 tooltip 数据
- * @returns {Promise<Object>} tooltip 数据对象
- */
-export async function loadTooltips() {
-  try {
-    const res = await fetch('data/tooltips.json');
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    _internalTooltipsData = await res.json();
-    return _internalTooltipsData;
-  } catch (error) {
-    console.error('加载 tooltip 数据失败:', error);
-    _internalTooltipsData = {};
-    return {};
-  }
-}
+    if (!tocEl || !chaptersEl || !navEl) {
+        console.error('缺少必要 DOM 元素');
+        return;
+    }
 
-/**
- * 渲染 Markdown 字符串，支持 [[word|id]] 语法，且根据词频设置字体大小
- * @param {string} md markdown 字符串
- * @param {*} _unused 占位参数（可忽略）
- * @param {Map<string, number>} wordFrequenciesMap 词频映射
- * @param {number} maxFreq 词频最大值
- * @param {number} baseFontSize 基础字体大小，默认16
- * @param {number} maxFontSizeIncrease 最大字体增量，默认12
- * @returns {string} 渲染后的 HTML
- */
-export function renderMarkdownWithTooltips(
-  md,
-  _unused,
-  wordFrequenciesMap,
-  maxFreq,
-  baseFontSize = 16,
-  maxFontSizeIncrease = 12
-) {
-  const customPlaceholders = {};
-  let counter = 0;
+    try {
+        allChapterIndexData = await loadChapterIndex();
+        const tooltipData = await loadTooltips();
 
-  // 处理 tooltip 特殊语法 [[word|id]]
-  md = md.replace(/\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g, (_, word, id) => {
-    const lower = word.toLowerCase();
-    const freq = wordFrequenciesMap.get(lower) || 0;
-    const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
-    const key = `__PLACEHOLDER_${counter++}__`;
-    customPlaceholders[key] = `<span class="word" data-tooltip-id="${id}" style="font-size:${size.toFixed(1)}px">${word}</span>`;
-    return key;
-  });
-
-  // 将 Markdown 转 HTML（不再覆盖 placeholder）
-  let html = marked.parse(md);
-
-  // 恢复带 tooltip 的 span 占位符
-  for (const [key, value] of Object.entries(customPlaceholders)) {
-    html = html.replaceAll(key, value);
-  }
-
-  // 用 DOM 处理其余普通单词，应用词频大小
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = html;
-
-  const walkTextNodes = (node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const fragment = document.createDocumentFragment();
-      const parts = node.textContent.split(/\b/);
-      parts.forEach(text => {
-        const wordMatch = /^[a-zA-Z0-9'-]+$/.test(text);
-        if (wordMatch) {
-          const lower = text.toLowerCase();
-          const freq = wordFrequenciesMap.get(lower) || 0;
-          const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
-
-          if (_internalTooltipsData.hasOwnProperty(lower)) {
-            const span = document.createElement('span');
-            span.className = 'word';
-            span.dataset.tooltipId = lower;
-            span.style.fontSize = `${size.toFixed(1)}px`;
-            span.textContent = text;
-            fragment.appendChild(span);
-          } else if (freq > 0) {
-            const span = document.createElement('span');
-            span.style.fontSize = `${size.toFixed(1)}px`;
-            span.textContent = text;
-            fragment.appendChild(span);
-          } else {
-            fragment.appendChild(document.createTextNode(text));
-          }
-        } else {
-          fragment.appendChild(document.createTextNode(text));
+        if (!allChapterIndexData.length) {
+            tocEl.innerHTML = '<p style="text-align: center; padding: 50px; color: #666;">No articles found.</p>';
+            return;
         }
-      });
-      node.replaceWith(fragment);
-    } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes) {
-      [...node.childNodes].forEach(walkTextNodes);
+
+        // 收集所有段落与 tooltip ID，用于词频统计
+        const protectedWords = new Set();
+        const allParagraphs = [];
+        const contentPromises = allChapterIndexData.map(async chapter => {
+            const contentObj = await loadSingleChapterContent(chapter.file);
+            const content = chapter.content || '';
+            const tooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
+            let match;
+            while ((match = tooltipPattern.exec(content)) !== null) {
+                protectedWords.add(match[1].toLowerCase());
+            }
+
+            if (contentObj?.paragraphs) {
+                for (const p of contentObj.paragraphs) {
+                    if (typeof p === 'string') allParagraphs.push(p);
+                }
+            }
+        });
+
+        await Promise.all(contentPromises);
+
+        // 兼容 tooltip.json 中的词
+        Object.keys(tooltipData || {}).forEach(key => protectedWords.add(key.toLowerCase()));
+
+        const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWords);
+        setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
+
+        setupTooltips();
+        renderCategoryNavigation(extractCategories(allChapterIndexData));
+        renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
+
+        // Hash 跳转
+        const hashId = window.location.hash.substring(1);
+        const chapterMeta = allChapterIndexData.find(ch => ch.id === hashId);
+        if (chapterMeta) {
+            handleChapterClick(chapterMeta.id, chapterMeta.file);
+        } else {
+            toggleView(true);
+        }
+
+    } catch (err) {
+        console.error('初始化失败:', err);
+        tocEl.innerHTML = '<p style="text-align: center; padding: 50px; color: red;">加载失败，请稍后重试。</p>';
     }
-  };
+});
 
-  walkTextNodes(wrapper);
-  return wrapper.innerHTML;
+function extractCategories(data) {
+    const set = new Set();
+    data.forEach(ch => Array.isArray(ch.categories) && ch.categories.forEach(cat => set.add(cat)));
+    return Array.from(set);
 }
 
-/**
- * 方便使用的接口：传入字符串数组自动合并成 markdown 渲染带 tooltip 的 HTML
- * @param {string[]} paragraphs 段落数组
- * @param {Map<string, number>} wordFrequenciesMap 词频映射
- * @param {number} maxFreq 词频最大值
- * @param {number} baseFontSize 基础字体大小
- * @param {number} maxFontSizeIncrease 最大字体增量
- * @returns {string} 渲染后的 HTML
- */
-export function renderParagraphArrayToHtml(
-  paragraphs,
-  wordFrequenciesMap,
-  maxFreq,
-  baseFontSize = 16,
-  maxFontSizeIncrease = 12
-) {
-  const fullMarkdown = paragraphs.join('\n\n');
-  return renderMarkdownWithTooltips(
-    fullMarkdown,
-    null,
-    wordFrequenciesMap,
-    maxFreq,
-    baseFontSize,
-    maxFontSizeIncrease
-  );
+function renderCategoryNavigation(categories) {
+    const nav = document.getElementById('category-nav');
+    if (!nav) return;
+
+    nav.innerHTML = '';
+
+    const renderButton = (cat, label) => {
+        const btn = document.createElement('button');
+        btn.className = 'category-button';
+        btn.dataset.category = cat;
+        btn.textContent = label;
+        btn.onclick = () => {
+            currentFilterCategory = cat;
+            [...nav.querySelectorAll('.category-button')].forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderChapterToc(allChapterIndexData, handleChapterClick, cat);
+            toggleView(true);
+            window.location.hash = '';
+        };
+        nav.appendChild(btn);
+    };
+
+    renderButton('all', 'All Articles');
+    categories.sort().forEach(cat => renderButton(cat, cat));
+
+    const activeBtn = nav.querySelector(`[data-category="${currentFilterCategory}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
 }
 
-/**
- * 初始化 tooltip 事件（必须调用一次）
- */
-export function setupTooltips() {
-  const tooltip = document.getElementById('react-tooltips');
-  const container = document.getElementById('content-area') || document.body;
-  if (!tooltip) {
-    console.warn('#react-tooltips not found.');
-    return;
-  }
-
-  if (window._tooltipGlobalClickListener) document.removeEventListener('click', window._tooltipGlobalClickListener);
-  if (window._tooltipScrollListener) document.removeEventListener('scroll', window._tooltipScrollListener);
-
-  container.addEventListener('click', (e) => {
-    const span = e.target.closest('.word');
-    if (span) showTooltip(span);
-    else if (!e.target.closest('#react-tooltips')) hideTooltip();
-  });
-
-  window._tooltipGlobalClickListener = (e) => {
-    if (!e.target.closest('.word') && !e.target.closest('#react-tooltips')) hideTooltip();
-  };
-  document.addEventListener('click', window._tooltipGlobalClickListener);
-
-  tooltip.addEventListener('mouseleave', hideTooltip);
-  tooltip.addEventListener('mouseenter', () => clearTimeout(_currentHideTimeout));
-
-  window._tooltipScrollListener = () => {
-    if (tooltip.classList.contains('visible')) hideTooltip();
-  };
-  document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
-
-  function showTooltip(span) {
-    clearTimeout(_currentHideTimeout);
-    if (_currentActiveTooltipSpan === span) {
-      hideTooltip();
-      _currentActiveTooltipSpan = null;
-      return;
+async function handleChapterClick(chapterId, filePath) {
+    if (!chapterId) {
+        toggleView(true);
+        window.location.hash = '';
+        return;
     }
 
-    _currentActiveTooltipSpan = span;
-    const id = span.dataset.tooltipId;
-    const data = _internalTooltipsData[id];
-    if (!data) return console.warn(`No tooltip for ID: ${id}`), hideTooltip();
+    toggleView(false);
 
-    let html = `<strong>${data.title || id}</strong><br>`;
-    if (data.partOfSpeech) html += `<em>(${data.partOfSpeech})</em><br>`;
-    if (data.description) html += `${data.description}<br>`;
-    else if (data.definition) html += `${data.definition}<br>`;
-    if (data["Image Description"]) html += `${data["Image Description"]}<br>`;
-    if (data.example) html += `${data.example}<br>`;
-    if (data.category) html += `${data.category}`;
+    try {
+        const chapterContent = await loadSingleChapterContent(filePath);
+        if (!chapterContent) throw new Error('章节内容为空');
 
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-    tooltip.classList.add('visible');
+        renderSingleChapterContent(
+            chapterContent,
+            null,
+            getGlobalWordFrequenciesMap(),
+            getGlobalMaxFreq(),
+            handleChapterClick
+        );
 
-    const rect = span.getBoundingClientRect();
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    let left = rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2;
-    let top = rect.top + scrollY - tooltip.offsetHeight - 10;
-    if (left < 10) left = 10;
-    if (left + tooltip.offsetWidth > vw - 10) left = vw - tooltip.offsetWidth - 10;
-    if (top < 10) top = rect.bottom + scrollY + 10;
-
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-  }
-
-  function hideTooltip() {
-    clearTimeout(_currentHideTimeout);
-    _currentHideTimeout = setTimeout(() => {
-      tooltip.classList.remove('visible');
-      setTimeout(() => {
-        tooltip.style.display = 'none';
-        _currentActiveTooltipSpan = null;
-      }, 300);
-    }, 100);
-  }
+        window.location.hash = chapterId;
+        document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        alert('无法加载章节内容！');
+        toggleView(true);
+        window.location.hash = '';
+    }
 }
+
+function toggleView(showToc) {
+    const toc = document.getElementById('toc');
+    const ch = document.getElementById('chapters');
+    const nav = document.getElementById('category-nav');
+
+    if (toc && ch && nav) {
+        toc.style.display = showToc ? 'grid' : 'none';
+        nav.style.display = showToc ? 'flex' : 'none';
+        ch.style.display = showToc ? 'none' : 'block';
+    }
+}
+
+window.addEventListener('hashchange', () => {
+    const chapterId = window.location.hash.substring(1);
+    if (!chapterId) {
+        toggleView(true);
+        return;
+    }
+
+    const meta = allChapterIndexData.find(ch => ch.id === chapterId);
+    const curId = document.querySelector('#chapters h2')?.id;
+
+    if (meta && curId !== chapterId) {
+        handleChapterClick(meta.id, meta.file);
+    } else if (!meta) {
+        toggleView(true);
+        window.location.hash = '';
+    }
+});
