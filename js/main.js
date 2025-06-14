@@ -35,25 +35,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 收集所有段落与 tooltip ID，用于词频统计
         const protectedWords = new Set();
         const allParagraphs = [];
+
         const contentPromises = allChapterIndexData.map(async chapter => {
             const contentObj = await loadSingleChapterContent(chapter.file);
-            const content = chapter.content || '';
-            const tooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
-            let match;
-            while ((match = tooltipPattern.exec(content)) !== null) {
-                protectedWords.add(match[1].toLowerCase());
-            }
 
+            // 提取 [[word|id]] 模式的词条（兼容 tooltip 统计）
             if (contentObj?.paragraphs) {
-                for (const p of contentObj.paragraphs) {
-                    if (typeof p === 'string') allParagraphs.push(p);
+                const tooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
+                const placeholders = contentObj.placeholders || [];
+
+                for (const raw of contentObj.paragraphs) {
+                    if (typeof raw !== 'string') continue;
+
+                    // 替换 PLACEHOLDER_n
+                    let text = raw;
+                    placeholders.forEach((val, idx) => {
+                        text = text.replace(new RegExp(`PLACEHOLDER_${idx}`, 'g'), val);
+                    });
+
+                    // 提取 tooltip 单词
+                    let match;
+                    while ((match = tooltipPattern.exec(text)) !== null) {
+                        protectedWords.add(match[1].toLowerCase());
+                    }
+
+                    allParagraphs.push(text);
                 }
             }
         });
 
         await Promise.all(contentPromises);
 
-        // 兼容 tooltip.json 中的词
+        // 加入 tooltip.json 中的词
         Object.keys(tooltipData || {}).forEach(key => protectedWords.add(key.toLowerCase()));
 
         const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWords);
