@@ -1,4 +1,3 @@
-// js/tooltip.js
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 
 marked.setOptions({ gfm: true, breaks: true });
@@ -7,9 +6,9 @@ let _internalTooltipsData = {};
 let _currentHideTimeout = null;
 let _currentActiveTooltipSpan = null;
 
-/**
- * 加载 tooltip 数据
- * @returns {Promise<Object>} tooltip 数据对象
+/** 
+ * 异步加载 tooltip 数据 
+ * @returns {Promise<Object>} tooltip 数据对象 
  */
 export async function loadTooltips() {
   try {
@@ -24,15 +23,8 @@ export async function loadTooltips() {
   }
 }
 
-/**
- * 渲染 Markdown 字符串，支持 [[word|id]] 语法，且根据词频设置字体大小
- * @param {string} md markdown 字符串
- * @param {*} _unused 占位参数（可忽略）
- * @param {Map<string, number>} wordFrequenciesMap 词频映射
- * @param {number} maxFreq 词频最大值
- * @param {number} baseFontSize 基础字体大小，默认16
- * @param {number} maxFontSizeIncrease 最大字体增量，默认12
- * @returns {string} 渲染后的 HTML
+/** 
+ * 渲染 Markdown 字符串，支持 [[word|id]] 语法，根据词频设置字体大小 
  */
 export function renderMarkdownWithTooltips(
   md,
@@ -45,7 +37,7 @@ export function renderMarkdownWithTooltips(
   const customPlaceholders = {};
   let counter = 0;
 
-  // 处理 tooltip 特殊语法 [[word|id]]
+  // 先用占位符替换 [[word|id]] 语法，生成 span，防止被 marked 解析破坏
   md = md.replace(/\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g, (_, word, id) => {
     const lower = word.toLowerCase();
     const freq = wordFrequenciesMap.get(lower) || 0;
@@ -55,25 +47,25 @@ export function renderMarkdownWithTooltips(
     return key;
   });
 
-  // 将 Markdown 转 HTML（不再覆盖 placeholder）
+  // 转成 html
   let html = marked.parse(md);
 
-  // 恢复带 tooltip 的 span 占位符
-  for (const [key, value] of Object.entries(customPlaceholders)) {
+  // 恢复占位符
+  Object.entries(customPlaceholders).forEach(([key, value]) => {
     html = html.replaceAll(key, value);
-  }
+  });
 
-  // 用 DOM 处理其余普通单词，应用词频大小
+  // 用 DOM 方式处理其余普通单词，应用词频大小，且带 tooltip 的生成 span.word
   const wrapper = document.createElement('div');
   wrapper.innerHTML = html;
 
-  const walkTextNodes = (node) => {
+  function walkTextNodes(node) {
     if (node.nodeType === Node.TEXT_NODE) {
       const fragment = document.createDocumentFragment();
       const parts = node.textContent.split(/\b/);
+
       parts.forEach(text => {
-        const wordMatch = /^[a-zA-Z0-9'-]+$/.test(text);
-        if (wordMatch) {
+        if (/^[a-zA-Z0-9'-]+$/.test(text)) {
           const lower = text.toLowerCase();
           const freq = wordFrequenciesMap.get(lower) || 0;
           const size = freq > 0 ? baseFontSize + (freq / maxFreq) * maxFontSizeIncrease : baseFontSize;
@@ -97,24 +89,19 @@ export function renderMarkdownWithTooltips(
           fragment.appendChild(document.createTextNode(text));
         }
       });
+
       node.replaceWith(fragment);
-    } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes) {
+    } else if (node.nodeType === Node.ELEMENT_NODE && node.childNodes.length > 0) {
       [...node.childNodes].forEach(walkTextNodes);
     }
-  };
+  }
 
   walkTextNodes(wrapper);
   return wrapper.innerHTML;
 }
 
-/**
- * 方便使用的接口：传入字符串数组自动合并成 markdown 渲染带 tooltip 的 HTML
- * @param {string[]} paragraphs 段落数组
- * @param {Map<string, number>} wordFrequenciesMap 词频映射
- * @param {number} maxFreq 词频最大值
- * @param {number} baseFontSize 基础字体大小
- * @param {number} maxFontSizeIncrease 最大字体增量
- * @returns {string} 渲染后的 HTML
+/** 
+ * 传入字符串数组自动合并成 markdown 渲染带 tooltip 的 HTML
  */
 export function renderParagraphArrayToHtml(
   paragraphs,
@@ -145,30 +132,40 @@ export function setupTooltips() {
     return;
   }
 
+  // 清理可能重复绑定的事件
   if (window._tooltipGlobalClickListener) document.removeEventListener('click', window._tooltipGlobalClickListener);
   if (window._tooltipScrollListener) document.removeEventListener('scroll', window._tooltipScrollListener);
 
-  container.addEventListener('click', (e) => {
-    const span = e.target.closest('.word');
-    if (span) showTooltip(span);
-    else if (!e.target.closest('#react-tooltips')) hideTooltip();
-  });
-
-  window._tooltipGlobalClickListener = (e) => {
-    if (!e.target.closest('.word') && !e.target.closest('#react-tooltips')) hideTooltip();
-  };
-  document.addEventListener('click', window._tooltipGlobalClickListener);
-
+  container.addEventListener('click', onContainerClick);
+  document.addEventListener('click', window._tooltipGlobalClickListener = onDocumentClick);
   tooltip.addEventListener('mouseleave', hideTooltip);
   tooltip.addEventListener('mouseenter', () => clearTimeout(_currentHideTimeout));
+  document.addEventListener('scroll', window._tooltipScrollListener = onScroll, { passive: true });
 
-  window._tooltipScrollListener = () => {
-    if (tooltip.classList.contains('visible')) hideTooltip();
-  };
-  document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
+  function onContainerClick(e) {
+    const span = e.target.closest('.word');
+    if (span) {
+      showTooltip(span);
+    } else if (!e.target.closest('#react-tooltips')) {
+      hideTooltip();
+    }
+  }
+
+  function onDocumentClick(e) {
+    if (!e.target.closest('.word') && !e.target.closest('#react-tooltips')) {
+      hideTooltip();
+    }
+  }
+
+  function onScroll() {
+    if (tooltip.classList.contains('visible')) {
+      hideTooltip();
+    }
+  }
 
   function showTooltip(span) {
     clearTimeout(_currentHideTimeout);
+
     if (_currentActiveTooltipSpan === span) {
       hideTooltip();
       _currentActiveTooltipSpan = null;
@@ -178,34 +175,27 @@ export function setupTooltips() {
     _currentActiveTooltipSpan = span;
     const id = span.dataset.tooltipId;
     const data = _internalTooltipsData[id];
-    if (!data) return console.warn(`No tooltip for ID: ${id}`), hideTooltip();
+    if (!data) {
+      console.warn(`No tooltip for ID: ${id}`);
+      hideTooltip();
+      return;
+    }
 
-    let html = `<strong>${data.title || id}</strong><br>`;
-    if (data.partOfSpeech) html += `<em>(${data.partOfSpeech})</em><br>`;
-    if (data.description) html += `${data.description}<br>`;
-    else if (data.definition) html += `${data.definition}<br>`;
-    if (data["Image Description"]) html += `${data["Image Description"]}<br>`;
-    if (data.example) html += `${data.example}<br>`;
-    if (data.category) html += `${data.category}`;
+    // 组合 tooltip 内容
+    const lines = [
+      `<strong>${data.title || id}</strong>`,
+      data.partOfSpeech ? `<em>(${data.partOfSpeech})</em>` : '',
+      data.description || data.definition || '',
+      data["Image Description"] || '',
+      data.example || '',
+      data.category || '',
+    ].filter(Boolean);
 
-    tooltip.innerHTML = html;
+    tooltip.innerHTML = lines.join('<br>');
     tooltip.style.display = 'block';
     tooltip.classList.add('visible');
 
-    const rect = span.getBoundingClientRect();
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    let left = rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2;
-    let top = rect.top + scrollY - tooltip.offsetHeight - 10;
-    if (left < 10) left = 10;
-    if (left + tooltip.offsetWidth > vw - 10) left = vw - tooltip.offsetWidth - 10;
-    if (top < 10) top = rect.bottom + scrollY + 10;
-
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
+    positionTooltip(span, tooltip);
   }
 
   function hideTooltip() {
@@ -217,5 +207,23 @@ export function setupTooltips() {
         _currentActiveTooltipSpan = null;
       }, 300);
     }, 100);
+  }
+
+  function positionTooltip(span, tooltip) {
+    const rect = span.getBoundingClientRect();
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = rect.left + scrollX + rect.width / 2 - tooltip.offsetWidth / 2;
+    let top = rect.top + scrollY - tooltip.offsetHeight - 10;
+
+    if (left < 10) left = 10;
+    if (left + tooltip.offsetWidth > vw - 10) left = vw - tooltip.offsetWidth - 10;
+    if (top < 10) top = rect.bottom + scrollY + 10;
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
   }
 }
