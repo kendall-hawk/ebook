@@ -1,379 +1,334 @@
-/* CSS 变量 */
-:root {
-    --primary-color: #007bff; /* 主题蓝色 */
-    --secondary-color: #6c757d; /* 次要颜色 */
-    --text-color: #333; /* 主要文本颜色 */
-    --light-text-color: #666; /* 次要文本颜色 */
-    --background-color: #f8f9fa; /* 页面背景色 */
-    --card-background: #ffffff; /* 卡片背景色 */
-    --border-color: #dee2e6; /* 边框颜色 */
-    --hover-bg-color: #e2e6ea; /* 悬停背景色 */
-    --active-color: #0056b3; /* 激活状态颜色 */
-    --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.1); /* 轻微阴影 */
-    --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.15); /* 中等阴影 */
-    --border-radius: 8px;
-    --spacing-xs: 5px;
-    --spacing-sm: 10px;
-    --spacing-md: 20px;
-    --spacing-lg: 30px;
-}
+/* assets/style.css - Complete CSS for Merriweather & Open Sans Typography */
 
-/* 通用样式 */
+/* --- Font Imports --- */
+/* Imports Merriweather (Regular 400, Bold 700) and Open Sans (Regular 400, Bold 700) from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;700&display=swap');
+
+/* --- Global Base Styles --- */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-    margin: 0;
-    padding: 0;
-    line-height: 1.6;
-    color: var(--text-color);
-    background-color: var(--background-color);
-    overflow-x: hidden; /* 防止水平滚动条 */
+  font-family: 'Merriweather', serif; /* Primary font for body text */
+  font-size: 18px; /* Adjusted: Increased from 17px to 18px for larger text */
+  font-weight: 400; /* Merriweather's regular weight. Consider 500 or 600 if available for a specific font, but Merriweather typically has 400 and 700. */
+  line-height: 1.7; /* Generous line height for improved readability */
+  margin: 0;
+  padding: 20px;
+  background-color: #f4f4f4; /* Light background for contrast */
+  color: #333; /* Dark gray text for good contrast */
+  -webkit-font-smoothing: antialiased; /* Enhances font rendering on WebKit browsers (e.g., Chrome, Safari) */
+  -moz-osx-font-smoothing: grayscale; /* Enhances font rendering on macOS Firefox */
 }
 
-/* 头部 */
-.app-header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: var(--spacing-md) var(--spacing-lg);
-    text-align: center;
-    box-shadow: var(--shadow-medium);
+/* --- Content Sections & Typography --- */
+#chapters {
+  background-color: #fff; /* White background for content */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  max-width: 800px; /* Limits content width for optimal line length */
+  margin: 20px auto; /* Centers the content block */
+  padding: 0 15px; /* Horizontal padding within the content block */
 }
 
-.app-header h1 {
-    margin: 0;
-    font-size: 2em;
+/* Headings within chapters */
+#chapters h2 {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for headings */
+  font-weight: 700; /* Bold weight for emphasis */
+  font-size: 1.8em; /* Larger size for main chapter titles (relative to body font-size) */
+  line-height: 1.3; /* Tighter line height for headings */
+  color: #0056b3; /* Primary blue for headings */
+  border-bottom: 2px solid #0056b3; /* Underline for separation */
+  padding-bottom: 10px;
+  margin-top: 0;
+  margin-bottom: 0.8em; /* Space below headings */
 }
 
-/* 主内容区域 */
-.app-main {
-    max-width: 1200px;
-    margin: var(--spacing-lg) auto;
-    padding: 0 var(--spacing-md);
+/* Paragraph spacing */
+#chapters p {
+  line-height: 1.8; /* Adjusted: Increased from 1.7 to 1.8 for more comfortable spacing with larger font */
+  margin-bottom: 1.5em; /* Ample space between paragraphs */
+  /* text-align: justify; */ /* Uncomment for justified text if desired, but be aware of potential uneven word spacing */
 }
 
-/* 加载消息 */
-.loading-message {
-    text-align: center;
-    padding: var(--spacing-lg);
-    color: var(--light-text-color);
-    font-size: 1.1em;
+/* --- Navigation & Auxiliary Text Styles --- */
+/* Table of Contents links */
+#toc {
+  margin-bottom: 30px;
+  background-color: #e9e9e9;
+  padding: 15px;
+  border-radius: 8px;
 }
 
-/* 隐藏类 */
-.hidden {
-    display: none !important;
+#toc a {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for TOC links */
+  display: block;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: #007bff;
+  border-bottom: 1px solid #ddd;
 }
 
-/* 章节目录 (TOC) */
-.chapter-toc {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) 0;
+#toc a:last-child {
+  border-bottom: none;
+}
+
+#toc a:hover {
+  background-color: #dcdcdc;
+  color: #0056b3;
+}
+
+/* Chapter navigation links (Prev/Next) */
+.chapter-nav-links {
+  text-align: center;
+  margin-top: 30px;
+  margin-bottom: 50px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chapter-nav-link {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for nav links */
+  display: inline-block;
+  padding: 8px 15px;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+  font-size: 0.95em;
+  border: 1px solid #007bff;
+  transition: all 0.3s ease;
+}
+
+.chapter-nav-link:hover {
+  background-color: #0056b3;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.chapter-nav-links > text {
+  color: #666;
+  margin: 0 5px;
+}
+
+/* Chapter list grid on homepage */
+.chapter-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 20px auto;
 }
 
 .chapter-list-item {
-    background-color: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: var(--spacing-md);
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: var(--shadow-light);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  text-decoration: none;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .chapter-list-item:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-medium);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
-.chapter-list-item h2 {
-    font-size: 1.5em;
-    color: var(--primary-color);
-    margin-top: 0;
-    margin-bottom: var(--spacing-sm);
+.chapter-list-item img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
 }
 
-.chapter-list-item p {
-    font-size: 0.9em;
-    color: var(--light-text-color);
-    margin-bottom: var(--spacing-sm);
-    flex-grow: 1; /* 确保内容撑开 */
+.chapter-list-item h3 {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for card titles */
+  margin: 15px;
+  font-size: 1.2em;
+  color: #0056b3;
+  flex-grow: 1;
 }
 
-.chapter-list-item .chapter-meta {
-    font-size: 0.8em;
-    color: var(--secondary-color);
-    text-align: right;
-}
-
-.chapter-list-item .chapter-meta span {
-    margin-left: var(--spacing-sm);
-}
-
-/* 分类导航 */
-.category-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-    justify-content: center;
-    padding: var(--spacing-md) 0;
-    margin-bottom: var(--spacing-md);
-    border-bottom: 1px solid var(--border-color);
+/* Category navigation buttons */
+#category-nav {
+  text-align: center;
+  padding: 15px 0;
+  background-color: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .category-button {
-    background-color: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
-    font-size: 0.9em;
-    color: var(--text-color);
+  font-family: 'Open Sans', sans-serif; /* Open Sans for category buttons */
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  white-space: nowrap;
 }
 
 .category-button:hover {
-    background-color: var(--hover-bg-color);
-    transform: translateY(-2px);
+  background-color: #0056b3;
+  transform: translateY(-1px);
 }
 
 .category-button.active {
-    background-color: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-    font-weight: bold;
+  background-color: #28a745;
+  font-weight: bold;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* 单个章节内容 */
-.current-chapter-article {
-    background-color: var(--card-background);
-    padding: var(--spacing-lg);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow-medium);
+/* --- Tooltip Styles --- */
+#react-tooltips {
+  position: absolute;
+  display: none; /* Hidden by default */
+  opacity: 0;
+  transform: translateY(5px); /* Starts slightly below target */
+
+  font-family: 'Open Sans', sans-serif; /* Open Sans for tooltip content */
+  background-color: #f8f9fa; /* Light background for tooltip */
+  color: #343a40; /* Dark text for tooltip */
+  padding: 12px 18px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* More prominent shadow */
+  border: 1px solid #ced4da;
+
+  max-width: 300px; /* Constrains tooltip width */
+  z-index: 10000; /* Ensures tooltip is on top */
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* Smooth transition */
+  pointer-events: auto; /* Allows interaction with tooltip content */
+
+  line-height: 1.4; /* Adjusted line height for tooltip content */
 }
 
-.current-chapter-article h2 {
-    color: var(--primary-color);
-    font-size: 2.2em;
-    margin-top: 0;
-    margin-bottom: var(--spacing-md);
+#react-tooltips.visible {
+  display: block;
+  opacity: 1;
+  transform: translateY(0); /* Slides up into view */
 }
 
-.current-chapter-article h3 {
-    color: var(--secondary-color);
-    font-size: 1.8em;
-    margin-top: var(--spacing-lg);
-    margin-bottom: var(--spacing-sm);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: var(--spacing-xs);
+/* Tooltip internal content styles */
+#react-tooltips strong {
+  color: #007bff; /* Highlight color for bold text */
+  font-size: 1.1em;
+  display: block;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
 }
 
-.current-chapter-article p {
-    margin-bottom: 1em;
-    text-align: justify;
+#react-tooltips em {
+  color: #6c757d; /* Muted color for emphasis */
+  font-size: 0.9em;
+  display: block;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
 }
 
-/* 导航按钮 */
-.chapter-content-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: var(--spacing-lg);
-    margin-bottom: var(--spacing-md);
-    gap: var(--spacing-sm); /* 按钮之间的间距 */
-    flex-wrap: wrap; /* 适应小屏幕 */
+#react-tooltips p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
 }
 
-.nav-button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    padding: var(--spacing-sm) var(--spacing-md);
-    cursor: pointer;
-    font-size: 1em;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    flex-shrink: 0; /* 防止按钮缩小 */
+#react-tooltips br {
+  line-height: 0.5; /* Reduce line height for <br> for tighter spacing */
 }
 
-.nav-button:hover {
-    background-color: var(--active-color);
-    transform: translateY(-2px);
-}
-
-.nav-button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-
-/* 视频嵌入 */
-.video-container {
-    position: relative;
-    padding-bottom: 56.25%; /* 16:9 比例 */
-    height: 0;
-    overflow: hidden;
-    margin: var(--spacing-md) 0;
-    background-color: black; /* 视频加载前的背景 */
-    border-radius: var(--border-radius);
-}
-
-.video-container iframe {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-}
-
-/* 浮动视频框 */
-.floating-video {
-    position: fixed;
-    top: 100px; /* 默认初始位置 */
-    right: 20px; /* 默认初始位置 */
-    width: 320px; /* 播放器宽度 */
-    height: 220px; /* 播放器高度 + header */
-    background-color: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow-medium);
-    z-index: 1000; /* 确保在最上层 */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* 防止内容溢出 */
-    resize: both; /* 允许用户调整大小 (可选，需要JS限制) */
-    min-width: 200px;
-    min-height: 150px;
-    user-select: none; /* 防止拖动时选中文字 */
-}
-
-.floating-video .video-header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    cursor: grab; /* 拖动光标 */
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0; /* 防止标题栏被压缩 */
-}
-
-.floating-video .video-header span {
-    font-weight: bold;
-    font-size: 0.9em;
-}
-
-.floating-video .close-btn {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5em;
-    cursor: pointer;
-    line-height: 1; /* 避免按钮高度过大 */
-    padding: 0 var(--spacing-xs);
-    transition: color 0.2s ease;
-}
-
-.floating-video .close-btn:hover {
-    color: #ffcccc; /* 悬停时的红色 */
-}
-
-.floating-video #float-player {
-    flex-grow: 1; /* 让播放器填充剩余空间 */
-    width: 100%; /* 确保播放器宽度占满父容器 */
-    height: auto; /* 高度自适应 flex 容器 */
-}
-
-/* 自定义 Tooltip 样式 */
-.custom-tooltip {
-    position: absolute;
-    background-color: rgba(0, 0, 0, 0.85); /* 半透明黑色背景 */
-    color: white;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--border-radius);
-    pointer-events: none; /* 允许鼠标事件穿透 */
-    opacity: 0; /* 默认隐藏 */
-    visibility: hidden; /* 默认隐藏 */
-    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease; /* 过渡效果 */
-    z-index: 999; /* 确保在大部分内容之上 */
-    box-shadow: var(--shadow-medium);
-    font-size: 0.9em; /* 默认字体大小 */
-    line-height: 1.4;
-    text-align: left;
-    max-width: 300px; /* 限制最大宽度 */
-}
-
-.custom-tooltip.visible {
-    opacity: 1;
-    visibility: visible;
-}
-
-.custom-tooltip em {
-    font-style: italic;
-    color: #ffd700; /* 金色，用于词性 */
-}
-
-/* 词语样式 (Tooltips) */
+/* --- Word with Tooltip Styles --- */
 .word {
-    cursor: help; /* 鼠标悬停时显示问号光标 */
-    text-decoration: underline; /* 下划线 */
-    text-decoration-color: var(--primary-color); /* 下划线颜色 */
-    text-underline-offset: 2px; /* 下划线偏移 */
-    transition: color 0.1s ease; /* 字体颜色过渡 */
-    font-weight: bold; /* 加粗 */
-    display: inline-block; /* 允许设置宽高，避免行内元素被分割 */
-    line-height: 1.2; /* 确保行高不会因字体增大而过高 */
+  cursor: help; /* Cursor hint for clickable/hoverable element */
+  border-bottom: 2px dotted #007bff; /* Dotted underline for visual cue */
+  text-decoration: none; /* Ensure no default underline */
 }
 
 .word:hover {
-    color: var(--primary-color); /* 悬停时改变字体颜色 */
+  color: #0056b3; /* Darker blue on hover */
+  border-bottom-color: #0056b3; /* Dotted line changes color on hover */
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .app-main {
-        margin: var(--spacing-md) auto;
-        padding: 0 var(--spacing-sm);
-    }
+/* --- Floating Video Player Styles --- */
+.floating-video {
+  position: fixed;
+  width: 320px;
+  height: 180px;
+  bottom: 10px;
+  right: 10px;
+  background-color: #000;
+  border: 1px solid #444;
+  border-radius: 6px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
 
-    .app-header h1 {
-        font-size: 1.8em;
-    }
+.video-header {
+  font-family: 'Open Sans', sans-serif; /* Open Sans for video header */
+  background: #222;
+  color: #fff;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9em;
+  cursor: grab;
+}
 
-    .chapter-toc {
-        grid-template-columns: 1fr; /* 小屏幕下显示为单列 */
-    }
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
 
-    .chapter-list-item {
-        padding: var(--spacing-md);
-    }
+.close-btn:hover {
+  color: #f00;
+}
 
-    .current-chapter-article {
-        padding: var(--spacing-md);
-    }
+/* --- Media Queries --- */
+@media (max-width: 767px) {
+  .floating-video {
+    display: none !important; /* Hides floating video on smaller screens */
+  }
 
-    .current-chapter-article h2 {
-        font-size: 1.8em;
-    }
+  body {
+    padding: 10px; /* Reduce global padding on small screens */
+    font-size: 17px; /* Slightly reduce font size for smaller screens */
+  }
 
-    .current-chapter-article h3 {
-        font-size: 1.5em;
-    }
+  #chapters {
+    margin: 10px auto; /* Adjust margin for small screens */
+    padding: 0 10px;
+  }
 
-    .chapter-content-nav {
-        flex-direction: column; /* 导航按钮堆叠显示 */
-        gap: var(--spacing-sm);
-    }
-
-    .nav-button {
-        width: 100%; /* 按钮宽度占满 */
-    }
-
-    /* 移动设备不显示浮动视频，已经在 JS 中处理，CSS 只是确保它不会意外出现 */
-    .floating-video {
-        display: none;
-    }
+  #chapters h2 {
+    font-size: 1.5em; /* Slightly smaller headings on small screens */
+  }
 }
