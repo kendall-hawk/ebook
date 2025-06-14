@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // 解析章节内容 & 提取词频相关信息
+        // 收集所有段落与 tooltip ID，用于词频统计
         const protectedWords = new Set();
         const allParagraphs = [];
         const contentPromises = allChapterIndexData.map(async chapter => {
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         await Promise.all(contentPromises);
 
-        // 提取 tooltipData 的 key 作为 protected 词（兼容更简单场景）
+        // 兼容 tooltip.json 中的词
         Object.keys(tooltipData || {}).forEach(key => protectedWords.add(key.toLowerCase()));
 
         const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWords);
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderCategoryNavigation(extractCategories(allChapterIndexData));
         renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 
-        // Hash 章节跳转
+        // Hash 跳转
         const hashId = window.location.hash.substring(1);
         const chapterMeta = allChapterIndexData.find(ch => ch.id === hashId);
         if (chapterMeta) {
@@ -109,7 +109,6 @@ function renderCategoryNavigation(categories) {
     renderButton('all', 'All Articles');
     categories.sort().forEach(cat => renderButton(cat, cat));
 
-    // 初始化激活按钮
     const activeBtn = nav.querySelector(`[data-category="${currentFilterCategory}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 }
