@@ -1,244 +1,262 @@
 // js/tooltip.js
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 
-marked.setOptions({
-  gfm: true,
-  breaks: true
-});
+// 封装 Tooltip 逻辑的类
+class TooltipManager {
+    constructor() {
+        this._internalTooltipsData = {}; // 存储加载的 Tooltip 数据
+        this._tooltipDiv = null; // Tooltip 元素
+        this._currentHideTimeout = null; // 隐藏 Tooltip 的定时器
+        this._currentActiveTooltipSpan = null; // 当前激活的 Tooltip 词语 span
 
-// --- 新增：Tooltip 数据在 tooltip.js 内部管理 ---
-let _internalTooltipsData = {};
-
-// --- 新增：Tooltip 状态管理变量，用于精确控制显示/隐藏 ---
-let _currentHideTimeout = null;
-let _currentActiveTooltipSpan = null;
-
-// loadTooltips 函数：它现在将数据存储在 _internalTooltipsData 中
-export async function loadTooltips() {
-    try {
-        const res = await fetch('data/tooltips.json');
-        if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status} - Check 'data/tooltips.json' path and content.`);
-        }
-        _internalTooltipsData = await res.json(); // 将加载的数据存储在内部变量中
-        return _internalTooltipsData; // 仍然返回数据，以防 main.js 期望接收
-    } catch (error) {
-        console.error('加载 tooltip 数据失败:', error);
-        _internalTooltipsData = {}; // 确保错误时内部数据为空
-        return {};
-    }
-}
-
-// renderMarkdownWithTooltips 函数：保持不变，但现在它会使用内部的 _internalTooltipsData
-export function renderMarkdownWithTooltips(
-    md,
-    _unusedTooltipDataFromMain,
-    wordFrequenciesMap,
-    maxFreq,
-    baseFontSize = 16,
-    maxFontSizeIncrease = 12
-) {
-    const customSpanPlaceholders = {};
-    let placeholderCounter = 0;
-
-    const customTooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
-    let mdWithCustomSpans = md.replace(customTooltipPattern, (match, word, tooltipId) => {
-        const lowerWord = word.toLowerCase();
-        const freq = wordFrequenciesMap.get(lowerWord) || 0;
-        let fontSizeStyle = '';
-
-        if (freq > 0 && maxFreq > 0) {
-            const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
-            fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
-        }
-
-        const placeholder = `__CUSTOM_SPAN_PLACEHOLDER_${placeholderCounter++}__`;
-        customSpanPlaceholders[placeholder] = `<span data-tooltip-id="${tooltipId}" class="word" style="${fontSizeStyle}">${word}</span>`;
-        return placeholder;
-    });
-
-    const regularWordPattern = /\b([a-zA-Z0-9'-]+)\b/g;
-
-    let finalProcessedMd = mdWithCustomSpans.replace(regularWordPattern, (match) => {
-        if (customSpanPlaceholders[match]) {
-            return match;
-        }
-
-        const lowerMatch = match.toLowerCase();
-        const freq = wordFrequenciesMap.get(lowerMatch) || 0;
-        let fontSizeStyle = '';
-
-        if (freq > 0 && maxFreq > 0) {
-            const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
-            fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
-        }
-
-        if (_internalTooltipsData.hasOwnProperty(lowerMatch)) {
-            return `<span data-tooltip-id="${lowerMatch}" class="word" style="${fontSizeStyle}">${match}</span>`;
-        } else if (fontSizeStyle) {
-            return `<span style="${fontSizeStyle}">${match}</span>`;
-        }
-        return match;
-    });
-
-    Object.keys(customSpanPlaceholders).forEach(placeholder => {
-        const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
-        finalProcessedMd = finalProcessedMd.replace(regex, customSpanPlaceholders[placeholder]);
-    });
-
-    return marked.parse(finalProcessedMd);
-}
-
-
-// setupTooltips 函数：使用事件委托
-export function setupTooltips() {
-    const tooltipDiv = document.getElementById('react-tooltips');
-    // 你需要有一个包裹所有文本内容的父容器，例如 #content 或 body
-    // 这里我假设你的文本内容最终会渲染到 `document.body` 或某个主内容区域，
-    // 或者你可以创建一个特定的容器 ID 来包裹所有带有 `.word` 的文本。
-    // 如果没有一个明确的父容器，直接绑定到 document 也是可以的，但更推荐限定范围。
-    const contentContainer = document.getElementById('content-area') || document.body; // 假设你的内容在 id 为 'content-area' 的元素中，如果没有则使用 body
-
-    if (!tooltipDiv) {
-        console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
-        return;
+        // 绑定事件处理函数到实例
+        this._handleMouseOver = this._handleMouseOver.bind(this);
+        this._handleMouseOut = this._handleMouseOut.bind(this);
+        this._handleMouseMove = this._handleMouseMove.bind(this);
     }
 
-    // 移除之前的全局点击事件监听器，避免重复绑定
-    // 这是一个清理步骤，确保每次调用 setupTooltips 时不会重复添加相同的事件
-    if (window._tooltipGlobalClickListener) {
-        document.removeEventListener('click', window._tooltipGlobalClickListener);
+    /**
+     * 从 JSON 文件加载 Tooltip 数据。
+     * @param {string} filePath - Tooltip JSON 文件的路径。
+     * @returns {Promise<Object>} - 加载的 Tooltip 数据。
+     */
+    async loadTooltips(filePath = 'data/tooltips.json') {
+        try {
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            this._internalTooltipsData = await response.json();
+            console.log('Tooltip 数据加载成功:', this._internalTooltipsData);
+            return this._internalTooltipsData;
+        } catch (error) {
+            console.error('加载 Tooltip 数据失败:', error);
+            return {};
+        }
     }
-    if (window._tooltipScrollListener) {
-        document.removeEventListener('scroll', window._tooltipScrollListener);
-    }
 
-    // 使用事件委托绑定点击事件到父容器
-    // 这样，即使 .word 元素是动态生成的，也能捕获到点击事件
-    contentContainer.addEventListener('click', function(e) {
-        const targetSpan = e.target.closest('.word');
-        if (targetSpan) {
-            showTooltip(e, targetSpan); // 传入 targetSpan 确保操作的是点击的元素
-        } else if (tooltipDiv.classList.contains('visible') &&
-            !e.target.closest('#react-tooltips')) { // 确保点击的不是 tooltip 本身
-            hideTooltip();
-        }
-    });
-
-
-    // 绑定全局点击事件，点击页面其他地方隐藏tooltip
-    // 将函数引用保存起来，以便后续移除
-    window._tooltipGlobalClickListener = (e) => {
-        // 如果点击的目标是 tooltip 本身，或者点击的目标是 .word 元素（已经由上面的委托处理），则不隐藏
-        if (tooltipDiv.classList.contains('visible') &&
-            !e.target.closest('.word') &&
-            !e.target.closest('#react-tooltips')) {
-            hideTooltip();
-        }
-    };
-    document.addEventListener('click', window._tooltipGlobalClickListener);
-
-
-    // 鼠标离开 tooltip 区域时也隐藏 tooltip (对桌面端和某些模拟事件有用)
-    tooltipDiv.addEventListener('mouseleave', hideTooltip);
-
-    // 鼠标进入 tooltip 区域时取消隐藏计时器 (防止在鼠标移动到 Tooltip 上时被隐藏)
-    tooltipDiv.addEventListener('mouseenter', () => {
-        clearTimeout(_currentHideTimeout);
-    });
-
-    // --- 新增：监听页面滚动事件，隐藏 Tooltip ---
-    // 使用 document.addEventListener 监听 scroll 事件，并在滚动时隐藏 Tooltip
-    window._tooltipScrollListener = () => {
-        if (tooltipDiv.classList.contains('visible')) {
-            hideTooltip();
-        }
-    };
-    document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
-
-
-    function showTooltip(e, clickedSpan) { // 接收点击的 span 元素
-        clearTimeout(_currentHideTimeout);
-        e.stopPropagation();
-
-        // 如果点击的是当前已经激活的 span，则隐藏并重置
-        if (_currentActiveTooltipSpan === clickedSpan) {
-            hideTooltip();
-            _currentActiveTooltipSpan = null;
-            return;
+    /**
+     * 设置全局 Tooltip 事件监听器。
+     * 应该在 DOM 准备好后或新内容加载后调用。
+     */
+    setupTooltips() {
+        if (!this._tooltipDiv) {
+            this._tooltipDiv = document.getElementById('react-tooltips');
+            if (!this._tooltipDiv) {
+                console.error('未找到 Tooltip 容器 #react-tooltips。');
+                return;
+            }
+            // 阻止 Tooltip 本身的鼠标事件，使其不干扰词语的 mouseout/mouseover
+            this._tooltipDiv.addEventListener('mouseover', () => clearTimeout(this._currentHideTimeout));
+            this._tooltipDiv.addEventListener('mouseout', this._handleMouseOut);
         }
 
-        _currentActiveTooltipSpan = clickedSpan; // 更新当前激活的 span
-        const wordId = clickedSpan.dataset.tooltipId; // 从点击的 span 获取 ID
-        const data = _internalTooltipsData[wordId];
+        // 使用事件委托，将监听器添加到 #chapters 容器
+        const chaptersContainer = document.getElementById('chapters');
+        if (chaptersContainer) {
+            // 移除旧的监听器，防止重复绑定
+            chaptersContainer.removeEventListener('mouseover', this._handleMouseOver);
+            chaptersContainer.removeEventListener('mouseout', this._handleMouseOut);
+            chaptersContainer.removeEventListener('mousemove', this._handleMouseMove);
 
-        if (data) {
-            let htmlContent = '';
-
-            // 保持你的内容生成逻辑不变
-            if (data.title) {
-                htmlContent += `<strong>${data.title}</strong><br>`;
-            } else {
-                // wordId.split('-')[0] 对于自定义 tooltip [[word|tooltipId]] 可能是 tooltipId，需要确认你的数据结构
-                // 如果是 regular word，wordId 就是 word 本身
-                htmlContent += `<strong>${wordId}</strong><br>`;
-            }
-
-            if (data.partOfSpeech) {
-                htmlContent += `<em>(${data.partOfSpeech})</em><br>`;
-            }
-
-            if (data.description) {
-                htmlContent += `${data.description}<br>`;
-            } else if (data.definition) {
-                htmlContent += `${data.definition}<br>`;
-            }
-
-            if (data["Image Description"]) {
-                htmlContent += `${data["Image Description"]}<br>`;
-            }
-
-            if (data.example) {
-                htmlContent += `${data.example}<br>`;
-            }
-
-            if (data.category) {
-                htmlContent += `${data.category}`;
-            }
-
-            tooltipDiv.innerHTML = htmlContent;
-            tooltipDiv.style.display = 'block';
-            tooltipDiv.classList.add('visible');
-
-            const spanRect = clickedSpan.getBoundingClientRect(); // 使用点击的 span 的位置
-            const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-            const scrollX = window.scrollX || window.pageXOffset;
-            const scrollY = window.scrollY || window.pageYOffset;
-
-            let left = spanRect.left + scrollX + (spanRect.width / 2) - (tooltipDiv.offsetWidth / 2);
-            let top = spanRect.top + scrollY - tooltipDiv.offsetHeight - 10;
-
-            if (left < scrollX + 10) left = scrollX + 10;
-            if (left + tooltipDiv.offsetWidth > scrollX + viewportWidth - 10) left = scrollX + viewportWidth - tooltipDiv.offsetWidth - 10;
-            if (top < scrollY + 10) top = spanRect.bottom + scrollY + 10; // 如果上方空间不足，则在下方显示
-
-            tooltipDiv.style.left = `${left}px`;
-            tooltipDiv.style.top = `${top}px`;
+            // 添加新的监听器
+            chaptersContainer.addEventListener('mouseover', this._handleMouseOver);
+            chaptersContainer.addEventListener('mouseout', this._handleMouseOut);
+            chaptersContainer.addEventListener('mousemove', this._handleMouseMove);
         } else {
-            console.warn(`Tooltip data not found for ID: ${wordId}`);
-            hideTooltip();
+            console.warn('未找到 #chapters 容器，无法设置 Tooltip 事件监听。');
         }
     }
 
-    function hideTooltip() {
-        clearTimeout(_currentHideTimeout);
-        _currentHideTimeout = setTimeout(() => {
-            tooltipDiv.classList.remove('visible');
-            setTimeout(() => {
-                tooltipDiv.style.display = 'none';
-                _currentActiveTooltipSpan = null; // 重置当前激活的 span
-            }, 300); // 应该和 CSS transition duration 一致
-        }, 100); // 稍微延迟，以便鼠标从 span 移动到 tooltip
+    /**
+     * 处理鼠标悬停事件，显示 Tooltip。
+     * @param {MouseEvent} e
+     */
+    _handleMouseOver(e) {
+        const target = e.target;
+        if (target && target.classList.contains('word')) {
+            clearTimeout(this._currentHideTimeout); // 清除任何即将隐藏的定时器
+
+            if (this._currentActiveTooltipSpan !== target) {
+                // 如果是新的词语，则隐藏旧的 Tooltip 并显示新的
+                this._hideTooltip();
+                this._currentActiveTooltipSpan = target;
+                const tooltipId = target.dataset.tooltipId;
+                if (tooltipId && this._internalTooltipsData[tooltipId]) {
+                    this._showTooltip(target, this._internalTooltipsData[tooltipId]);
+                }
+            }
+        } else if (this._currentActiveTooltipSpan && !this._tooltipDiv.contains(target)) {
+            // 如果鼠标从词语移开，但不在 Tooltip 内部，则开始隐藏 Tooltip
+            this._currentHideTimeout = setTimeout(() => this._hideTooltip(), 100);
+        }
+    }
+
+    /**
+     * 处理鼠标移出事件，隐藏 Tooltip。
+     * @param {MouseEvent} e
+     */
+    _handleMouseOut(e) {
+        if (this._currentActiveTooltipSpan) {
+            // 如果鼠标从当前激活的词语或 Tooltip 本身移开
+            if (!this._currentActiveTooltipSpan.contains(e.relatedTarget) && !this._tooltipDiv.contains(e.relatedTarget)) {
+                this._currentHideTimeout = setTimeout(() => this._hideTooltip(), 100);
+            }
+        }
+    }
+
+    /**
+     * 实时更新 Tooltip 位置。
+     * @param {MouseEvent} e
+     */
+    _handleMouseMove(e) {
+        if (this._currentActiveTooltipSpan && this._tooltipDiv.classList.contains('visible')) {
+            this._positionTooltip(e);
+        }
+    }
+
+    /**
+     * 显示 Tooltip。
+     * @param {HTMLElement} targetSpan - 目标词语 span 元素。
+     * @param {Object} data - Tooltip 数据。
+     */
+    _showTooltip(targetSpan, data) {
+        if (!this._tooltipDiv || !targetSpan || !data) return;
+
+        // 构建 Tooltip 内容
+        const contentParts = [];
+        if (data.word) contentParts.push(`<strong>${data.word}</strong>`);
+        if (data.partOfSpeech) contentParts.push(`<em>(${data.partOfSpeech})</em>`);
+        if (data.definition) contentParts.push(data.definition);
+        if (data.example) contentParts.push(`例句: ${data.example}`);
+        if (data.origin) contentParts.push(`词源: ${data.origin}`);
+
+        this._tooltipDiv.innerHTML = contentParts.join('<br>');
+
+        // 临时显示 Tooltip 以获取其尺寸，但不使其可见
+        this._tooltipDiv.style.visibility = 'hidden';
+        this._tooltipDiv.style.opacity = '0';
+        this._tooltipDiv.classList.add('visible'); // 先添加 visible 以便获取正确尺寸
+
+        // 立即计算并设置位置
+        this._positionTooltipFromTarget(targetSpan);
+
+        // 延迟显示 Tooltip，使其可见
+        this._tooltipDiv.style.visibility = 'visible';
+        this._tooltipDiv.style.opacity = '1';
+    }
+
+
+    /**
+     * 根据目标元素定位 Tooltip。
+     * @param {HTMLElement} targetSpan - 目标词语 span 元素。
+     */
+    _positionTooltipFromTarget(targetSpan) {
+        const targetRect = targetSpan.getBoundingClientRect();
+        const tooltipRect = this._tooltipDiv.getBoundingClientRect();
+
+        let top = targetRect.top + targetRect.height + 5; // 默认在词语下方，留 5px 间距
+        let left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2); // 居中对齐
+
+        // 视口边界检查 - 水平方向
+        if (left < 5) { // 左侧边界
+            left = 5;
+        } else if (left + tooltipRect.width > window.innerWidth - 5) { // 右侧边界
+            left = window.innerWidth - tooltipRect.width - 5;
+        }
+
+        // 视口边界检查 - 垂直方向 (如果下方空间不足，则显示在上方)
+        if (top + tooltipRect.height > window.innerHeight - 5) {
+            // 尝试在上方显示
+            top = targetRect.top - tooltipRect.height - 5;
+            if (top < 5) { // 如果上方空间也不足，则限制在顶部
+                top = 5;
+            }
+        }
+
+        this._tooltipDiv.style.left = `${left + window.scrollX}px`;
+        this._tooltipDiv.style.top = `${top + window.scrollY}px`;
+    }
+
+    /**
+     * 隐藏 Tooltip。
+     */
+    _hideTooltip() {
+        if (this._tooltipDiv) {
+            this._tooltipDiv.classList.remove('visible');
+            this._tooltipDiv.style.opacity = '0';
+            this._tooltipDiv.style.visibility = 'hidden';
+            this._currentActiveTooltipSpan = null;
+        }
+    }
+
+    /**
+     * 根据词语频率计算字体大小。
+     * @param {number} freq - 单词的频率。
+     * @param {number} maxFreq - 所有单词中的最高频率。
+     * @returns {string} - 计算后的字体大小 (例如 "16px")。
+     */
+    _calculateFontSize(freq, maxFreq) {
+        const minSize = 16; // 最小字体大小 (px)
+        const maxSize = 32; // 最大字体大小 (px)
+
+        if (maxFreq === 0) {
+            return `${minSize}px`;
+        }
+
+        // 线性缩放
+        const sizeRange = maxSize - minSize;
+        const normalizedFreq = freq / maxFreq; // 0 到 1 之间
+        const calculatedSize = minSize + (sizeRange * normalizedFreq);
+
+        // 为了防止字体过小，可以设置一个下限
+        return `${Math.max(minSize, calculatedSize)}px`;
+    }
+
+    /**
+     * 将 Markdown 文本渲染为 HTML，并根据词频高亮和设置 Tooltip。
+     * @param {string} markdownText - 原始 Markdown 文本。
+     * @param {Map<string, number>} wordFrequenciesMap - 单词频率 Map。
+     * @param {number} maxFreq - 最高频率。
+     * @returns {string} - 渲染后的 HTML 字符串。
+     */
+    renderMarkdownWithTooltips(markdownText, wordFrequenciesMap, maxFreq) {
+        if (!markdownText) return '';
+
+        let html = markdownText;
+
+        // 1. 优先处理自定义 Tooltip 格式 [[word|tooltipId]]
+        // 捕获 group 1 为要显示的单词，group 2 为实际的 tooltip ID
+        const customTooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
+        html = html.replace(customTooltipPattern, (match, word, tooltipId) => {
+            const cleanWord = word.toLowerCase().trim();
+            const freq = wordFrequenciesMap.get(cleanWord) || 0;
+            const fontSize = this._calculateFontSize(freq, maxFreq); // 使用 this._calculateFontSize
+            return `<span class="word" data-tooltip-id="${tooltipId}" style="font-size: ${fontSize};">${word}</span>`;
+        });
+
+        // 2. 处理普通单词，如果它们在 tooltipsData 中有定义，也添加 Tooltip 样式和 ID
+        // 此步假设 tooltipsData 的键就是需要高亮的单词 (小写)
+        // 这是一个更复杂的正则表达式，以避免嵌套和已经处理过的 [[...]] 格式
+        const plainWordPattern = /(?<!\[\[)([a-zA-Z0-9'-]+)(?!\|[^\]]*?\]\])/g;
+        html = html.replace(plainWordPattern, (match, word) => {
+            const cleanWord = word.toLowerCase().trim();
+            // 只有当这个词在 _internalTooltipsData 中有对应的定义时才将其标记为 .word
+            if (this._internalTooltipsData[cleanWord]) { // 直接用 cleanWord 作为 key 查找
+                const freq = wordFrequenciesMap.get(cleanWord) || 0;
+                const fontSize = this._calculateFontSize(freq, maxFreq); // 使用 this._calculateFontSize
+                return `<span class="word" data-tooltip-id="${cleanWord}" style="font-size: ${fontSize};">${word}</span>`;
+            }
+            return word; // 不是 Tooltip 词，原样返回
+        });
+
+        return html;
     }
 }
+
+// 导出 TooltipManager 的一个单例实例
+export const tooltipManager = new TooltipManager();
+
+// 导出常用的方法，以便其他模块可以方便地导入和使用
+export const loadTooltips = tooltipManager.loadTooltips.bind(tooltipManager);
+export const renderMarkdownWithTooltips = tooltipManager.renderMarkdownWithTooltips.bind(tooltipManager);
+export const setupTooltips = tooltipManager.setupTooltips.bind(tooltipManager);
