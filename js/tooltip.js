@@ -185,7 +185,7 @@ export function setupTooltips() {
             }
 
             if (data.partOfSpeech) {
-                htmlContent += `<em>(${data.partOfSpeech})</em><br>`;
+                htmlContent += `(${data.partOfSpeech})<br>`;
             }
 
             if (data.description) {
