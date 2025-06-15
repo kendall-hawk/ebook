@@ -1,9 +1,9 @@
 /* --- Font Imports --- */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 /* --- Global Base Styles --- */
 body {
-  font-family: 'IBM Plex Serif', serif, Georgia, 'Times New Roman', Times;
+  font-family: 'Inter', serif, Georgia, 'Times New Roman', Times;
   font-size: 18px;
   font-weight: 400;
   line-height: 1.7;
