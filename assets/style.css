@@ -41,7 +41,6 @@ body {
 #chapters p {
   line-height: 1.8;
   margin-bottom: 1.5em;
-  /* text-align: justify; */
 }
 
 /* --- Table of Contents --- */
@@ -234,7 +233,6 @@ body {
   line-height: 1.2;
 }
 
-
 #react-tooltips p {
   margin: 0;
   padding: 0;
@@ -244,6 +242,7 @@ body {
 #react-tooltips br {
   line-height: 0.5;
 }
+
 .tooltip-definition,
 .tooltip-contextual-meaning,
 .tooltip-example,
@@ -257,7 +256,70 @@ body {
 .tooltip-source,
 .tooltip-last-updated,
 .tooltip-image-description-text {
-    margin-bottom: 1em;
+  margin-bottom: 1em;
+}
+
+/* === Tooltip Extended Support === */
+.tooltip-image-container {
+  margin: 10px 0;
+  text-align: center;
+}
+
+.tooltip-image-container img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tooltip-image-description-text {
+  font-size: 0.85em;
+  color: #6c757d;
+  margin-top: 5px;
+}
+
+.tooltip-video-link {
+  display: inline-block;
+  margin-top: 10px;
+  background-color: #dc3545;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.tooltip-video-link:hover {
+  background-color: #c82333;
+}
+
+.tooltip-etymology,
+.tooltip-category,
+.tooltip-source,
+.tooltip-last-updated {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.tooltip-synonyms,
+.tooltip-antonyms {
+  font-size: 0.9em;
+  color: #333;
+  margin-top: 10px;
+}
+
+.tooltip-synonyms span,
+.tooltip-antonyms span {
+  background-color: #e9ecef;
+  padding: 2px 6px;
+  margin: 2px;
+  display: inline-block;
+  border-radius: 3px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.85em;
 }
 
 /* --- Word Tooltip Styles --- */
@@ -340,4 +402,35 @@ body {
   #chapters h2 {
     font-size: 1.5em;
   }
+}
+
+/* === Optional: Dark Mode === */
+.dark-mode body {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+
+.dark-mode #chapters,
+.dark-mode #toc,
+.dark-mode .chapter-list-item,
+.dark-mode .chapter-nav-links,
+.dark-mode #category-nav {
+  background-color: #2a2a2a;
+  color: #f0f0f0;
+  border-color: #444;
+}
+
+.dark-mode .word {
+  border-bottom-color: #0d6efd;
+  color: #0d6efd;
+}
+
+.dark-mode #react-tooltips {
+  background-color: #2a2a2a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+}
+
+.dark-mode .tooltip-image-description-text {
+  color: #aaa;
 }
