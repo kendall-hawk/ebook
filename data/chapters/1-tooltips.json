@@ -1,1 +1,227 @@
+{
+  "invention-noun": {
+    "title": "invention",
+    "partOfSpeech": "noun",
+    "description": "a new thing or idea that someone has made or thought of.",
+    "Image Description": "A bright lightbulb appearing above a creative mind, symbolizing a new idea or product coming into existence.",
+    "example": "The internet was a truly groundbreaking invention that changed how people connect.",
+    "category": "Creation/Innovation"
+  },
+  "unspecified-adjective": {
+    "title": "unspecified",
+    "partOfSpeech": "adjective",
+    "description": "not clearly stated or named.",
+    "Image Description": "A blurry calendar or a clock with no hands, suggesting an unknown or vague moment in time.",
+    "example": "The meeting is scheduled for an unspecified time next week.",
+    "category": "Description/Time"
+  },
+  "idiom-noun": {
+    "title": "idiom",
+    "partOfSpeech": "noun",
+    "description": "a group of words whose meaning is not clear from the individual words.",
+    "Image Description": "A speech bubble containing a confusing image (like raining cats and dogs) that conveys a figurative meaning, not literal.",
+    "example": "\"Break a leg\" is an idiom used to wish someone good luck, not for actual injury.",
+    "category": "Language/Linguistics"
+  },
+  "boundaries-noun": {
+    "title": "boundaries",
+    "partOfSpeech": "noun",
+    "description": "the limits or edges of something, often rules or acceptable behavior.",
+    "Image Description": "A clear line on the ground being stepped over, or a fence being pushed through, symbolizing the breaking of limits.",
+    "example": "It's important to respect personal boundaries in friendships.",
+    "category": "Limits/Behavior"
+  },
+  "acceptable-adjective": {
+    "title": "acceptable",
+    "partOfSpeech": "adjective",
+    "description": "good enough; allowed or agreed upon.",
+    "Image Description": "A hand giving a thumbs-up gesture, or a person nodding in approval, indicating something is within limits or agreeable.",
+    "example": "Her grades were acceptable, but she hoped to do better next semester.",
+    "category": "Quality/Norms"
+  },
+  "fresh-adjective": {
+    "title": "fresh",
+    "partOfSpeech": "adjective",
+    "description": "newly made, gathered, or produced; not old or frozen.",
+    "Image Description": "A close-up of vibrant, dewy vegetables just picked, or dough being kneaded with flour, emphasizing newness and natural state.",
+    "example": "We bought fresh bread from the bakery this morning.",
+    "category": "Food Quality"
+  },
+  "popular-adjective": {
+    "title": "popular",
+    "partOfSpeech": "adjective",
+    "description": "liked or enjoyed by many people.",
+    "Image Description": "A large crowd cheering, many hands reaching for something, a widely recognized symbol.",
+    "example": "That new song is very popular right now; everyone is listening to it.",
+    "category": "Social Acceptance"
+  },
+  "origins-noun": {
+    "title": "origins",
+    "partOfSpeech": "noun",
+    "description": "the beginning or source of something.",
+    "Image Description": "A map with a starting point, roots of a tree, an ancient artifact.",
+    "example": "The origins of this ancient custom are still unknown.",
+    "category": "Beginning/Source"
+  },
+  "recipes-noun": {
+    "title": "recipes",
+    "partOfSpeech": "noun",
+    "description": "sets of instructions for making food.",
+    "Image Description": "An open cookbook with ingredients laid out, someone following cooking instructions.",
+    "example": "My grandmother has many old recipes for delicious cakes.",
+    "category": "Food Term"
+  },
+  "spread-verb": {
+    "title": "spread",
+    "partOfSpeech": "verb",
+    "description": "to move or make something move over a wide area.",
+    "Image Description": "A hand scattering seeds, ripples in water, a map with expanding arrows.",
+    "example": "The news of the discovery quickly spread around the world.",
+    "category": "Movement/Distribution"
+  },
+  "traders-noun": {
+    "title": "traders",
+    "partOfSpeech": "noun",
+    "description": "people who buy and sell things.",
+    "Image Description": "Merchants in a bustling marketplace, a caravan on a trade route, people exchanging goods.",
+    "example": "In ancient times, traders traveled long distances to exchange goods.",
+    "category": "Occupation/Commerce"
+  },
+  "destination-noun": {
+    "title": "destination",
+    "partOfSpeech": "noun",
+    "description": "the place you are going to.",
+    "Image Description": "A signpost pointing a way, a train arriving at a station, a pinpoint on a map.",
+    "example": "After a long journey, we finally arrived at our tropical destination.",
+    "category": "Place/Travel"
+  },
+  "flavour-noun": {
+    "title": "flavour",
+    "partOfSpeech": "noun",
+    "description": "the special taste of a food or drink.",
+    "Image Description": "Steam rising from a delicious dish, spices in a bowl, a taste bud on a tongue.",
+    "example": "This ice cream has a rich chocolate flavour.",
+    "category": "Food Term"
+  },
+  "ingredients-noun": {
+    "title": "ingredients",
+    "partOfSpeech": "noun",
+    "description": "the foods or items used to make a dish or product.",
+    "Image Description": "Various items laid out on a kitchen counter before cooking, bowls of spices and chopped vegetables.",
+    "example": "All the ingredients for the cake are in the cupboard.",
+    "category": "Food Term"
+  },
+  "varieties-noun": {
+    "title": "varieties",
+    "partOfSpeech": "noun",
+    "description": "different kinds or types of something.",
+    "Image Description": "A diverse collection of items, different colors of the same object, multiple pathways.",
+    "example": "This store sells many varieties of cheese.",
+    "category": "Diversity/Types"
+  },
+  "investigated-verb": {
+    "title": "investigated",
+    "partOfSpeech": "verb",
+    "description": "looked into something carefully to find facts or truth.",
+    "Image Description": "A detective looking through clues, a scientist examining a sample, a magnifying glass over documents.",
+    "example": "The police investigated the cause of the accident.",
+    "category": "Action/Research"
+  },
+  "uncovered-verb": {
+    "title": "uncovered",
+    "partOfSpeech": "verb",
+    "description": "found something that was hidden or unknown.",
+    "Image Description": "Lifting a blanket to reveal something, digging up a hidden treasure, pulling back a curtain.",
+    "example": "Researchers uncovered ancient ruins deep in the jungle.",
+    "category": "Action/Discovery"
+  },
+  "exotic-adjective": {
+    "title": "exotic",
+    "partOfSpeech": "adjective",
+    "description": "unusual and interesting because it comes from a faraway place.",
+    "Image Description": "A vibrant, colorful bird from a rainforest, a mysterious temple in a distant land, a unique spice from a foreign market.",
+    "example": "We saw many exotic plants at the botanical garden.",
+    "category": "Description/Origin"
+  },
+  "association-noun": {
+    "title": "association",
+    "partOfSpeech": "noun",
+    "description": "an organized group of people with a shared goal.",
+    "Image Description": "A group of people meeting, a logo of a professional body, interconnected gears.",
+    "example": "She joined a local community association to help improve the neighborhood.",
+    "category": "Organization/Group"
+  },
+  "promote-verb": {
+    "title": "promote",
+    "partOfSpeech": "verb",
+    "description": "to help something grow or be successful.",
+    "Image Description": "A megaphone, a person advertising, a product being displayed prominently.",
+    "example": "The company launched a new campaign to promote their eco-friendly products.",
+    "category": "Action/Marketing"
+  },
+  "manufacturing-noun": {
+    "title": "manufacturing",
+    "partOfSpeech": "noun",
+    "description": "the process of making things, especially in large amounts, in a factory.",
+    "Image Description": "An assembly line, factory smoke stacks, machines producing items.",
+    "example": "The country is known for its strong auto manufacturing industry.",
+    "category": "Industry/Process"
+  },
+  "meaning-verb": {
+    "title": "meaning",
+    "partOfSpeech": "verb",
+    "description": "explaining what something refers to or what it implies.",
+    "Image Description": "A definition in a dictionary, an arrow pointing from a word to its explanation, a thought bubble with clarification.",
+    "example": "The word \"fast\" can refer to speed, meaning quick movement, or to not eating, meaning a period without food.",
+    "category": "Language/Explanation"
+  },
+  "foreign-adjective": {
+    "title": "foreign",
+    "partOfSpeech": "adjective",
+    "description": "from another country or language.",
+    "Image Description": "A passport, a different country's flag, someone speaking an unfamiliar language.",
+    "example": "Learning a foreign language can open up new opportunities.",
+    "category": "Description/Origin"
+  },
+  "localise-verb": {
+    "title": "localise",
+    "partOfSpeech": "verb",
+    "description": "to change something to make it suitable for a local area.",
+    "Image Description": "A world map with a magnifying glass zooming in on a specific region, or a dish being garnished with local ingredients, illustrating adaptation to a new context.",
+    "example": "The company decided to localise its advertising campaign to fit the culture of each country.",
+    "category": "Action/Adaptation"
+  },
+  "slices-noun": {
+    "title": "slices",
+    "partOfSpeech": "noun",
+    "description": "thin flat pieces cut from something larger.",
+    "Image Description": "A knife cutting food into thin pieces, evenly cut pieces of bread or meat.",
+    "example": "Please give me two slices of pizza.",
+    "category": "Food Term/Quantity"
+  },
+  "gradually-adverb": {
+    "title": "gradually",
+    "partOfSpeech": "adverb",
+    "description": "slowly and little by little.",
+    "Image Description": "A plant slowly growing, a sunrise over time-lapse, footsteps moving slowly up a hill.",
+    "example": "The weather is gradually getting warmer as summer approaches.",
+    "category": "Manner/Time"
+  },
+  "response-noun": {
+    "title": "response",
+    "partOfSpeech": "noun",
+    "description": "a reaction or answer to something.",
+    "Image Description": "Ripples spreading outwards in water from a dropped stone, or a person reacting visibly to a piece of news, depicting a consequence or reply.",
+    "example": "Her quiet response showed that she was deep in thought.",
+    "category": "Reaction/Action"
+  },
+  "traditional-adjective": {
+    "title": "traditional",
+    "partOfSpeech": "adjective",
+    "description": "following old customs or beliefs that have existed for a long time.",
+    "Image Description": "An old scroll or book, an ancient ceremony, a classic, timeless object.",
+    "example": "We had a traditional Thanksgiving dinner with turkey and all the trimmings.",
+    "category": "Description/Culture"
+  }
+}
 
