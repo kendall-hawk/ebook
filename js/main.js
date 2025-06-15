@@ -8,8 +8,8 @@ import {
     getGlobalWordFrequenciesMap,
     getGlobalMaxFreq
 } from './chapterRenderer.js';
-// 移除 loadTooltips，因为 Tooltip 数据现在由 handleChapterClick 动态加载
-import { setupTooltips } from './tooltip.js'; // 只需要 setupTooltips
+// 导入 updateActiveChapterTooltips，因为它需要被调用来更新 tooltip 模块的数据
+import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js'; 
 import { getWordFrequencies } from './wordFrequency.js';
 
 let allChapterIndexData = [];
@@ -25,16 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- 词频计算优化：在所有章节加载完成后一次性计算 ---
-    // 为了更精确地计算全局词频，我们需要等待所有章节内容加载完毕。
-    // 这里不再在加载完 chapters.json 后立即处理 Tooltip 词，
-    // 而是在计算词频时，动态地从所有章节内容中提取所有可能出现 Tooltip 的词。
-    // 这将确保所有标记为 Tooltip 的词（无论是 `[[word|id]]` 还是自动检测的词）都被保护。
-
     const allParagraphs = [];
-    // 假设 allChapterIndexData 已经包含了 chapterMeta.file 路径
-    // 异步加载所有章节内容，然后统一处理词频
     const chapterContentsPromises = allChapterIndexData.map(async (chMeta) => {
-        // 在这里预加载章节内容，以便在计算全局词频时使用
         const chapterData = await loadSingleChapterContent(chMeta.file);
         if (chapterData && chapterData.paragraphs) {
             chapterData.paragraphs.forEach(p => {
@@ -61,12 +53,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 for (const tooltipId in chapterTooltips) {
                     if (Object.hasOwnProperty.call(chapterTooltips, tooltipId)) {
                         const tooltipEntry = chapterTooltips[tooltipId];
-                        // 将 Tooltip 数据中的 `word` 字段加入受保护词列表
+                        // 将 Tooltip 数据中的 `word` 字段加入受保护词列表 (如果存在)
                         if (tooltipEntry.word) {
                             protectedWordsForFrequency.add(tooltipEntry.word.toLowerCase());
                         }
-                        // 也可以将 tooltipId 本身作为受保护词，如果它对应某个实际的词
-                        // protectedWordsForFrequency.add(tooltipId.toLowerCase());
+                        // 如果 tooltipId 本身是一个有意义的词，也可以考虑加入
+                        // protectedWordsForFrequency.add(tooltipId.split('-')[0].toLowerCase()); // 例如 'invention-noun' -> 'invention'
                     }
                 }
             } else {
@@ -77,7 +69,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // **核心修正：将 allParagraphs 数组和 protectedWordsForFrequency 传入 getWordFrequencies**
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
 
@@ -202,6 +193,10 @@ async function handleChapterClick(chapterId, filePath) {
 
 
     if (chapterContent) {
+        // ✨ 关键修正：在渲染章节内容之前，更新 Tooltip 模块内部的当前章节数据 ✨
+        // 确保当用户点击单词时，tooltip.js 能够访问到当前章节的 tooltip 详情
+        updateActiveChapterTooltips(currentChapterTooltips); 
+
         renderSingleChapterContent(
             chapterContent,
             currentChapterTooltips, // 将章节专属 Tooltip 数据传递给渲染器
