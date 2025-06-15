@@ -169,46 +169,46 @@ export function setupTooltips() {
 
                 // --- Explicitly handle each field ---
                 if (field === 'word' || field === 'title') {
-                    htmlContent += `<p class="tooltip-title"><strong>${formattedValue}</strong></p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-title"><strong>${formattedValue}</strong></p>`;
                 } else if (field === 'partOfSpeech') {
-                    htmlContent += `<p class="tooltip-pos">(${formattedValue})</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-pos">(${formattedValue})</p>`;
                 } else if (field === 'pronunciation') {
-                    htmlContent += `<p class="tooltip-pronunciation">/${formattedValue}/</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-pronunciation">/${formattedValue}/</p>`;
                 } else if (field === 'definition') {
-                    htmlContent += `<p class="tooltip-definition">${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-definition">${formattedValue}</p>`;
                 } else if (field === 'contextualMeaning') {
-                    htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formattedValue}</em></p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formattedValue}</em></p>`; // Changed prefix
                 } else if (field === 'exampleSentence') {
-                    htmlContent += `<p class="tooltip-example">Example: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-example">Example: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'videoLink') {
                     const videoId = extractVideoId(formattedValue);
                     if (videoId) {
-                         htmlContent += `<div class="tooltip-video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" frameborder="0" allowfullscreen></iframe></div><br>`; // Added <br>
+                         htmlContent += `<div class="tooltip-video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" frameborder="0" allowfullscreen></iframe></div>`;
                          console.log(`Rendered video for ${tooltipId} from: ${formattedValue}`);
                     } else {
                         console.warn(`Could not extract video ID from: ${formattedValue}`);
                     }
                 } else if (field === 'image') { // NEW: Handle image path independently
-                    htmlContent += `<img src="${formattedValue}" alt="Tooltip Image" class="tooltip-image"><br>`; // Added <br>
+                    htmlContent += `<img src="${formattedValue}" alt="Tooltip Image" class="tooltip-image">`;
                     console.log(`Rendered image for ${tooltipId} from: ${formattedValue}`);
                 } else if (field === 'imageDescription') { // NEW: Handle image description independently
-                    htmlContent += `<p class="tooltip-image-description-text">ImageDescription: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-image-description-text">ImageDescription: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'synonyms') {
-                    htmlContent += `<p class="tooltip-synonyms">Synonyms: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-synonyms">Synonyms: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'antonyms') {
-                    htmlContent += `<p class="tooltip-antonyms">Antonyms: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-antonyms">Antonyms: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'etymology') {
-                    htmlContent += `<p class="tooltip-etymology">Etymology: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-etymology">Etymology: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'category') {
-                    htmlContent += `<p class="tooltip-category">Category: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-category">Category: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'source') {
-                    htmlContent += `<p class="tooltip-source">Source: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-source">Source: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'lastUpdated') {
-                    htmlContent += `<p class="tooltip-last-updated">Updated: ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-last-updated">Updated: ${formattedValue}</p>`; // Changed prefix
                 } else {
                     // This block should rarely be triggered if all expected fields are handled
                     console.warn(`Unhandled field encountered: "${field}" with value: "${value}". Please add a specific handler for it.`);
-                    htmlContent += `<p class="tooltip-unhandled-field"><strong>${field.replace(/([A-Z])/g, ' $1').trim()}:</strong> ${formattedValue}</p><br>`; // Added <br>
+                    htmlContent += `<p class="tooltip-unhandled-field"><strong>${field.replace(/([A-Z])/g, ' $1').trim()}:</strong> ${formattedValue}</p>`;
                 }
             });
 
