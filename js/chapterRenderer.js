@@ -2,10 +2,10 @@
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
-let allChapterIndex = []; // 存储所有章节的索引数据（id, title, file, thumbnail, categories）
-let currentChapterData = null; // 存储当前加载并显示的章节完整数据
-let globalWordFrequenciesMap = new Map(); // 存储所有章节的词频
-let globalMaxFreq = 1; // 存储所有章节中的最高词频
+let allChapterIndex = [];
+let currentChapterData = null;
+let globalWordFrequenciesMap = new Map();
+let globalMaxFreq = 1;
 
 
 export async function loadChapterIndex() {
@@ -15,14 +15,13 @@ export async function loadChapterIndex() {
       throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
     }
     const data = await res.json();
-    allChapterIndex = data.chapters; // 确保 allChapterIndex 被填充
+    allChapterIndex = data.chapters;
     return allChapterIndex;
   } catch (error) {
     console.error('加载章节索引数据失败:', error);
     return [];
   }
 }
-
 
 export async function loadSingleChapterContent(filePath) {
   try {
@@ -49,14 +48,12 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
     console.error('未找到 #toc 容器。');
     return;
   }
-  toc.innerHTML = ''; // 清空旧目录
+  toc.innerHTML = '';
 
-  // 根据 filterCategory 过滤章节
   const filteredChapters = chapterIndex.filter(ch => {
     if (filterCategory === 'all') {
-      return true; // 显示所有章节
+      return true;
     }
-    // 确保 ch.categories 是一个数组
     return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
   });
 
@@ -69,32 +66,29 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
 
   filteredChapters.forEach(ch => {
     const itemLink = document.createElement('a');
-    itemLink.href = `#${ch.id}`; // 链接到章节ID
-    itemLink.classList.add('chapter-list-item'); // 添加 CSS 类
+    itemLink.href = `#${ch.id}`;
+    itemLink.classList.add('chapter-list-item');
 
-    // 添加缩略图
     if (ch.thumbnail) {
       const img = document.createElement('img');
       img.src = ch.thumbnail;
-      img.alt = ch.title; // 设置alt文本，提高可访问性
+      img.alt = ch.title;
       itemLink.appendChild(img);
     } else {
-      // 如果没有缩略图，可以显示一个默认图片或占位符
       const defaultImg = document.createElement('img');
-      defaultImg.src = 'assets/default_thumbnail.jpg'; // 请准备一个默认缩略图
+      defaultImg.src = 'assets/default_thumbnail.jpg';
       defaultImg.alt = 'Default Chapter Thumbnail';
       itemLink.appendChild(defaultImg);
     }
 
-    // 添加标题
     const title = document.createElement('h3');
     title.textContent = ch.title;
     itemLink.appendChild(title);
 
-    itemLink.dataset.filePath = ch.file; // 存储文件路径
+    itemLink.dataset.filePath = ch.file;
     itemLink.addEventListener('click', (e) => {
       e.preventDefault();
-      onChapterClick(ch.id, ch.file); // 调用回调函数加载章节内容
+      onChapterClick(ch.id, ch.file);
     });
     toc.appendChild(itemLink);
   });
@@ -103,23 +97,23 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
 /**
  * 渲染单个章节内容到 DOM。
  * @param {Object} chapterContent - 当前章节的完整数据。
- * @param {Object} tooltipData - tooltips 数据。
+ * @param {Object} currentChapterTooltips - 当前章节专属的 Tooltips 数据。
  * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
  * @param {number} maxFreq - 词语的最高频率。
  * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
  */
-export function renderSingleChapterContent(chapterContent, tooltipData, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
+export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
   const chaptersContainer = document.getElementById('chapters');
   if (!chaptersContainer) {
     console.error('未找到 #chapters 容器。');
     return;
   }
-  chaptersContainer.innerHTML = ''; // 清空旧内容
+  chaptersContainer.innerHTML = '';
 
-  currentChapterData = chapterContent; // 更新当前显示的章节数据
+  currentChapterData = chapterContent;
 
   const title = document.createElement('h2');
-  title.id = chapterContent.id; // 确保章节标题有其ID
+  title.id = chapterContent.id;
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
@@ -127,7 +121,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
     if (typeof item === 'string') {
       const renderedHtml = renderMarkdownWithTooltips(
           item,
-          tooltipData,
+          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
           wordFrequenciesMap,
           maxFreq
       );
@@ -144,7 +138,7 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
         position: 'relative',
-        paddingBottom: '56.25%', // 16:9 比例
+        paddingBottom: '56.25%',
         height: '0',
         overflow: 'hidden',
         maxWidth: '100%',
@@ -165,10 +159,9 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          // 确保这里使用的是正确的 YouTube embed URL 格式
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
       } else {
-          iframe.src = ensureEnableJsApi(videoUrl); // Fallback for non-YouTube URLs or if ID not found
+          iframe.src = ensureEnableJsApi(videoUrl);
       }
 
       wrapper.appendChild(iframe);
@@ -179,10 +172,8 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
   const navSection = document.createElement('div');
   navSection.classList.add('chapter-nav-links');
 
-  // 获取当前章节在 allChapterIndex 中的位置
   const currentIndex = allChapterIndex.findIndex(ch => ch.id === chapterContent.id);
 
-  // --- 添加“上一篇”按钮 ---
   if (currentIndex > 0) {
     const prevChapter = allChapterIndex[currentIndex - 1];
     const prevLink = document.createElement('a');
@@ -196,35 +187,26 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
     navSection.appendChild(prevLink);
   }
 
-  // --- 添加分隔符 ---
-  // 如果有上一篇和下一篇，或有上一篇和回到顶部，则添加分隔符
   if (currentIndex > 0 && (currentIndex < allChapterIndex.length - 1 || chapterContent.id)) {
     const separator1 = document.createTextNode(' | ');
     navSection.appendChild(separator1);
   }
 
-  // --- 保留“返回本篇文章开头”按钮 ---
   const toTopLink = document.createElement('a');
-  toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节的ID
+  toTopLink.href = `#${chapterContent.id}`;
   toTopLink.textContent = '返回本篇文章开头';
   toTopLink.classList.add('chapter-nav-link');
   toTopLink.addEventListener('click', (e) => {
       e.preventDefault();
-      // 平滑滚动到当前章节标题的顶部
       document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
   });
   navSection.appendChild(toTopLink);
 
-
-  // --- 添加分隔符 ---
-  // 如果有下一篇和上一篇，或有下一篇和回到顶部，则添加分隔符
   if (currentIndex < allChapterIndex.length - 1 && (currentIndex > 0 || chapterContent.id)) {
     const separator2 = document.createTextNode(' | ');
     navSection.appendChild(separator2);
   }
 
-
-  // --- 添加“下一篇”按钮 ---
   if (currentIndex < allChapterIndex.length - 1) {
     const nextChapter = allChapterIndex[currentIndex + 1];
     const nextLink = document.createElement('a');
@@ -238,21 +220,18 @@ export function renderSingleChapterContent(chapterContent, tooltipData, wordFreq
     navSection.appendChild(nextLink);
   }
 
-  // **新增：返回章节列表按钮** - 这个按钮只在文章页显示，方便返回分类列表
-  const backToTocLink = document.createElement('a');
-  backToTocLink.href = '#'; // 回到主页（无hash）
-  backToTocLink.textContent = '返回文章列表';
-  backToTocLink.classList.add('chapter-nav-link');
-  backToTocLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      // 触发 main.js 中的返回目录逻辑
-      navigateToChapterCallback(''); // 传入空字符串，表示返回主页
-  });
-  // 仅当存在其他导航链接时添加分隔符
   if (navSection.children.length > 0) {
       const separator3 = document.createTextNode(' | ');
       navSection.appendChild(separator3);
   }
+  const backToTocLink = document.createElement('a');
+  backToTocLink.href = '#';
+  backToTocLink.textContent = '返回文章列表';
+  backToTocLink.classList.add('chapter-nav-link');
+  backToTocLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateToChapterCallback('');
+  });
   navSection.appendChild(backToTocLink);
 
 
