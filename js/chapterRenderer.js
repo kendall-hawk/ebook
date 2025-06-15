@@ -2,31 +2,34 @@
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
-// 全局状态
-let allChapterIndex = [];
-let currentChapterData = null;
-let globalWordFrequenciesMap = new Map();
-let globalMaxFreq = 1;
+let allChapterIndex = []; // 存储所有章节的索引数据（id, title, file, thumbnail, categories）
+let currentChapterData = null; // 存储当前加载并显示的章节完整数据
+let globalWordFrequenciesMap = new Map(); // 存储所有章节的词频
+let globalMaxFreq = 1; // 存储所有章节中的最高词频
 
-// ========= 数据加载 =========
 
 export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
+    }
     const data = await res.json();
-    allChapterIndex = data.chapters || [];
+    allChapterIndex = data.chapters; // 确保 allChapterIndex 被填充
     return allChapterIndex;
   } catch (error) {
-    console.error('加载章节索引失败:', error);
+    console.error('加载章节索引数据失败:', error);
     return [];
   }
 }
 
+
 export async function loadSingleChapterContent(filePath) {
   try {
     const res = await fetch(`data/${filePath}`);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status} - Check 'data/${filePath}' path and server.`);
+    }
     return await res.json();
   } catch (error) {
     console.error(`加载章节内容失败 (${filePath}):`, error);
@@ -34,150 +37,227 @@ export async function loadSingleChapterContent(filePath) {
   }
 }
 
-// ========= 工具函数 =========
-
-function createElement(tag, className = '', text = '') {
-  const el = document.createElement(tag);
-  if (className) el.className = className;
-  if (text) el.textContent = text;
-  return el;
-}
-
-function createImage(src, alt = '', className = '') {
-  const img = document.createElement('img');
-  img.src = src;
-  img.alt = alt;
-  if (className) img.className = className;
-  return img;
-}
-
-function createLink(text, href, className, onClick) {
-  const link = document.createElement('a');
-  link.textContent = text;
-  link.href = href;
-  if (className) link.className = className;
-  if (onClick) link.addEventListener('click', onClick);
-  return link;
-}
-
-// ========= 渲染目录 =========
-
+/**
+ * 渲染章节目录到 DOM (现在用于主页的缩略图列表)。
+ * @param {Array<Object>} chapterIndex - 章节索引数组。
+ * @param {Function} onChapterClick - 点击章节时触发的回调函数。
+ * @param {string} [filterCategory='all'] - 用于过滤的分类名称，'all' 表示不过滤。
+ */
 export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 'all') {
   const toc = document.getElementById('toc');
-  if (!toc) return console.error('未找到 #toc 容器');
-
-  toc.innerHTML = '';
-  const fragment = document.createDocumentFragment();
-
-  const filtered = chapterIndex.filter(ch => {
-    return filterCategory === 'all' || (Array.isArray(ch.categories) && ch.categories.includes(filterCategory));
-  });
-
-  if (filtered.length === 0) {
-    toc.innerHTML = `<p class="no-results">No articles found for category: "${filterCategory}".</p>`;
+  if (!toc) {
+    console.error('未找到 #toc 容器。');
     return;
   }
+  toc.innerHTML = ''; // 清空旧目录
 
-  filtered.forEach(ch => {
-    const item = createLink('', `#${ch.id}`, 'chapter-list-item', e => {
-      e.preventDefault();
-      onChapterClick(ch.id, ch.file);
-    });
-
-    const img = createImage(
-      ch.thumbnail || 'assets/default_thumbnail.jpg',
-      ch.title || 'Chapter thumbnail'
-    );
-    item.appendChild(img);
-
-    const title = createElement('h3', '', ch.title);
-    item.appendChild(title);
-
-    item.dataset.filePath = ch.file;
-    fragment.appendChild(item);
+  // 根据 filterCategory 过滤章节
+  const filteredChapters = chapterIndex.filter(ch => {
+    if (filterCategory === 'all') {
+      return true; // 显示所有章节
+    }
+    // 确保 ch.categories 是一个数组
+    return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
   });
 
-  toc.appendChild(fragment);
+
+  if (filteredChapters.length === 0) {
+      toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
+      return;
+  }
+
+
+  filteredChapters.forEach(ch => {
+    const itemLink = document.createElement('a');
+    itemLink.href = `#${ch.id}`; // 链接到章节ID
+    itemLink.classList.add('chapter-list-item'); // 添加 CSS 类
+
+    // 添加缩略图
+    if (ch.thumbnail) {
+      const img = document.createElement('img');
+      img.src = ch.thumbnail;
+      img.alt = ch.title; // 设置alt文本，提高可访问性
+      itemLink.appendChild(img);
+    } else {
+      // 如果没有缩略图，可以显示一个默认图片或占位符
+      const defaultImg = document.createElement('img');
+      defaultImg.src = 'assets/default_thumbnail.jpg'; // 请准备一个默认缩略图
+      defaultImg.alt = 'Default Chapter Thumbnail';
+      itemLink.appendChild(defaultImg);
+    }
+
+    // 添加标题
+    const title = document.createElement('h3');
+    title.textContent = ch.title;
+    itemLink.appendChild(title);
+
+    itemLink.dataset.filePath = ch.file; // 存储文件路径
+    itemLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      onChapterClick(ch.id, ch.file); // 调用回调函数加载章节内容
+    });
+    toc.appendChild(itemLink);
+  });
 }
 
-// ========= 渲染章节 =========
-
+/**
+ * 渲染单个章节内容到 DOM。
+ * @param {Object} chapterContent - 当前章节的完整数据。
+ * @param {Object} tooltipData - tooltips 数据。
+ * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
+ * @param {number} maxFreq - 词语的最高频率。
+ * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
+ */
 export function renderSingleChapterContent(chapterContent, tooltipData, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
-  const container = document.getElementById('chapters');
-  if (!container) return console.error('未找到 #chapters 容器');
+  const chaptersContainer = document.getElementById('chapters');
+  if (!chaptersContainer) {
+    console.error('未找到 #chapters 容器。');
+    return;
+  }
+  chaptersContainer.innerHTML = ''; // 清空旧内容
 
-  container.innerHTML = '';
-  currentChapterData = chapterContent;
+  currentChapterData = chapterContent; // 更新当前显示的章节数据
 
-  const fragment = document.createDocumentFragment();
-  const title = createElement('h2', '', chapterContent.title);
-  title.id = chapterContent.id;
-  fragment.appendChild(title);
+  const title = document.createElement('h2');
+  title.id = chapterContent.id; // 确保章节标题有其ID
+  title.textContent = chapterContent.title;
+  chaptersContainer.appendChild(title);
 
   chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
-      const html = renderMarkdownWithTooltips(item, tooltipData, wordFrequenciesMap, maxFreq);
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = html;
-      Array.from(wrapper.children).forEach(child => fragment.appendChild(child));
+      const renderedHtml = renderMarkdownWithTooltips(
+          item,
+          tooltipData,
+          wordFrequenciesMap,
+          maxFreq
+      );
+
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = renderedHtml;
+
+      Array.from(tempDiv.children).forEach(child => {
+          chaptersContainer.appendChild(child);
+      });
+
     } else if (item.video) {
+      const videoUrl = item.video;
       const wrapper = document.createElement('div');
-      wrapper.className = 'video-wrapper';
+      Object.assign(wrapper.style, {
+        position: 'relative',
+        paddingBottom: '56.25%', // 16:9 比例
+        height: '0',
+        overflow: 'hidden',
+        maxWidth: '100%',
+        marginBottom: '20px'
+      });
 
       const iframe = document.createElement('iframe');
-      iframe.src = getVideoEmbedUrl(item.video);
-      iframe.setAttribute('frameborder', '0');
-      iframe.setAttribute('allowfullscreen', '');
-      iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
-      iframe.className = 'video-iframe';
+      Object.assign(iframe.style, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+      });
+      iframe.frameBorder = '0';
+      iframe.allowFullscreen = true;
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+
+      const videoId = extractVideoId(videoUrl);
+      if (videoId) {
+          // 确保这里使用的是正确的 YouTube embed URL 格式
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
+      } else {
+          iframe.src = ensureEnableJsApi(videoUrl); // Fallback for non-YouTube URLs or if ID not found
+      }
 
       wrapper.appendChild(iframe);
-      fragment.appendChild(wrapper);
+      chaptersContainer.appendChild(wrapper);
     }
   });
 
-  fragment.appendChild(buildNavigation(chapterContent.id, navigateToChapterCallback));
-  container.appendChild(fragment);
+  const navSection = document.createElement('div');
+  navSection.classList.add('chapter-nav-links');
+
+  // 获取当前章节在 allChapterIndex 中的位置
+  const currentIndex = allChapterIndex.findIndex(ch => ch.id === chapterContent.id);
+
+  // --- 添加“上一篇”按钮 ---
+  if (currentIndex > 0) {
+    const prevChapter = allChapterIndex[currentIndex - 1];
+    const prevLink = document.createElement('a');
+    prevLink.href = `#${prevChapter.id}`;
+    prevLink.textContent = '上一篇';
+    prevLink.classList.add('chapter-nav-link');
+    prevLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateToChapterCallback(prevChapter.id, prevChapter.file);
+    });
+    navSection.appendChild(prevLink);
+  }
+
+  // --- 添加分隔符 ---
+  // 如果有上一篇和下一篇，或有上一篇和回到顶部，则添加分隔符
+  if (currentIndex > 0 && (currentIndex < allChapterIndex.length - 1 || chapterContent.id)) {
+    const separator1 = document.createTextNode(' | ');
+    navSection.appendChild(separator1);
+  }
+
+  // --- 保留“返回本篇文章开头”按钮 ---
+  const toTopLink = document.createElement('a');
+  toTopLink.href = `#${chapterContent.id}`; // 链接到当前章节的ID
+  toTopLink.textContent = '返回本篇文章开头';
+  toTopLink.classList.add('chapter-nav-link');
+  toTopLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 平滑滚动到当前章节标题的顶部
+      document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+  });
+  navSection.appendChild(toTopLink);
+
+
+  // --- 添加分隔符 ---
+  // 如果有下一篇和上一篇，或有下一篇和回到顶部，则添加分隔符
+  if (currentIndex < allChapterIndex.length - 1 && (currentIndex > 0 || chapterContent.id)) {
+    const separator2 = document.createTextNode(' | ');
+    navSection.appendChild(separator2);
+  }
+
+
+  // --- 添加“下一篇”按钮 ---
+  if (currentIndex < allChapterIndex.length - 1) {
+    const nextChapter = allChapterIndex[currentIndex + 1];
+    const nextLink = document.createElement('a');
+    nextLink.href = `#${nextChapter.id}`;
+    nextLink.textContent = '下一篇';
+    nextLink.classList.add('chapter-nav-link');
+    nextLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateToChapterCallback(nextChapter.id, nextChapter.file);
+    });
+    navSection.appendChild(nextLink);
+  }
+
+  // **新增：返回章节列表按钮** - 这个按钮只在文章页显示，方便返回分类列表
+  const backToTocLink = document.createElement('a');
+  backToTocLink.href = '#'; // 回到主页（无hash）
+  backToTocLink.textContent = '返回文章列表';
+  backToTocLink.classList.add('chapter-nav-link');
+  backToTocLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // 触发 main.js 中的返回目录逻辑
+      navigateToChapterCallback(''); // 传入空字符串，表示返回主页
+  });
+  // 仅当存在其他导航链接时添加分隔符
+  if (navSection.children.length > 0) {
+      const separator3 = document.createTextNode(' | ');
+      navSection.appendChild(separator3);
+  }
+  navSection.appendChild(backToTocLink);
+
+
+  chaptersContainer.appendChild(navSection);
 }
-
-function getVideoEmbedUrl(url) {
-  const id = extractVideoId(url);
-  return id ? ensureEnableJsApi(`https://www.youtube.com/embed/${id}`) : ensureEnableJsApi(url);
-}
-
-function buildNavigation(currentId, navigateToChapterCallback) {
-  const nav = createElement('div', 'chapter-nav-links');
-  const index = allChapterIndex.findIndex(ch => ch.id === currentId);
-  const prev = allChapterIndex[index - 1];
-  const next = allChapterIndex[index + 1];
-
-  if (prev) nav.appendChild(createLink('上一篇', `#${prev.id}`, 'chapter-nav-link', e => {
-    e.preventDefault(); navigateToChapterCallback(prev.id, prev.file);
-  }));
-
-  if (prev && next) nav.appendChild(document.createTextNode(' | '));
-
-  nav.appendChild(createLink('返回本篇文章开头', `#${currentId}`, 'chapter-nav-link', e => {
-    e.preventDefault();
-    document.getElementById(currentId)?.scrollIntoView({ behavior: 'smooth' });
-  }));
-
-  if (next && prev) nav.appendChild(document.createTextNode(' | '));
-
-  if (next) nav.appendChild(createLink('下一篇', `#${next.id}`, 'chapter-nav-link', e => {
-    e.preventDefault(); navigateToChapterCallback(next.id, next.file);
-  }));
-
-  if (nav.children.length > 0) nav.appendChild(document.createTextNode(' | '));
-
-  nav.appendChild(createLink('返回文章列表', '#', 'chapter-nav-link', e => {
-    e.preventDefault(); navigateToChapterCallback('');
-  }));
-
-  return nav;
-}
-
-// ========= 词频全局状态 =========
 
 export function getGlobalWordFrequenciesMap() {
   return globalWordFrequenciesMap;
