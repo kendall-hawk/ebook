@@ -2,10 +2,9 @@
   "invention-noun": {
     "title": "invention",
     "partOfSpeech": "noun",
-    "description": "a new thing or idea that someone has made or thought of.",
-    "Image Description": "A bright lightbulb appearing above a creative mind, symbolizing a new idea or product coming into existence.",
-    "example": "The internet was a truly groundbreaking invention that changed how people connect.",
-    "category": "Creation/Innovation"
+    "definition": "a new thing or idea that someone has made or thought of.",
+    "imageDescription": "A bright lightbulb appearing above a creative mind, symbolizing a new idea or product coming into existence.",
+    "exampleSentence": "The internet was a truly groundbreaking invention that changed how people connect.",
   },
   "unspecified-adjective": {
     "title": "unspecified",
