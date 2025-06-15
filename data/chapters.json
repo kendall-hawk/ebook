@@ -6,6 +6,13 @@
             "file": "chapters/1.json",
             "thumbnail": "https://img.youtube.com/vi/aOiuSsnWEik/maxresdefault.jpg",
             "categories": ["BBC Learn English"]
+        },
+       {
+            "id": "chap-02",
+            "title": "How important is politeness?",
+            "file": "chapters/2.json",
+            "thumbnail": "https://img.youtube.com/vi/5wynL5ttotw/maxresdefault.jpg",
+            "categories": ["BBC Learn English"]
         }
     ]
 }
