@@ -244,6 +244,21 @@ body {
 #react-tooltips br {
   line-height: 0.5;
 }
+.tooltip-definition,
+.tooltip-contextual-meaning,
+.tooltip-example,
+.tooltip-pos,
+.tooltip-pronunciation,
+.tooltip-title,
+.tooltip-synonyms,
+.tooltip-antonyms,
+.tooltip-etymology,
+.tooltip-category,
+.tooltip-source,
+.tooltip-last-updated,
+.tooltip-image-description-text {
+    margin-bottom: 1em;
+}
 
 /* --- Word Tooltip Styles --- */
 .word {
