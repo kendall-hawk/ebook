@@ -177,7 +177,7 @@ export function setupTooltips() {
 
             // 保持你的内容生成逻辑不变
             if (data.title) {
-                htmlContent += `<strong>${data.title}</strong><br>`;
+                htmlContent += `<strong>${data.title}</strong>`;
             } else {
                 // wordId.split('-')[0] 对于自定义 tooltip [[word|tooltipId]] 可能是 tooltipId，需要确认你的数据结构
                 // 如果是 regular word，wordId 就是 word 本身
