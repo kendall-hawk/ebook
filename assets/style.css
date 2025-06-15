@@ -1,0 +1,128 @@
+/* Tooltip 容器样式 */
+#react-tooltips {
+  position: absolute;
+  max-width: 320px;
+  background: rgba(60, 60, 60, 0.95);
+  color: #f0f0f0;
+  border-radius: 6px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  z-index: 9999;
+  display: none;
+  transition: opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: auto;
+  user-select: text;
+}
+
+/* Tooltip 显示时 */
+#react-tooltips.visible {
+  display: block;
+  opacity: 1;
+}
+
+/* Tooltip 标题 */
+.tooltip-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin: 0 0 6px 0;
+  color: #ffdd57;
+}
+
+/* 词性 */
+.tooltip-pos {
+  font-style: italic;
+  font-size: 13px;
+  color: #b0b0b0;
+  margin: 0 0 8px 0;
+}
+
+/* 定义 */
+.tooltip-definition {
+  margin: 0 0 10px 0;
+}
+
+/* 例句 */
+.tooltip-example {
+  font-style: italic;
+  font-size: 13px;
+  color: #d0d0d0;
+  margin: 0 0 8px 0;
+}
+
+/* 图片 */
+.tooltip-image {
+  max-width: 100%;
+  max-height: 160px;
+  display: block;
+  margin: 10px 0 6px 0;
+  border-radius: 4px;
+  object-fit: contain;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 图片描述 */
+.tooltip-image-desc {
+  font-size: 12px;
+  color: #bbb;
+  margin: 0 0 8px 0;
+  font-style: italic;
+}
+
+/* 视频容器 */
+.tooltip-video-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 比例 */
+  height: 0;
+  overflow: hidden;
+  margin: 10px 0;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tooltip-video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 6px;
+}
+
+/* 其他字段样式 */
+.tooltip-field-synonyms,
+.tooltip-field-antonyms,
+.tooltip-field-etymology,
+.tooltip-field-category,
+.tooltip-field-source,
+.tooltip-field-last-updated {
+  font-size: 12px;
+  color: #ccc;
+  margin: 4px 0 4px 0;
+}
+
+/* 鼠标悬停词汇样式 */
+.word {
+  cursor: pointer;
+  text-decoration: underline dotted #ffa;
+  color: #ffdd57;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  #react-tooltips {
+    background: rgba(30, 30, 30, 0.95);
+    color: #eee;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+  }
+  .word {
+    color: #ffd966;
+  }
+  .tooltip-title {
+    color: #ffc107;
+  }
+}
