@@ -1,1 +1,23 @@
+/* _responsive.css */
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 767px) {
+  .floating-video {
+    display: none !important; /* Hides the floating video on small screens */
+  }
+
+  body {
+    padding: 10px;
+    font-size: 17px;
+  }
+
+  #chapters {
+    margin: 10px auto;
+    padding: 0 10px 20px;
+  }
+
+  #chapters h2 {
+    font-size: 1.5em;
+  }
+}
 
