@@ -5,12 +5,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap'); /* Added Open Sans import here for consistency */
 
 /* --- Import Modular Styles --- */
-@import './base.css';
-@import './layout.css';
-@import './content.css';
-@import './navigation.css';
-@import './chapter-list.css';
-@import './tooltip.css';
-@import './floating-video.css';
-@import './responsive.css';
-@import './dark-mode.css';
+@import './_base.css';
+@import './_layout.css';
+@import './_content.css';
+@import './_navigation.css';
+@import './_chapter-list.css';
+@import './_tooltip.css';
+@import './_floating-video.css';
+@import './_responsive.css';
+@import './_dark-mode.css';
