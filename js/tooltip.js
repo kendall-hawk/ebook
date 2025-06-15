@@ -211,7 +211,7 @@ export function setupTooltips() {
                     } else if (field === 'definition') {
                         htmlContent += `<p class="tooltip-definition">${value}</p>`;
                     } else if (field === 'exampleSentence') {
-                        htmlContent += `<p class="tooltip-example">例句: <em>${value}</em></p>`;
+                        htmlContent += `<p class="tooltip-example">${value}</p>`;
                     } else if (field === 'imageDescription' && data.image) { // 假设如果存在图片路径，会有一个 'image' 字段
                         htmlContent += `<img src="${data.image}" alt="${value}" class="tooltip-image"><p class="tooltip-image-desc">${value}</p>`;
                     } else if (field === 'videoLink' && data.videoLink) {
