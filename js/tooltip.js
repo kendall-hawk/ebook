@@ -192,7 +192,7 @@ export function setupTooltips() {
                     htmlContent += `<img src="${formattedValue}" alt="Tooltip Image" class="tooltip-image">`;
                     console.log(`Rendered image for ${tooltipId} from: ${formattedValue}`);
                 } else if (field === 'imageDescription') { // NEW: Handle image description independently
-                    htmlContent += `<p class="tooltip-image-description-text">📸 Description: <em>${formattedValue}</em></p>`; // Changed prefix
+                    htmlContent += `<p class="tooltip-image-description-text">ImageDescription: <em>${formattedValue}</em></p>`; // Changed prefix
                 } else if (field === 'synonyms') {
                     htmlContent += `<p class="tooltip-synonyms">Synonyms: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'antonyms') {
