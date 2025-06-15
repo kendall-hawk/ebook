@@ -179,7 +179,7 @@ export function setupTooltips() {
                 } else if (field === 'contextualMeaning') {
                     htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formattedValue}</em></p>`; // Changed prefix
                 } else if (field === 'exampleSentence') {
-                    htmlContent += `<p class="tooltip-example"><strong>Example:</strong> ${formattedValue}</p>`; // Changed prefix
+                    htmlContent += `<p class="tooltip-example"><strong>example:</strong> ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'videoLink') {
                     const videoId = extractVideoId(formattedValue);
                     if (videoId) {
@@ -194,9 +194,9 @@ export function setupTooltips() {
                 } else if (field === 'imageDescription') { // NEW: Handle image description independently
                     htmlContent += `<p class="tooltip-image-description-text"><strong>ImageDescription:</strong> ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'synonyms') {
-                    htmlContent += `<p class="tooltip-synonyms">Synonyms: ${formattedValue}</p>`; // Changed prefix
+                    htmlContent += `<p class="tooltip-synonyms"><strong>synonyms:</strong> ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'antonyms') {
-                    htmlContent += `<p class="tooltip-antonyms">Antonyms: ${formattedValue}</p>`; // Changed prefix
+                    htmlContent += `<p class="tooltip-antonyms"><strong>antonyms:</strong> ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'etymology') {
                     htmlContent += `<p class="tooltip-etymology">Etymology: ${formattedValue}</p>`; // Changed prefix
                 } else if (field === 'category') {
