@@ -4,13 +4,436 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Source+Serif+4:wght@400;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap'); /* Added Open Sans import here for consistency */
 
-/* --- Import Modular Styles --- */
-@import './_base.css';
-@import './_layout.css';
-@import './_content.css';
-@import './_navigation.css';
-@import './_chapter-list.css';
-@import './_tooltip.css';
-@import './_floating-video.css';
-@import './_responsive.css';
-@import './_dark-mode.css';
+/* --- Global Base Styles --- */
+body {
+  font-family: 'Source Serif 4', serif, Georgia, 'Times New Roman', Times;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.7;
+  margin: 0;
+  padding: 20px;
+  background-color: #f4f4f4;
+  color: #333;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Content Container --- */
+#chapters {
+  background-color: #fff;
+  padding: 0 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+/* --- Headings --- */
+#chapters h2 {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.8em;
+  line-height: 1.3;
+  color: #0056b3;
+  border-bottom: 2px solid #0056b3;
+  padding-bottom: 10px;
+  margin: 0 0 0.8em;
+}
+
+/* --- Paragraphs --- */
+#chapters p {
+  line-height: 1.8;
+  margin-bottom: 1.5em;
+}
+
+/* --- Table of Contents --- */
+#toc {
+  margin-bottom: 30px;
+  background-color: #e9e9e9;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+#toc a {
+  font-family: 'Open Sans', sans-serif;
+  display: block;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: #007bff;
+  border-bottom: 1px solid #ddd;
+}
+
+#toc a:last-child {
+  border-bottom: none;
+}
+
+#toc a:hover {
+  background-color: #dcdcdc;
+  color: #0056b3;
+}
+
+/* --- Chapter Navigation --- */
+.chapter-nav-links {
+  text-align: center;
+  margin: 30px 0 50px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chapter-nav-link {
+  font-family: 'Open Sans', sans-serif;
+  display: inline-block;
+  padding: 8px 15px;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-size: 0.95em;
+  border: 1px solid #007bff;
+  transition: all 0.3s ease;
+}
+
+.chapter-nav-link:hover {
+  background-color: #0056b3;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.chapter-nav-links > text {
+  color: #666;
+  margin: 0 5px;
+}
+
+/* --- Chapter List Grid --- */
+.chapter-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 20px auto;
+}
+
+.chapter-list-item {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  text-decoration: none;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chapter-list-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.chapter-list-item img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.chapter-list-item h3 {
+  font-family: 'Open Sans', sans-serif;
+  margin: 15px;
+  font-size: 1.2em;
+  color: #0056b3;
+  flex-grow: 1;
+}
+
+/* --- Category Navigation --- */
+#category-nav {
+  text-align: center;
+  padding: 15px 0;
+  background-color: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.category-button {
+  font-family: 'Open Sans', sans-serif;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.category-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.category-button.active {
+  background-color: #28a745;
+  font-weight: bold;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Tooltip Container --- */
+#react-tooltips {
+  position: absolute;
+  display: none;
+  opacity: 0;
+  transform: translateY(5px);
+  font-family: 'Open Sans', sans-serif;
+  background-color: #f8f9fa;
+  color: #343a40;
+  padding: 12px 18px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #ced4da;
+  max-width: 300px;
+  z-index: 10000;
+  pointer-events: auto;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  will-change: opacity, transform;
+  line-height: 1.4;
+}
+
+#react-tooltips.visible {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#react-tooltips strong {
+  color: #007bff;
+  font-size: 1.1em;
+  display: block;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+#react-tooltips em {
+  color: #6c757d;
+  font-size: 0.9em;
+  display: block;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+#react-tooltips p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+#react-tooltips br {
+  line-height: 0.5;
+}
+
+.tooltip-definition,
+.tooltip-contextual-meaning,
+.tooltip-example,
+.tooltip-pos,
+.tooltip-pronunciation,
+.tooltip-title,
+.tooltip-synonyms,
+.tooltip-antonyms,
+.tooltip-etymology,
+.tooltip-category,
+.tooltip-source,
+.tooltip-last-updated,
+.tooltip-image-description-text {
+  margin-bottom: 1em;
+}
+
+/* === Tooltip Extended Support === */
+.tooltip-image-container {
+  margin: 10px 0;
+  text-align: center;
+}
+
+.tooltip-image-container img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tooltip-image-description-text {
+  font-size: 0.85em;
+  color: #6c757d;
+  margin-top: 5px;
+}
+
+.tooltip-video-link {
+  display: inline-block;
+  margin-top: 10px;
+  background-color: #dc3545;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.tooltip-video-link:hover {
+  background-color: #c82333;
+}
+
+.tooltip-etymology,
+.tooltip-category,
+.tooltip-source,
+.tooltip-last-updated {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.tooltip-synonyms,
+.tooltip-antonyms {
+  font-size: 0.9em;
+  color: #333;
+  margin-top: 10px;
+}
+
+.tooltip-synonyms span,
+.tooltip-antonyms span {
+  background-color: #e9ecef;
+  padding: 2px 6px;
+  margin: 2px;
+  display: inline-block;
+  border-radius: 3px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.85em;
+}
+
+/* --- Word Tooltip Styles --- */
+.word {
+  cursor: help;
+  border-bottom: 2px dotted #007bff;
+  text-decoration: none;
+  display: inline-block;
+  vertical-align: baseline;
+  font-size: inherit;
+  line-height: 1.2;
+}
+
+.word:hover {
+  color: #0056b3;
+  border-bottom-color: #0056b3;
+}
+
+/* --- Floating Video Player --- */
+.floating-video {
+  position: fixed;
+  width: 320px;
+  height: 180px;
+  bottom: 10px;
+  right: 10px;
+  background-color: #000;
+  border: 1px solid #444;
+  border-radius: 6px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.video-header {
+  font-family: 'Open Sans', sans-serif;
+  background: #222;
+  color: #fff;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9em;
+  cursor: grab;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #f00;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 767px) {
+  .floating-video {
+    display: none !important;
+  }
+
+  body {
+    padding: 10px;
+    font-size: 17px;
+  }
+
+  #chapters {
+    margin: 10px auto;
+    padding: 0 10px 20px;
+  }
+
+  #chapters h2 {
+    font-size: 1.5em;
+  }
+}
+
+/* === Optional: Dark Mode === */
+.dark-mode body {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+
+.dark-mode #chapters,
+.dark-mode #toc,
+.dark-mode .chapter-list-item,
+.dark-mode .chapter-nav-links,
+.dark-mode #category-nav {
+  background-color: #2a2a2a;
+  color: #f0f0f0;
+  border-color: #444;
+}
+
+.dark-mode .word {
+  border-bottom-color: #0d6efd;
+  color: #0d6efd;
+}
+
+.dark-mode #react-tooltips {
+  background-color: #2a2a2a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+}
+
+.dark-mode .tooltip-image-description-text {
+  color: #aaa;
+}
