@@ -1,7 +1,7 @@
 {
     "chapters": [
         {
-            "id": "1",
+            "id": "chap-01",
             "title": "What's your favourite kind of noodle?",
             "file": "chapters/1.json",
             "thumbnail": "https://img.youtube.com/vi/aOiuSsnWEik/maxresdefault.jpg",
