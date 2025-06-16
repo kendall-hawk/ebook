@@ -1,123 +1,24 @@
 // js/chapterRenderer.js
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
-import { tokenizeText } from './audio/tokenizer.js'; // 尽管本文件中不再直接用于DOM词分，但保留导入
-import { parseSRT } from './audio/srtParser.js'; // 导入 parseSRT 函数
 
 let allChapterIndex = [];
 let currentChapterData = null;
 let globalWordFrequenciesMap = new Map();
 let globalMaxFreq = 1;
 
-// 辅助函数：清理文本，移除 [[...]] 标记，用于匹配
-// 这个函数现在更关键，因为它被 findOriginalTextSegment 依赖
-function cleanTextForMatching(text) {
-  // 移除 [[...|...]] 形式的标记，只保留内容
-  let cleaned = text.replace(/\[\[([^|\]]+)\|[^\]]+\]\]/g, '$1');
-  // 移除其他 [[...]] 形式的标记
-  cleaned = cleaned.replace(/\[\[([^\]]+)\]\]/g, '$1');
-  // 将多个空格替换为单个空格并修剪，并转换为小写以进行不区分大小写的匹配
-  cleaned = cleaned.replace(/\s+/g, ' ').trim().toLowerCase();
-  // 移除所有标点符号，只留下字母数字和空格，这有助于更宽松的匹配
-  // 假设 SRT 文本中可能没有标点或标点不同
-  cleaned = cleaned.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
-  return cleaned;
-}
-
-/**
- * 辅助函数：在原始文本中找到与 SRT 文本匹配的片段，并返回其原始的文本和结束位置。
- * 优化后的匹配逻辑：先清理原始文本和 SRT 文本，然后在清理后的文本中查找匹配，
- * 再将匹配的索引映射回原始文本。
- * @param {string} originalBlockContent - 包含 [[...]] 标记的原始块文本。
- * @param {number} startPosInOriginal - 在 originalBlockContent 中的起始搜索位置。
- * @param {string} pureSrtText - SRT 的纯文本。
- * @param {function} cleanerFunc - 用于清理文本的函数 (e.g., cleanTextForMatching)。
- * @returns {{matchedOriginalText: string|null, endPosInOriginal: number}}
- */
-function findOriginalTextSegment(originalBlockContent, startPosInOriginal, pureSrtText, cleanerFunc) {
-    const cleanedSrtText = cleanerFunc(pureSrtText);
-
-    // 获取原始块从 startPosInOriginal 开始的剩余部分
-    const remainingOriginalBlock = originalBlockContent.substring(startPosInOriginal);
-    const cleanedRemainingBlock = cleanerFunc(remainingOriginalBlock);
-
-    // 在清理后的剩余块中查找 SRT 文本的匹配
-    const cleanedMatchIndex = cleanedRemainingBlock.indexOf(cleanedSrtText);
-
-    if (cleanedMatchIndex === -1) {
-        // 未找到匹配
-        return { matchedOriginalText: null, endPosInOriginal: -1 };
-    }
-
-    // 将清理后的匹配索引映射回原始文本的索引
-    let currentOriginalCursor = startPosInOriginal;
-    let currentCleanedCursor = 0;
-    let actualMatchStartOriginalIndex = -1;
-    let actualMatchEndOriginalIndex = -1;
-
-    // 找到原始文本中匹配开始的索引
-    while (currentOriginalCursor < originalBlockContent.length && currentCleanedCursor < cleanedMatchIndex) {
-        const char = originalBlockContent[currentOriginalCursor];
-        const cleanedCharLength = cleanerFunc(char).length; // 计算单个字符的清理后长度
-
-        // 处理 [[...]] 标签
-        if (char === '[' && originalBlockContent[currentOriginalCursor + 1] === '[') {
-            const tagEndIndex = originalBlockContent.indexOf(']]', currentOriginalCursor);
-            if (tagEndIndex !== -1) {
-                const tagContent = originalBlockContent.substring(currentOriginalCursor + 2, tagEndIndex);
-                const pipeIndex = tagContent.indexOf('|');
-                const textInsideTag = pipeIndex !== -1 ? tagContent.substring(0, pipeIndex) : tagContent;
-                currentCleanedCursor += cleanerFunc(textInsideTag).length;
-                currentOriginalCursor = tagEndIndex + 2;
-                continue;
-            }
-        }
-        currentCleanedCursor += cleanedCharLength;
-        currentOriginalCursor++;
-    }
-    actualMatchStartOriginalIndex = currentOriginalCursor;
-
-    // 找到原始文本中匹配结束的索引
-    const targetCleanedEnd = cleanedMatchIndex + cleanedSrtText.length;
-    while (currentOriginalCursor < originalBlockContent.length && currentCleanedCursor < targetCleanedEnd) {
-        const char = originalBlockContent[currentOriginalCursor];
-        const cleanedCharLength = cleanerFunc(char).length;
-
-         // 处理 [[...]] 标签
-        if (char === '[' && originalBlockContent[currentOriginalCursor + 1] === '[') {
-            const tagEndIndex = originalBlockContent.indexOf(']]', currentOriginalCursor);
-            if (tagEndIndex !== -1) {
-                const tagContent = originalBlockContent.substring(currentOriginalCursor + 2, tagEndIndex);
-                const pipeIndex = tagContent.indexOf('|');
-                const textInsideTag = pipeIndex !== -1 ? tagContent.substring(0, pipeIndex) : tagContent;
-                currentCleanedCursor += cleanerFunc(textInsideTag).length;
-                currentOriginalCursor = tagEndIndex + 2;
-                continue;
-            }
-        }
-        currentCleanedCursor += cleanedCharLength;
-        currentOriginalCursor++;
-    }
-    actualMatchEndOriginalIndex = currentOriginalCursor;
-
-    const matchedOriginalText = originalBlockContent.substring(actualMatchStartOriginalIndex, actualMatchEndOriginalIndex);
-
-    return {
-        matchedOriginalText: matchedOriginalText,
-        endPosInOriginal: actualMatchEndOriginalIndex
-    };
-}
-
 
 export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
+    }
     const data = await res.json();
     allChapterIndex = data.chapters;
     return allChapterIndex;
   } catch (error) {
-    console.error('加载章节索引失败:', error);
+    console.error('加载章节索引数据失败:', error);
     return [];
   }
 }
@@ -125,7 +26,9 @@ export async function loadChapterIndex() {
 export async function loadSingleChapterContent(filePath) {
   try {
     const res = await fetch(`data/${filePath}`);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status} - Check 'data/${filePath}' path and server.`);
+    }
     return await res.json();
   } catch (error) {
     console.error(`加载章节内容失败 (${filePath}):`, error);
@@ -133,250 +36,216 @@ export async function loadSingleChapterContent(filePath) {
   }
 }
 
+/**
+ * 渲染章节目录到 DOM (现在用于主页的缩略图列表)。
+ * @param {Array<Object>} chapterIndex - 章节索引数组。
+ * @param {Function} onChapterClick - 点击章节时触发的回调函数。
+ * @param {string} [filterCategory='all'] - 用于过滤的分类名称，'all' 表示不过滤。
+ */
 export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 'all') {
   const toc = document.getElementById('toc');
-  if (!toc) return console.error('未找到 #toc 容器。');
-  toc.innerHTML = '';
-
-  const filtered = chapterIndex.filter(ch =>
-    filterCategory === 'all' || (Array.isArray(ch.categories) && ch.categories.includes(filterCategory))
-  );
-
-  if (filtered.length === 0) {
-    toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
+  if (!toc) {
+    console.error('未找到 #toc 容器。');
     return;
   }
+  toc.innerHTML = '';
 
-  filtered.forEach(ch => {
-    const link = document.createElement('a');
-    link.href = `#${ch.id}`;
-    link.classList.add('chapter-list-item');
-    link.dataset.filePath = ch.file;
+  const filteredChapters = chapterIndex.filter(ch => {
+    if (filterCategory === 'all') {
+      return true;
+    }
+    return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
+  });
 
-    const img = document.createElement('img');
-    img.src = ch.thumbnail || 'assets/default_thumbnail.jpg';
-    img.alt = ch.title;
-    link.appendChild(img);
+
+  if (filteredChapters.length === 0) {
+      toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
+      return;
+  }
+
+
+  filteredChapters.forEach(ch => {
+    const itemLink = document.createElement('a');
+    itemLink.href = `#${ch.id}`;
+    itemLink.classList.add('chapter-list-item');
+
+    if (ch.thumbnail) {
+      const img = document.createElement('img');
+      img.src = ch.thumbnail;
+      img.alt = ch.title;
+      itemLink.appendChild(img);
+    } else {
+      const defaultImg = document.createElement('img');
+      defaultImg.src = 'assets/default_thumbnail.jpg';
+      defaultImg.alt = 'Default Chapter Thumbnail';
+      itemLink.appendChild(defaultImg);
+    }
 
     const title = document.createElement('h3');
     title.textContent = ch.title;
-    link.appendChild(title);
+    itemLink.appendChild(title);
 
-    link.addEventListener('click', e => {
+    itemLink.dataset.filePath = ch.file;
+    itemLink.addEventListener('click', (e) => {
       e.preventDefault();
       onChapterClick(ch.id, ch.file);
     });
-
-    toc.appendChild(link);
+    toc.appendChild(itemLink);
   });
 }
 
-export async function renderSingleChapterContent(
-  chapterContent,
-  currentTooltips,
-  wordFreqMap,
-  maxFreq,
-  navigateToChapter,
-  srtEntries = []
-) {
-  const container = document.getElementById('chapters');
-  if (!container) return console.error('未找到 #chapters 容器。');
-  container.innerHTML = '';
+/**
+ * 渲染单个章节内容到 DOM。
+ * @param {Object} chapterContent - 当前章节的完整数据。
+ * @param {Object} currentChapterTooltips - 当前章节专属的 Tooltips 数据。
+ * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
+ * @param {number} maxFreq - 词语的最高频率。
+ * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
+ */
+export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
+  const chaptersContainer = document.getElementById('chapters');
+  if (!chaptersContainer) {
+    console.error('未找到 #chapters 容器。');
+    return;
+  }
+  chaptersContainer.innerHTML = '';
+
   currentChapterData = chapterContent;
 
   const title = document.createElement('h2');
   title.id = chapterContent.id;
   title.textContent = chapterContent.title;
-  container.appendChild(title);
+  chaptersContainer.appendChild(title);
 
-  let srtCursor = 0; // 用于跟踪当前章节 SRT 条目的索引
-
-  for (const item of chapterContent.paragraphs) {
+  chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
-      // 兼容旧的字符串格式，将其视为 markdown/text
-      const para = document.createElement('p');
-      para.classList.add('chapter-paragraph');
-      const html = renderMarkdownWithTooltips(item, currentTooltips, wordFreqMap, maxFreq);
-      const temp = document.createElement('div');
-      temp.innerHTML = html;
-      while (temp.firstChild) para.appendChild(temp.firstChild);
-      container.appendChild(para);
-    } else if (item.type === 'markdown' || item.type === 'text') {
-      // 处理普通的文本或 Markdown 内容
-      const para = document.createElement('p');
-      para.classList.add('chapter-paragraph');
-      const html = renderMarkdownWithTooltips(item.content, currentTooltips, wordFreqMap, maxFreq);
-      const temp = document.createElement('div');
-      temp.innerHTML = html;
-      while (temp.firstChild) para.appendChild(temp.firstChild);
-      container.appendChild(para);
-    } else if (item.type === 'audio-transcript') {
-      const audioPara = document.createElement('p');
-      audioPara.classList.add('chapter-paragraph', 'audio-transcript-block');
+      const renderedHtml = renderMarkdownWithTooltips(
+          item,
+          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
+          wordFrequenciesMap,
+          maxFreq
+      );
 
-      const originalBlockContent = item.content; // 包含 [[...]] 标记的原始文本
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = renderedHtml;
 
-      let currentBlockContentPos = 0; // 在 originalBlockContent 中的当前处理位置
-
-      while (srtCursor < srtEntries.length) {
-        const srtEntry = srtEntries[srtCursor];
-        const srtText = srtEntry.text.trim(); // SRT 的纯文本
-
-        // 调用辅助函数，在原始文本中查找匹配的片段
-        const { matchedOriginalText, endPosInOriginal } = findOriginalTextSegment(
-            originalBlockContent,
-            currentBlockContentPos,
-            srtText,
-            cleanTextForMatching
-        );
-
-        if (matchedOriginalText) {
-          // 渲染 SRT 句子之前的非 SRT 文本（如果有）
-          // 这部分文本可能包含换行符或其他 markdown，仍需 renderMarkdownWithTooltips 处理
-          // 注意：preSrtText 应该是从 currentBlockContentPos 到 matchedOriginalText 开始的位置
-          const preSrtTextEndIndex = originalBlockContent.indexOf(matchedOriginalText, currentBlockContentPos);
-          if (preSrtTextEndIndex !== -1 && currentBlockContentPos < preSrtTextEndIndex) {
-             const preSrtText = originalBlockContent.substring(currentBlockContentPos, preSrtTextEndIndex);
-             const html = renderMarkdownWithTooltips(preSrtText, currentTooltips, wordFreqMap, maxFreq);
-             const temp = document.createElement('div');
-             temp.innerHTML = html;
-             while (temp.firstChild) audioPara.appendChild(temp.firstChild);
-          }
-
-
-          // 渲染 SRT 句子对应的部分
-          const sent = document.createElement('span'); // 使用 span 更适合内联内容
-          sent.classList.add('sentence');
-          sent.dataset.subIndex = srtCursor; // 用于查找对应的DOM元素
-          sent.dataset.startTime = srtEntry.start;
-          sent.dataset.endTime = srtEntry.end;
-
-          // 将包含 [[...]] 标记的原始文本片段传递给 renderMarkdownWithTooltips
-          // **重要：renderMarkdownWithTooltips 必须确保在渲染后的 HTML 中，
-          // 每个实际的单词都被一个 `<span class="word">` 标签包裹。**
-          const sentenceHtml = renderMarkdownWithTooltips(matchedOriginalText, currentTooltips, wordFreqMap, maxFreq);
-          const tempDivForHtml = document.createElement('div');
-          tempDivForHtml.innerHTML = sentenceHtml;
-
-          // 将 tempDivForHtml 的所有子节点附加到 sentenceSpan 中
-          while(tempDivForHtml.firstChild) {
-              sent.appendChild(tempDivForHtml.firstChild);
-          }
-
-          audioPara.appendChild(sent);
-          srtCursor++; // 推进 SRT 游标
-          currentBlockContentPos = endPosInOriginal; // 更新在原始块中的位置
-
-        } else {
-          // 当前 SRT 条目在 originalBlockContent 的剩余部分中找不到
-          // 这通常意味着 SRT 与文章文本不完全一致，或者当前 SRT 块已处理完毕
-          console.warn(`在 audio-transcript 块中未能找到 SRT 条目 ${srtEntry.id} (Text: "${srtText}") 对应的原始文本。
-                        当前处理位置: ${currentBlockContentPos}, 剩余内容: "${originalBlockContent.substring(currentBlockContentPos).substring(0, 100)}..."`);
-          // 无法匹配，我们可能需要跳过此 SRT 条目，或结束此块的匹配
-          // 这里选择结束当前 audio-transcript 块的 SRT 匹配，以防无限循环或错误跳过
-          break; // 如果一个 SRT 句子无法匹配，很可能后续的也无法匹配，退出循环
-        }
-      }
-
-      // 处理当前 audio-transcript 块中剩余的文本（在所有匹配的 SRT 句子之后）
-      if (currentBlockContentPos < originalBlockContent.length) {
-        const postSrtText = originalBlockContent.substring(currentBlockContentPos);
-        const html = renderMarkdownWithTooltips(postSrtText, currentTooltips, wordFreqMap, maxFreq);
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        while (temp.firstChild) audioPara.appendChild(temp.firstChild);
-      }
-      container.appendChild(audioPara);
+      Array.from(tempDiv.children).forEach(child => {
+          chaptersContainer.appendChild(child);
+      });
 
     } else if (item.video) {
-      // 处理视频内容，保持不变
+      const videoUrl = item.video;
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
-        position: 'relative', paddingBottom: '56.25%', height: '0', overflow: 'hidden', maxWidth: '100%', marginBottom: '20px'
+        position: 'relative',
+        paddingBottom: '56.25%',
+        height: '0',
+        overflow: 'hidden',
+        maxWidth: '100%',
+        marginBottom: '20px'
       });
+
       const iframe = document.createElement('iframe');
       Object.assign(iframe.style, {
-        position: 'absolute', top: '0', left: '0', width: '100%', height: '100%',
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
       });
       iframe.frameBorder = '0';
       iframe.allowFullscreen = true;
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-      const videoId = extractVideoId(item.video);
-      // **修正 YouTube URL 格式**
-      iframe.src = videoId
-        ? ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}?enablejsapi=1`)
-        : ensureEnableJsApi(item.video); // Fallback to original URL if videoId not found
+
+      const videoId = extractVideoId(videoUrl);
+      if (videoId) {
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
+      } else {
+          iframe.src = ensureEnableJsApi(videoUrl);
+      }
+
       wrapper.appendChild(iframe);
-      container.appendChild(wrapper);
+      chaptersContainer.appendChild(wrapper);
     }
-  }
-
-  // --- 导航链接渲染逻辑 (与你原有的保持一致) ---
-  const nav = document.createElement('div');
-  nav.classList.add('chapter-nav-links');
-
-  const idx = allChapterIndex.findIndex(c => c.id === chapterContent.id);
-
-  if (idx > 0) {
-    const prev = allChapterIndex[idx - 1];
-    const link = document.createElement('a');
-    link.textContent = '上一篇';
-    link.href = `#${prev.id}`;
-    link.classList.add('chapter-nav-link');
-    link.addEventListener('click', e => {
-      e.preventDefault();
-      navigateToChapter(prev.id, prev.file);
-    });
-    nav.appendChild(link);
-  }
-
-  if (idx > 0 && idx < allChapterIndex.length - 1) nav.appendChild(document.createTextNode(' | '));
-
-  const toTop = document.createElement('a');
-  toTop.textContent = '返回本篇文章开头';
-  toTop.href = `#${chapterContent.id}`;
-  toTop.classList.add('chapter-nav-link');
-  toTop.addEventListener('click', e => {
-    e.preventDefault();
-    document.getElementById(chapterContent.id)?.scrollIntoView({ behavior: 'smooth' });
   });
-  nav.appendChild(toTop);
 
-  if (idx < allChapterIndex.length - 1) {
-    nav.appendChild(document.createTextNode(' | '));
-    const next = allChapterIndex[idx + 1];
-    const link = document.createElement('a');
-    link.textContent = '下一篇';
-    link.href = `#${next.id}`;
-    link.classList.add('chapter-nav-link');
-    link.addEventListener('click', e => {
+  const navSection = document.createElement('div');
+  navSection.classList.add('chapter-nav-links');
+
+  const currentIndex = allChapterIndex.findIndex(ch => ch.id === chapterContent.id);
+
+  if (currentIndex > 0) {
+    const prevChapter = allChapterIndex[currentIndex - 1];
+    const prevLink = document.createElement('a');
+    prevLink.href = `#${prevChapter.id}`;
+    prevLink.textContent = '上一篇';
+    prevLink.classList.add('chapter-nav-link');
+    prevLink.addEventListener('click', (e) => {
       e.preventDefault();
-      navigateToChapter(next.id, next.file);
+      navigateToChapterCallback(prevChapter.id, prevChapter.file);
     });
-    nav.appendChild(link);
+    navSection.appendChild(prevLink);
   }
 
-  nav.appendChild(document.createTextNode(' | '));
-  const back = document.createElement('a');
-  back.textContent = '返回文章列表';
-  back.href = '#';
-  back.classList.add('chapter-nav-link');
-  back.addEventListener('click', e => {
-    e.preventDefault();
-    navigateToChapter('');
-  });
-  nav.appendChild(back);
+  if (currentIndex > 0 && (currentIndex < allChapterIndex.length - 1 || chapterContent.id)) {
+    const separator1 = document.createTextNode(' | ');
+    navSection.appendChild(separator1);
+  }
 
-  container.appendChild(nav);
+  const toTopLink = document.createElement('a');
+  toTopLink.href = `#${chapterContent.id}`;
+  toTopLink.textContent = '返回本篇文章开头';
+  toTopLink.classList.add('chapter-nav-link');
+  toTopLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+  });
+  navSection.appendChild(toTopLink);
+
+  if (currentIndex < allChapterIndex.length - 1 && (currentIndex > 0 || chapterContent.id)) {
+    const separator2 = document.createTextNode(' | ');
+    navSection.appendChild(separator2);
+  }
+
+  if (currentIndex < allChapterIndex.length - 1) {
+    const nextChapter = allChapterIndex[currentIndex + 1];
+    const nextLink = document.createElement('a');
+    nextLink.href = `#${nextChapter.id}`;
+    nextLink.textContent = '下一篇';
+    nextLink.classList.add('chapter-nav-link');
+    nextLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateToChapterCallback(nextChapter.id, nextChapter.file);
+    });
+    navSection.appendChild(nextLink);
+  }
+
+  if (navSection.children.length > 0) {
+      const separator3 = document.createTextNode(' | ');
+      navSection.appendChild(separator3);
+  }
+  const backToTocLink = document.createElement('a');
+  backToTocLink.href = '#';
+  backToTocLink.textContent = '返回文章列表';
+  backToTocLink.classList.add('chapter-nav-link');
+  backToTocLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateToChapterCallback('');
+  });
+  navSection.appendChild(backToTocLink);
+
+
+  chaptersContainer.appendChild(navSection);
 }
 
-// 状态管理器
 export function getGlobalWordFrequenciesMap() {
   return globalWordFrequenciesMap;
 }
+
 export function getGlobalMaxFreq() {
   return globalMaxFreq;
 }
+
 export function setGlobalWordFrequencies(map, maxF) {
   globalWordFrequenciesMap = map;
   globalMaxFreq = maxF;
