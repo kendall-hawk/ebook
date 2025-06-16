@@ -1,24 +1,23 @@
 // js/chapterRenderer.js
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
+import { parseSRT } from './audio/srtParser.js';
+import { tokenizeText } from './audio/tokenizer.js';
 
 let allChapterIndex = [];
 let currentChapterData = null;
 let globalWordFrequenciesMap = new Map();
 let globalMaxFreq = 1;
 
-
 export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status} - Check 'data/chapters.json' path and server.`);
-    }
+    if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
     const data = await res.json();
     allChapterIndex = data.chapters;
     return allChapterIndex;
-  } catch (error) {
-    console.error('加载章节索引数据失败:', error);
+  } catch (err) {
+    console.error('加载章节索引失败:', err);
     return [];
   }
 }
@@ -26,226 +25,177 @@ export async function loadChapterIndex() {
 export async function loadSingleChapterContent(filePath) {
   try {
     const res = await fetch(`data/${filePath}`);
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status} - Check 'data/${filePath}' path and server.`);
-    }
+    if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
     return await res.json();
-  } catch (error) {
-    console.error(`加载章节内容失败 (${filePath}):`, error);
+  } catch (err) {
+    console.error(`加载章节内容失败 (${filePath})`, err);
     return null;
   }
 }
 
-/**
- * 渲染章节目录到 DOM (现在用于主页的缩略图列表)。
- * @param {Array<Object>} chapterIndex - 章节索引数组。
- * @param {Function} onChapterClick - 点击章节时触发的回调函数。
- * @param {string} [filterCategory='all'] - 用于过滤的分类名称，'all' 表示不过滤。
- */
 export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 'all') {
   const toc = document.getElementById('toc');
-  if (!toc) {
-    console.error('未找到 #toc 容器。');
-    return;
-  }
+  if (!toc) return console.error('未找到 #toc');
   toc.innerHTML = '';
 
-  const filteredChapters = chapterIndex.filter(ch => {
-    if (filterCategory === 'all') {
-      return true;
-    }
-    return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
-  });
+  const filtered = chapterIndex.filter(ch =>
+    filterCategory === 'all' || (Array.isArray(ch.categories) && ch.categories.includes(filterCategory))
+  );
 
-
-  if (filteredChapters.length === 0) {
-      toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
-      return;
+  if (filtered.length === 0) {
+    toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
+    return;
   }
 
+  filtered.forEach(ch => {
+    const item = document.createElement('a');
+    item.href = `#${ch.id}`;
+    item.className = 'chapter-list-item';
+    item.dataset.filePath = ch.file;
 
-  filteredChapters.forEach(ch => {
-    const itemLink = document.createElement('a');
-    itemLink.href = `#${ch.id}`;
-    itemLink.classList.add('chapter-list-item');
-
-    if (ch.thumbnail) {
-      const img = document.createElement('img');
-      img.src = ch.thumbnail;
-      img.alt = ch.title;
-      itemLink.appendChild(img);
-    } else {
-      const defaultImg = document.createElement('img');
-      defaultImg.src = 'assets/default_thumbnail.jpg';
-      defaultImg.alt = 'Default Chapter Thumbnail';
-      itemLink.appendChild(defaultImg);
-    }
+    const img = document.createElement('img');
+    img.src = ch.thumbnail || 'assets/default_thumbnail.jpg';
+    img.alt = ch.title;
+    item.appendChild(img);
 
     const title = document.createElement('h3');
     title.textContent = ch.title;
-    itemLink.appendChild(title);
+    item.appendChild(title);
 
-    itemLink.dataset.filePath = ch.file;
-    itemLink.addEventListener('click', (e) => {
+    item.addEventListener('click', e => {
       e.preventDefault();
       onChapterClick(ch.id, ch.file);
     });
-    toc.appendChild(itemLink);
+
+    toc.appendChild(item);
   });
 }
 
-/**
- * 渲染单个章节内容到 DOM。
- * @param {Object} chapterContent - 当前章节的完整数据。
- * @param {Object} currentChapterTooltips - 当前章节专属的 Tooltips 数据。
- * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
- * @param {number} maxFreq - 词语的最高频率。
- * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
- */
-export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
-  const chaptersContainer = document.getElementById('chapters');
-  if (!chaptersContainer) {
-    console.error('未找到 #chapters 容器。');
-    return;
-  }
-  chaptersContainer.innerHTML = '';
+export async function renderSingleChapterContent(chapterContent, tooltips, freqMap, maxFreq, onNavigate) {
+  const container = document.getElementById('chapters');
+  if (!container) return console.error('未找到 #chapters');
+  container.innerHTML = '';
 
   currentChapterData = chapterContent;
 
   const title = document.createElement('h2');
   title.id = chapterContent.id;
   title.textContent = chapterContent.title;
-  chaptersContainer.appendChild(title);
+  container.appendChild(title);
 
-  chapterContent.paragraphs.forEach(item => {
-    if (typeof item === 'string') {
-      const renderedHtml = renderMarkdownWithTooltips(
-          item,
-          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
-          wordFrequenciesMap,
-          maxFreq
-      );
+  const srtPath = `data/${chapterContent.id}.srt`;
+  let srtData = [];
+  try {
+    const res = await fetch(srtPath);
+    if (res.ok) {
+      const srtText = await res.text();
+      srtData = parseSRT(srtText);
+    }
+  } catch (err) {
+    console.warn('未加载 .srt 文件：', srtPath);
+  }
 
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = renderedHtml;
+  let subtitleIndex = 0;
 
-      Array.from(tempDiv.children).forEach(child => {
-          chaptersContainer.appendChild(child);
+  chapterContent.paragraphs.forEach(paragraph => {
+    if (typeof paragraph === 'string') {
+      const html = renderMarkdownWithTooltips(paragraph, tooltips, freqMap, maxFreq);
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+
+      Array.from(temp.childNodes).forEach(el => {
+        if (subtitleIndex < srtData.length) {
+          const sub = srtData[subtitleIndex];
+          if (sub && el.innerText.includes(sub.text)) {
+            el.classList.add('sentence');
+            el.dataset.subIndex = subtitleIndex;
+            subtitleIndex++;
+          }
+        }
+        container.appendChild(el);
       });
-
-    } else if (item.video) {
-      const videoUrl = item.video;
+    } else if (paragraph.video) {
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
         position: 'relative',
         paddingBottom: '56.25%',
         height: '0',
         overflow: 'hidden',
-        maxWidth: '100%',
         marginBottom: '20px'
       });
 
       const iframe = document.createElement('iframe');
       Object.assign(iframe.style, {
         position: 'absolute',
-        top: '0',
-        left: '0',
+        top: 0,
+        left: 0,
         width: '100%',
-        height: '100%',
+        height: '100%'
       });
-      iframe.frameBorder = '0';
       iframe.allowFullscreen = true;
+      iframe.frameBorder = 0;
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
 
-      const videoId = extractVideoId(videoUrl);
-      if (videoId) {
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
-      } else {
-          iframe.src = ensureEnableJsApi(videoUrl);
-      }
-
+      const vid = extractVideoId(paragraph.video);
+      iframe.src = ensureEnableJsApi(vid ? `https://www.youtube.com/embed/${vid}` : paragraph.video);
       wrapper.appendChild(iframe);
-      chaptersContainer.appendChild(wrapper);
+      container.appendChild(wrapper);
     }
   });
 
-  const navSection = document.createElement('div');
-  navSection.classList.add('chapter-nav-links');
+  renderChapterNavigation(container, chapterContent, onNavigate);
+}
 
-  const currentIndex = allChapterIndex.findIndex(ch => ch.id === chapterContent.id);
+function renderChapterNavigation(container, chapterContent, onNavigate) {
+  const nav = document.createElement('div');
+  nav.className = 'chapter-nav-links';
 
-  if (currentIndex > 0) {
-    const prevChapter = allChapterIndex[currentIndex - 1];
-    const prevLink = document.createElement('a');
-    prevLink.href = `#${prevChapter.id}`;
-    prevLink.textContent = '上一篇';
-    prevLink.classList.add('chapter-nav-link');
-    prevLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateToChapterCallback(prevChapter.id, prevChapter.file);
-    });
-    navSection.appendChild(prevLink);
+  const currentIdx = allChapterIndex.findIndex(ch => ch.id === chapterContent.id);
+  const prev = allChapterIndex[currentIdx - 1];
+  const next = allChapterIndex[currentIdx + 1];
+
+  if (prev) {
+    const a = createNavLink(prev.id, '上一篇', () => onNavigate(prev.id, prev.file));
+    nav.appendChild(a);
+    nav.appendChild(document.createTextNode(' | '));
   }
 
-  if (currentIndex > 0 && (currentIndex < allChapterIndex.length - 1 || chapterContent.id)) {
-    const separator1 = document.createTextNode(' | ');
-    navSection.appendChild(separator1);
-  }
-
-  const toTopLink = document.createElement('a');
-  toTopLink.href = `#${chapterContent.id}`;
-  toTopLink.textContent = '返回本篇文章开头';
-  toTopLink.classList.add('chapter-nav-link');
-  toTopLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+  const top = createNavLink(chapterContent.id, '返回本篇文章开头', () => {
+    document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
   });
-  navSection.appendChild(toTopLink);
+  nav.appendChild(top);
 
-  if (currentIndex < allChapterIndex.length - 1 && (currentIndex > 0 || chapterContent.id)) {
-    const separator2 = document.createTextNode(' | ');
-    navSection.appendChild(separator2);
+  if (next) {
+    nav.appendChild(document.createTextNode(' | '));
+    const a = createNavLink(next.id, '下一篇', () => onNavigate(next.id, next.file));
+    nav.appendChild(a);
   }
 
-  if (currentIndex < allChapterIndex.length - 1) {
-    const nextChapter = allChapterIndex[currentIndex + 1];
-    const nextLink = document.createElement('a');
-    nextLink.href = `#${nextChapter.id}`;
-    nextLink.textContent = '下一篇';
-    nextLink.classList.add('chapter-nav-link');
-    nextLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateToChapterCallback(nextChapter.id, nextChapter.file);
-    });
-    navSection.appendChild(nextLink);
-  }
+  nav.appendChild(document.createTextNode(' | '));
+  const back = createNavLink('', '返回文章列表', () => onNavigate(''));
+  nav.appendChild(back);
 
-  if (navSection.children.length > 0) {
-      const separator3 = document.createTextNode(' | ');
-      navSection.appendChild(separator3);
-  }
-  const backToTocLink = document.createElement('a');
-  backToTocLink.href = '#';
-  backToTocLink.textContent = '返回文章列表';
-  backToTocLink.classList.add('chapter-nav-link');
-  backToTocLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateToChapterCallback('');
+  container.appendChild(nav);
+}
+
+function createNavLink(href, text, onClick) {
+  const a = document.createElement('a');
+  a.href = `#${href}`;
+  a.textContent = text;
+  a.className = 'chapter-nav-link';
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    onClick();
   });
-  navSection.appendChild(backToTocLink);
-
-
-  chaptersContainer.appendChild(navSection);
+  return a;
 }
 
 export function getGlobalWordFrequenciesMap() {
   return globalWordFrequenciesMap;
 }
-
 export function getGlobalMaxFreq() {
   return globalMaxFreq;
 }
-
 export function setGlobalWordFrequencies(map, maxF) {
   globalWordFrequenciesMap = map;
   globalMaxFreq = maxF;
