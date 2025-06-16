@@ -1,4 +1,4 @@
-Import { parseSRT } from './srtParser.js';
+import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
 let audio;
