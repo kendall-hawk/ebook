@@ -2,7 +2,7 @@
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 import { tokenizeText } from './audio/tokenizer.js'; // 尽管本文件中不再直接用于DOM词分，但保留导入
-import { parseSRT } from './audio/srtParser.js';
+import { parseSRT } from './audio/srtParser.js'; // 导入 parseSRT 函数
 
 let allChapterIndex = [];
 let currentChapterData = null;
@@ -10,62 +10,102 @@ let globalWordFrequenciesMap = new Map();
 let globalMaxFreq = 1;
 
 // 辅助函数：清理文本，移除 [[...]] 标记，用于匹配
-// 保留你文件中已有的定义
+// 这个函数现在更关键，因为它被 findOriginalTextSegment 依赖
 function cleanTextForMatching(text) {
   // 移除 [[...|...]] 形式的标记，只保留内容
   let cleaned = text.replace(/\[\[([^|\]]+)\|[^\]]+\]\]/g, '$1');
-  // 移除其他可能的非文本字符，或标准化空格
-  cleaned = cleaned.replace(/\s+/g, ' ').trim(); // 将多个空格替换为单个空格并修剪
+  // 移除其他 [[...]] 形式的标记
+  cleaned = cleaned.replace(/\[\[([^\]]+)\]\]/g, '$1');
+  // 将多个空格替换为单个空格并修剪，并转换为小写以进行不区分大小写的匹配
+  cleaned = cleaned.replace(/\s+/g, ' ').trim().toLowerCase();
+  // 移除所有标点符号，只留下字母数字和空格，这有助于更宽松的匹配
+  // 假设 SRT 文本中可能没有标点或标点不同
+  cleaned = cleaned.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");
   return cleaned;
 }
 
-// 辅助函数：在原始文本中找到与 SRT 文本匹配的片段，并返回其原始的文本和结束位置
-// 目标：Given originalText with [[...]] and a pureSrtText, find the original segment that matches pureSrtText.
-// 此函数已根据更鲁棒的匹配逻辑进行优化
-function findOriginalTextSegment(originalText, startPosInOriginal, pureSrtText, cleanerFunc) {
-    const cleanedSrtText = cleanerFunc(pureSrtText); // SRT文本的纯净版本
-    let matchedOriginalText = null;
-    let endPosInOriginal = -1;
+/**
+ * 辅助函数：在原始文本中找到与 SRT 文本匹配的片段，并返回其原始的文本和结束位置。
+ * 优化后的匹配逻辑：先清理原始文本和 SRT 文本，然后在清理后的文本中查找匹配，
+ * 再将匹配的索引映射回原始文本。
+ * @param {string} originalBlockContent - 包含 [[...]] 标记的原始块文本。
+ * @param {number} startPosInOriginal - 在 originalBlockContent 中的起始搜索位置。
+ * @param {string} pureSrtText - SRT 的纯文本。
+ * @param {function} cleanerFunc - 用于清理文本的函数 (e.g., cleanTextForMatching)。
+ * @returns {{matchedOriginalText: string|null, endPosInOriginal: number}}
+ */
+function findOriginalTextSegment(originalBlockContent, startPosInOriginal, pureSrtText, cleanerFunc) {
+    const cleanedSrtText = cleanerFunc(pureSrtText);
 
-    // 遍历原始文本的剩余部分，尝试找到匹配
-    // 这里的 i 是在 originalText 中的真实索引
-    for (let i = startPosInOriginal; i < originalText.length; i++) {
-        let currentOriginalEndCursor = i; // 在 originalText 中的当前结束游标
-        let currentCleanedLengthAccumulated = 0; // 累计的清理后文本长度
+    // 获取原始块从 startPosInOriginal 开始的剩余部分
+    const remainingOriginalBlock = originalBlockContent.substring(startPosInOriginal);
+    const cleanedRemainingBlock = cleanerFunc(remainingOriginalBlock);
 
-        // 尝试从当前位置开始，构建一个清理后的字符串，直到它与 cleanedSrtText 匹配或超出
-        while (currentOriginalEndCursor < originalText.length && currentCleanedLengthAccumulated < cleanedSrtText.length) {
-            const char = originalText[currentOriginalEndCursor];
-            const nextTwoChars = originalText.substring(currentOriginalEndCursor, currentOriginalEndCursor + 2);
+    // 在清理后的剩余块中查找 SRT 文本的匹配
+    const cleanedMatchIndex = cleanedRemainingBlock.indexOf(cleanedSrtText);
 
-            // 如果遇到 [[ 标记，跳过整个标记的内容和本身
-            if (nextTwoChars === '[[' && originalText.indexOf(']]', currentOriginalEndCursor) !== -1) {
-                const tagEndIndex = originalText.indexOf(']]', currentOriginalEndCursor);
-                if (tagEndIndex !== -1) {
-                    const tagContent = originalText.substring(currentOriginalEndCursor + 2, tagEndIndex);
-                    const pipeIndex = tagContent.indexOf('|');
-                    const textInsideTag = pipeIndex !== -1 ? tagContent.substring(0, pipeIndex) : tagContent;
-                    currentCleanedLengthAccumulated += cleanerFunc(textInsideTag).length;
-                    currentOriginalEndCursor = tagEndIndex + 2; // 跳过整个标记
-                    continue;
-                }
-            }
-            // 处理普通字符，将其清理后的长度加入累计
-            currentCleanedLengthAccumulated += cleanerFunc(char).length;
-            currentOriginalEndCursor++;
-        }
-
-        // 检查构建出的原始文本片段（从 i 到 currentOriginalEndCursor）在清理后是否与 cleanedSrtText 完全匹配
-        const candidateOriginalText = originalText.substring(i, currentOriginalEndCursor);
-        const cleanedCandidateText = cleanerFunc(candidateOriginalText);
-
-        if (cleanedCandidateText === cleanedSrtText) {
-            matchedOriginalText = candidateOriginalText;
-            endPosInOriginal = currentOriginalEndCursor;
-            break; // 找到第一个匹配，跳出循环
-        }
+    if (cleanedMatchIndex === -1) {
+        // 未找到匹配
+        return { matchedOriginalText: null, endPosInOriginal: -1 };
     }
-    return { matchedOriginalText: matchedOriginalText, endPosInOriginal: endPosInOriginal };
+
+    // 将清理后的匹配索引映射回原始文本的索引
+    let currentOriginalCursor = startPosInOriginal;
+    let currentCleanedCursor = 0;
+    let actualMatchStartOriginalIndex = -1;
+    let actualMatchEndOriginalIndex = -1;
+
+    // 找到原始文本中匹配开始的索引
+    while (currentOriginalCursor < originalBlockContent.length && currentCleanedCursor < cleanedMatchIndex) {
+        const char = originalBlockContent[currentOriginalCursor];
+        const cleanedCharLength = cleanerFunc(char).length; // 计算单个字符的清理后长度
+
+        // 处理 [[...]] 标签
+        if (char === '[' && originalBlockContent[currentOriginalCursor + 1] === '[') {
+            const tagEndIndex = originalBlockContent.indexOf(']]', currentOriginalCursor);
+            if (tagEndIndex !== -1) {
+                const tagContent = originalBlockContent.substring(currentOriginalCursor + 2, tagEndIndex);
+                const pipeIndex = tagContent.indexOf('|');
+                const textInsideTag = pipeIndex !== -1 ? tagContent.substring(0, pipeIndex) : tagContent;
+                currentCleanedCursor += cleanerFunc(textInsideTag).length;
+                currentOriginalCursor = tagEndIndex + 2;
+                continue;
+            }
+        }
+        currentCleanedCursor += cleanedCharLength;
+        currentOriginalCursor++;
+    }
+    actualMatchStartOriginalIndex = currentOriginalCursor;
+
+    // 找到原始文本中匹配结束的索引
+    const targetCleanedEnd = cleanedMatchIndex + cleanedSrtText.length;
+    while (currentOriginalCursor < originalBlockContent.length && currentCleanedCursor < targetCleanedEnd) {
+        const char = originalBlockContent[currentOriginalCursor];
+        const cleanedCharLength = cleanerFunc(char).length;
+
+         // 处理 [[...]] 标签
+        if (char === '[' && originalBlockContent[currentOriginalCursor + 1] === '[') {
+            const tagEndIndex = originalBlockContent.indexOf(']]', currentOriginalCursor);
+            if (tagEndIndex !== -1) {
+                const tagContent = originalBlockContent.substring(currentOriginalCursor + 2, tagEndIndex);
+                const pipeIndex = tagContent.indexOf('|');
+                const textInsideTag = pipeIndex !== -1 ? tagContent.substring(0, pipeIndex) : tagContent;
+                currentCleanedCursor += cleanerFunc(textInsideTag).length;
+                currentOriginalCursor = tagEndIndex + 2;
+                continue;
+            }
+        }
+        currentCleanedCursor += cleanedCharLength;
+        currentOriginalCursor++;
+    }
+    actualMatchEndOriginalIndex = currentOriginalCursor;
+
+    const matchedOriginalText = originalBlockContent.substring(actualMatchStartOriginalIndex, actualMatchEndOriginalIndex);
+
+    return {
+        matchedOriginalText: matchedOriginalText,
+        endPosInOriginal: actualMatchEndOriginalIndex
+    };
 }
 
 
@@ -175,7 +215,6 @@ export async function renderSingleChapterContent(
       audioPara.classList.add('chapter-paragraph', 'audio-transcript-block');
 
       const originalBlockContent = item.content; // 包含 [[...]] 标记的原始文本
-      // 注意：这里不再需要 cleanedBlockContent 的全局变量，因为 findOriginalTextSegment 内部处理
 
       let currentBlockContentPos = 0; // 在 originalBlockContent 中的当前处理位置
 
@@ -194,8 +233,10 @@ export async function renderSingleChapterContent(
         if (matchedOriginalText) {
           // 渲染 SRT 句子之前的非 SRT 文本（如果有）
           // 这部分文本可能包含换行符或其他 markdown，仍需 renderMarkdownWithTooltips 处理
-          if (currentBlockContentPos < (endPosInOriginal - matchedOriginalText.length)) {
-             const preSrtText = originalBlockContent.substring(currentBlockContentPos, endPosInOriginal - matchedOriginalText.length);
+          // 注意：preSrtText 应该是从 currentBlockContentPos 到 matchedOriginalText 开始的位置
+          const preSrtTextEndIndex = originalBlockContent.indexOf(matchedOriginalText, currentBlockContentPos);
+          if (preSrtTextEndIndex !== -1 && currentBlockContentPos < preSrtTextEndIndex) {
+             const preSrtText = originalBlockContent.substring(currentBlockContentPos, preSrtTextEndIndex);
              const html = renderMarkdownWithTooltips(preSrtText, currentTooltips, wordFreqMap, maxFreq);
              const temp = document.createElement('div');
              temp.innerHTML = html;
@@ -204,7 +245,7 @@ export async function renderSingleChapterContent(
 
 
           // 渲染 SRT 句子对应的部分
-          const sent = document.createElement('span');
+          const sent = document.createElement('span'); // 使用 span 更适合内联内容
           sent.classList.add('sentence');
           sent.dataset.subIndex = srtCursor; // 用于查找对应的DOM元素
           sent.dataset.startTime = srtEntry.start;
@@ -229,11 +270,11 @@ export async function renderSingleChapterContent(
         } else {
           // 当前 SRT 条目在 originalBlockContent 的剩余部分中找不到
           // 这通常意味着 SRT 与文章文本不完全一致，或者当前 SRT 块已处理完毕
-          console.warn(`在 audio-transcript 块中未能找到 SRT 条目 ${srtEntry.id}: "${srtText}" 对应的原始文本。
+          console.warn(`在 audio-transcript 块中未能找到 SRT 条目 ${srtEntry.id} (Text: "${srtText}") 对应的原始文本。
                         当前处理位置: ${currentBlockContentPos}, 剩余内容: "${originalBlockContent.substring(currentBlockContentPos).substring(0, 100)}..."`);
           // 无法匹配，我们可能需要跳过此 SRT 条目，或结束此块的匹配
           // 这里选择结束当前 audio-transcript 块的 SRT 匹配，以防无限循环或错误跳过
-          break;
+          break; // 如果一个 SRT 句子无法匹配，很可能后续的也无法匹配，退出循环
         }
       }
 
@@ -261,10 +302,10 @@ export async function renderSingleChapterContent(
       iframe.allowFullscreen = true;
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
       const videoId = extractVideoId(item.video);
-      // 修正 YouTube URL 格式，将 2{videoId} 修正为 embed/{videoId}
+      // **修正 YouTube URL 格式**
       iframe.src = videoId
         ? ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}?enablejsapi=1`)
-        : ensureEnableJsApi(item.video);
+        : ensureEnableJsApi(item.video); // Fallback to original URL if videoId not found
       wrapper.appendChild(iframe);
       container.appendChild(wrapper);
     }
