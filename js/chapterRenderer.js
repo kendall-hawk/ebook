@@ -1,6 +1,7 @@
 // js/chapterRenderer.js
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
+// import { tokenizeText } from './audio/tokenizer.js'; // 理论上这里不再需要直接导入 tokenizer，因为它在 tooltip.js 中被使用了
 
 let allChapterIndex = [];
 let currentChapterData = null;
@@ -54,7 +55,7 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
     if (filterCategory === 'all') {
       return true;
     }
-    return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
+    return Array.isArray(ch.categories) && ch.categories.includes(ch.categories);
   });
 
 
@@ -117,19 +118,28 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
+  // 为每个段落生成一个唯一的 ID 前缀，以便为其中的句子生成唯一的 ID
+  let paragraphIndex = 0;
   chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
+      const paragraphIdPrefix = `${chapterContent.id}_p${paragraphIndex++}`;
+
+      // 调用修改后的 renderMarkdownWithTooltips，现在它会直接返回带高亮结构的 HTML
       const renderedHtml = renderMarkdownWithTooltips(
           item,
-          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
+          currentChapterTooltips,
           wordFrequenciesMap,
-          maxFreq
+          maxFreq,
+          undefined, // baseFontSize, 保持默认或显式传递
+          undefined, // maxFontSizeIncrease, 保持默认或显式传递
+          paragraphIdPrefix // 传递前缀，用于生成唯一的 sentenceId 和 wordId
       );
 
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = renderedHtml;
-
-      Array.from(tempDiv.children).forEach(child => {
+      // 直接将生成的 HTML 字符串添加到容器中
+      // 注意：这里仍然需要一个临时的 div 来解析 HTML 字符串并 append DOM 节点
+      const tempWrapper = document.createElement('div');
+      tempWrapper.innerHTML = renderedHtml;
+      Array.from(tempWrapper.children).forEach(child => {
           chaptersContainer.appendChild(child);
       });
 
