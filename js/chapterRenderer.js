@@ -1,4 +1,4 @@
-// Ebook/js/chapterRenderer.js
+// js/chapterRenderer.js
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
@@ -101,9 +101,8 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
  * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
  * @param {number} maxFreq - 词语的最高频率。
  * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
- * @param {Array<Object>} subtitleData - ✅ 新增：srtParser 解析后的字幕数据。
  */
-export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback, subtitleData) {
+export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
   const chaptersContainer = document.getElementById('chapters');
   if (!chaptersContainer) {
     console.error('未找到 #chapters 容器。');
@@ -118,82 +117,57 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
-  // ✅ 核心修改：根据 subtitleData 来渲染文本内容
-  if (subtitleData && subtitleData.length > 0) {
-      subtitleData.forEach((subtitle, index) => {
-          // 创建一个 <p> 元素作为字幕的容器
-          const p = document.createElement('p');
-          p.className = 'subtitle-line'; // 添加 class 方便 CSS 和 JS 选择器
-          p.setAttribute('data-subtitle-index', index); // 添加唯一索引，用于精确高亮
+  chapterContent.paragraphs.forEach(item => {
+    if (typeof item === 'string') {
+      const renderedHtml = renderMarkdownWithTooltips(
+          item,
+          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
+          wordFrequenciesMap,
+          maxFreq
+      );
 
-          // 使用 renderMarkdownWithTooltips 处理字幕文本
-          // 这里假设字幕文本也可能包含需要 Tooltip 的词语
-          const renderedHtml = renderMarkdownWithTooltips(
-              subtitle.text, // 传入单句字幕文本
-              currentChapterTooltips,
-              wordFrequenciesMap,
-              maxFreq
-          );
-          p.innerHTML = renderedHtml; // 直接将渲染后的HTML放入 <p> 标签
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = renderedHtml;
 
-          chaptersContainer.appendChild(p);
+      Array.from(tempDiv.children).forEach(child => {
+          chaptersContainer.appendChild(child);
       });
-  } else {
-      // ✅ 兼容没有字幕数据的情况，继续渲染 chapterContent.paragraphs
-      chapterContent.paragraphs.forEach(item => {
-        if (typeof item === 'string') {
-          const renderedHtml = renderMarkdownWithTooltips(
-              item,
-              currentChapterTooltips,
-              wordFrequenciesMap,
-              maxFreq
-          );
 
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = renderedHtml;
-
-          Array.from(tempDiv.children).forEach(child => {
-              chaptersContainer.appendChild(child);
-          });
-
-        } else if (item.video) {
-          // 视频渲染逻辑保持不变
-          const videoUrl = item.video;
-          const wrapper = document.createElement('div');
-          Object.assign(wrapper.style, {
-            position: 'relative',
-            paddingBottom: '56.25%',
-            height: '0',
-            overflow: 'hidden',
-            maxWidth: '100%',
-            marginBottom: '20px'
-          });
-
-          const iframe = document.createElement('iframe');
-          Object.assign(iframe.style, {
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            width: '100%',
-            height: '100%',
-          });
-          iframe.frameBorder = '0';
-          iframe.allowFullscreen = true;
-          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-
-          const videoId = extractVideoId(videoUrl);
-          if (videoId) {
-              iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
-          } else {
-              iframe.src = ensureEnableJsApi(videoUrl);
-          }
-
-          wrapper.appendChild(iframe);
-          chaptersContainer.appendChild(wrapper);
-        }
+    } else if (item.video) {
+      const videoUrl = item.video;
+      const wrapper = document.createElement('div');
+      Object.assign(wrapper.style, {
+        position: 'relative',
+        paddingBottom: '56.25%',
+        height: '0',
+        overflow: 'hidden',
+        maxWidth: '100%',
+        marginBottom: '20px'
       });
-  }
 
+      const iframe = document.createElement('iframe');
+      Object.assign(iframe.style, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+      });
+      iframe.frameBorder = '0';
+      iframe.allowFullscreen = true;
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+
+      const videoId = extractVideoId(videoUrl);
+      if (videoId) {
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
+      } else {
+          iframe.src = ensureEnableJsApi(videoUrl);
+      }
+
+      wrapper.appendChild(iframe);
+      chaptersContainer.appendChild(wrapper);
+    }
+  });
 
   const navSection = document.createElement('div');
   navSection.classList.add('chapter-nav-links');
