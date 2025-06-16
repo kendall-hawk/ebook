@@ -7,39 +7,41 @@ let subtitleData = [];
 let wordToSubtitleMap = [];
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  if (!audio) {
-    // 1. 初始化播放器元素（仅一次）
-    audio = document.createElement('audio');
-    audio.className = 'audio-player';
-    audio.src = audioSrc;
-    audio.controls = true;
-    document.body.appendChild(audio);
-  }
+  // 创建音频播放器
+  audio = document.createElement('audio');
+  Object.assign(audio, {
+    src: audioSrc,
+    controls: true,
+  });
+  Object.assign(audio.style, {
+    position: 'fixed',
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 9999,
+    width: '90%',
+    maxWidth: '600px'
+  });
+  document.body.appendChild(audio);
 
-  // 2. 加载并解析 SRT
+  // 加载并解析字幕文件
   const res = await fetch(srtSrc);
   const srtText = await res.text();
   subtitleData = parseSRT(srtText);
 
-  // 3. 建立词→句子映射
+  // 构建词→字幕索引的映射
   wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
 
-  // 4. 点击事件绑定（仅一次）
-  if (!document.body.dataset.audioListenerAttached) {
-    document.body.addEventListener('click', handleWordClick);
-    document.body.dataset.audioListenerAttached = 'true';
-  }
+  // 监听点击词汇事件
+  document.body.addEventListener('click', handleWordClick);
 }
 
-function buildWordToSubtitleMap(subs) {
+function buildWordToSubtitleMap(subtitles) {
   const map = [];
-  subs.forEach((subtitle, index) => {
-    const words = tokenizeText(subtitle.text);
+  subtitles.forEach((sub, index) => {
+    const words = tokenizeText(sub.text);
     words.forEach(({ word }) => {
-      map.push({
-        word: word.toLowerCase(),
-        index,
-      });
+      map.push({ word: word.toLowerCase(), index });
     });
   });
   return map;
@@ -52,44 +54,34 @@ function handleWordClick(e) {
   const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const matches = wordToSubtitleMap.filter(w => w.word === clickedWord);
-  if (!matches.length) return;
+  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
+  if (possibleMatches.length === 0) return;
 
-  // 方式一：如果该词在 data-sub-index 句子中
-  const sentenceEl = target.closest('.sentence[data-sub-index]');
-  if (sentenceEl) {
-    const index = parseInt(sentenceEl.dataset.subIndex);
-    if (!isNaN(index) && subtitleData[index]) {
-      audio.currentTime = subtitleData[index].start;
-      audio.play();
-      return;
-    }
-  }
-
-  // 方式二：回退查找最相近句子位置
-  const bestMatch = findBestSubtitleMatch(target, matches);
-  if (bestMatch !== null) {
-    audio.currentTime = subtitleData[bestMatch].start;
+  const closest = findBestSubtitleMatch(target, possibleMatches);
+  if (closest !== null) {
+    const { start } = subtitleData[closest];
+    audio.currentTime = start;
     audio.play();
   }
 }
 
 function findBestSubtitleMatch(target, matches) {
-  const targetOffset = target.getBoundingClientRect().top + window.scrollY;
-  let bestIndex = null;
-  let smallestDistance = Infinity;
+  const clickedTop = target.getBoundingClientRect().top + window.scrollY;
+
+  let closestIndex = null;
+  let minDistance = Infinity;
 
   matches.forEach(({ index }) => {
     const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
     if (node) {
-      const offset = node.getBoundingClientRect().top + window.scrollY;
-      const distance = Math.abs(offset - targetOffset);
-      if (distance < smallestDistance) {
-        bestIndex = index;
-        smallestDistance = distance;
+      const nodeTop = node.getBoundingClientRect().top + window.scrollY;
+      const dist = Math.abs(clickedTop - nodeTop);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIndex = index;
       }
     }
   });
 
-  return bestIndex;
+  return closestIndex;
 }
