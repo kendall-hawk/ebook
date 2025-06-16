@@ -55,8 +55,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error(`Tooltip 数据加载失败 (${tooltipFilePath}):`, error);
-        }
-    }
+                }
+            }
 
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
@@ -181,32 +181,72 @@ async function handleChapterClick(chapterId, filePath) {
         // === Google Drive 音频加载 + 本地备份逻辑 ===
         const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
         const googleDriveId = chapterMeta?.googleDriveAudioId;
-        const networkAudioUrl = googleDriveId ? `https://docs.google.com/uc?export=download&id=${googleDriveId}` : null;
         const localAudioPath = `data/chapters/audio/${chapterId}.mp3`;
         const srtPath = `data/chapters/srt/${chapterId}.srt`;
 
-        let finalAudioUrl = networkAudioUrl;
+        let finalAudioUrl = null;
+        let srtExists = false; // Flag to check if SRT exists
 
+        // Check for Google Drive audio
+        if (googleDriveId) {
+            const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${googleDriveId}`;
+            try {
+                const headRes = await fetch(networkAudioUrl, { method: 'HEAD' });
+                if (headRes.ok && headRes.status < 400) {
+                    finalAudioUrl = networkAudioUrl;
+                } else {
+                    console.warn(`Google Drive 音频不可用，状态: ${headRes.status}。`);
+                }
+            } catch (err) {
+                console.error('Google Drive 音频检测失败:', err);
+            }
+        }
+
+        // If Google Drive audio not found or not available, check local audio
+        if (!finalAudioUrl) {
+            try {
+                const localAudioRes = await fetch(localAudioPath, { method: 'HEAD' });
+                if (localAudioRes.ok && localAudioRes.status < 400) {
+                    finalAudioUrl = localAudioPath;
+                } else {
+                    console.warn(`本地音频不可用: ${localAudioPath}`);
+                }
+            } catch (err) {
+                console.error('本地音频检测失败:', err);
+            }
+        }
+
+        // Check for SRT file existence
         try {
-            const headRes = await fetch(networkAudioUrl, { method: 'HEAD' });
-            if (!headRes.ok || headRes.status >= 400) {
-                console.warn(`Google Drive 音频不可用，状态: ${headRes.status}，使用本地备份。`);
-                finalAudioUrl = localAudioPath;
+            const srtRes = await fetch(srtPath, { method: 'HEAD' });
+            if (srtRes.ok && srtRes.status < 400) {
+                srtExists = true;
+            } else {
+                console.warn(`SRT 文件不存在: ${srtPath}`);
             }
         } catch (err) {
-            console.error('Google Drive 音频检测失败，使用本地备份:', err);
-            finalAudioUrl = localAudioPath;
+            console.error('SRT 文件检测失败:', err);
         }
-
-        initAudioPlayer({
-            audioSrc: finalAudioUrl,
-            srtSrc: srtPath
-        });
 
         const audioPlayerElement = document.querySelector('audio');
-        if (audioPlayerElement) {
-            audioPlayerElement.style.display = 'block';
+
+        if (finalAudioUrl && srtExists) { // Only initialize and show if both audio and SRT exist
+            initAudioPlayer({
+                audioSrc: finalAudioUrl,
+                srtSrc: srtPath
+            });
+            if (audioPlayerElement) {
+                audioPlayerElement.style.display = 'block';
+            }
+        } else {
+            // Hide player if no audio or no SRT
+            if (audioPlayerElement) {
+                audioPlayerElement.style.display = 'none';
+                audioPlayerElement.pause(); // Pause if it was playing
+            }
+            console.warn(`章节 ${chapterId} 没有可用的音频或 SRT 文件，因此不显示音频播放器。`);
         }
+
     } else {
         alert('无法加载章节内容！');
         showTocPage();
