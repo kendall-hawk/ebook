@@ -1,14 +1,11 @@
 // js/audio/audioPlayer.js
 
 import { parseSRT } from './srtParser.js';
-// import { tokenizeText } from './tokenizer.js'; // 不再直接在此文件中调用 tokenizeText
+import { tokenizeText } from './tokenizer.js';
 
 let audio;
-let subtitleData = []; // 存储所有字幕数据，现在包含单词信息
-let currentHighlightedSentenceElement = null; // 用于跟踪当前高亮的句子元素
-let currentHighlightedWordElement = null; // 用于跟踪当前高亮的单词元素
-let lastHighlightedSubtitleId = null; // 跟踪上一个高亮的字幕ID
-let lastHighlightedWordId = null; // 跟踪上一个高亮的单词ID
+let subtitleData = [];
+let wordToSubtitleMap = [];
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
   // 如果已有播放器，更新源即可
@@ -24,15 +21,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
     audio.style.maxWidth = '600px';
     document.body.appendChild(audio);
 
-    // 监听时间更新事件，这是高亮的核心
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    // 监听暂停和结束事件，用于清除高亮
-    audio.addEventListener('pause', clearAllHighlights);
-    audio.addEventListener('ended', clearAllHighlights);
-
-    // 监听全局点击事件，用于单词点击跳转播放
-    // 注意：这里的点击事件现在直接在 .word-highlightable 上监听，而不是 document.body
-    document.addEventListener('click', handleWordClick);
+    document.body.addEventListener('click', handleWordClick);
   }
 
   audio.src = audioSrc;
@@ -42,149 +31,81 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   try {
     const res = await fetch(srtSrc);
     const srtText = await res.text();
-    subtitleData = parseSRT(srtText); // srtParser.js 现在会返回包含单词信息的数据
-    console.log('字幕加载并解析成功:', subtitleData);
+    subtitleData = parseSRT(srtText);
+    wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
   } catch (err) {
     console.error('字幕加载失败:', err);
     subtitleData = [];
+    wordToSubtitleMap = [];
   }
 }
 
-// 建立单词到字幕索引的映射 (此函数可能不再需要，因为我们现在通过 DOM ID 直接查找)
-// 但如果您仍需要通过文本内容进行匹配（例如点击的不是特定高亮元素），可以保留或修改
-// function buildWordToSubtitleMap(subs) { ... }
-
+// 建立单词到字幕索引的映射
+function buildWordToSubtitleMap(subs) {
+  const map = [];
+  subs.forEach((subtitle, i) => {
+    const words = tokenizeText(subtitle.text);
+    words.forEach(({ word }) => {
+      const lower = word.toLowerCase();
+      if (lower.length >= 2 && lower.length <= 25) {
+        map.push({
+          word: lower,
+          index: i,
+        });
+      }
+    });
+  });
+  return map;
+}
 
 // 点击词时播放对应句子音频
 function handleWordClick(e) {
   const target = e.target;
-  // 确保点击的是一个可高亮的单词元素
-  if (!target || !target.classList.contains('word-highlightable') || !target.textContent || !subtitleData.length) {
-    return;
-  }
+  if (!target || !target.textContent || !subtitleData.length) return;
 
-  // 从点击的单词元素上获取其所属的句子ID (data-sentence-id)
-  const sentenceElement = target.closest('.sentence-container');
-  if (!sentenceElement) return;
+  const clickedWord = target.textContent.trim().toLowerCase();
+  if (clickedWord.length < 2 || clickedWord.length > 25) return;
 
-  const clickedSentenceId = sentenceElement.dataset.sentenceId;
-  const clickedWordText = target.textContent.trim().toLowerCase();
+  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
+  if (possibleMatches.length === 0) return;
 
-  // 找到对应的字幕数据
-  const matchedSubtitle = subtitleData.find(sub => sub.id === clickedSentenceId);
-
-  if (matchedSubtitle) {
-    // 尝试找到点击的单词在 matchedSubtitle.words 数组中的对应项
-    // 可以通过文本匹配和原始索引（如果需要更精确）
-    const clickedWordData = matchedSubtitle.words.find(word => word.word.toLowerCase() === clickedWordText);
-
-    if (clickedWordData) {
-      // 将音频当前时间设置为字幕开始时间 + 单词的相对偏移
-      audio.currentTime = matchedSubtitle.start + clickedWordData.startOffset;
-      audio.play();
-    } else {
-        // 如果找不到精确的单词，退回到播放整个句子
-        audio.currentTime = matchedSubtitle.start;
-        audio.play();
-    }
+  const bestMatchIndex = findBestSubtitleMatch(target, possibleMatches);
+  if (bestMatchIndex !== null) {
+    const { start } = subtitleData[bestMatchIndex];
+    audio.currentTime = start;
+    audio.play();
   }
 }
 
+// 通过页面位置判断最贴近的字幕句子
+function findBestSubtitleMatch(target, matches) {
+  const clickedTop = target.getBoundingClientRect().top + window.scrollY;
 
-// --- 新增高亮逻辑 ---
+  let closestIndex = null;
+  let minDistance = Infinity;
 
-function handleTimeUpdate() {
-  const currentTime = audio.currentTime;
-  let currentSubtitle = null;
-  let currentWordInSubtitle = null;
-
-  // 1. 找到当前时间点对应的字幕 (句子)
-  for (let i = 0; i < subtitleData.length; i++) {
-    const sub = subtitleData[i];
-    if (currentTime >= sub.start && currentTime < sub.end) {
-      currentSubtitle = sub;
-
-      // 2. 找到当前句子中对应的单词
-      if (sub.words) {
-        // 计算当前时间相对于字幕开始时间的偏移
-        const timeOffsetInSubtitle = currentTime - sub.start;
-        for (const word of sub.words) {
-          if (timeOffsetInSubtitle >= word.startOffset && timeOffsetInSubtitle < word.endOffset) {
-            currentWordInSubtitle = word;
-            break; // 找到单词就退出循环
-          }
-        }
+  matches.forEach(({ index }) => {
+    const subtitleText = subtitleData[index].text;
+    const matchNode = findVisibleNodeContaining(subtitleText);
+    if (matchNode) {
+      const nodeTop = matchNode.getBoundingClientRect().top + window.scrollY;
+      const distance = Math.abs(clickedTop - nodeTop);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
       }
-      break; // 找到字幕就退出循环
     }
-  }
+  });
 
-  // 3. 更新句子高亮
-  if (currentSubtitle && currentSubtitle.id !== lastHighlightedSubtitleId) {
-    highlightSentence(currentSubtitle.id);
-    lastHighlightedSubtitleId = currentSubtitle.id;
-  } else if (!currentSubtitle && lastHighlightedSubtitleId) {
-    // 如果当前没有字幕在播放，且之前有高亮的字幕，则清除句子高亮
-    clearSentenceHighlight();
-    lastHighlightedSubtitleId = null;
-  }
-
-  // 4. 更新单词高亮 (只在高亮的句子内部进行)
-  if (currentWordInSubtitle && currentWordInSubtitle.id !== lastHighlightedWordId) {
-    highlightWord(currentWordInSubtitle.id);
-    lastHighlightedWordId = currentWordInSubtitle.id;
-  } else if (!currentWordInSubtitle && lastHighlightedWordId) {
-    // 如果当前没有单词高亮，且之前有高亮的单词，则清除单词高亮
-    clearWordHighlight();
-    lastHighlightedWordId = null;
-  }
+  return closestIndex;
 }
 
-function clearAllHighlights() {
-  clearSentenceHighlight();
-  clearWordHighlight();
-  lastHighlightedSubtitleId = null;
-  lastHighlightedWordId = null;
-}
-
-function clearSentenceHighlight() {
-  if (currentHighlightedSentenceElement) {
-    currentHighlightedSentenceElement.classList.remove('highlight-sentence');
-    currentHighlightedSentenceElement = null;
+// 页面中找到包含字幕文本的最接近 DOM 元素
+function findVisibleNodeContaining(text) {
+  const candidates = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
+  for (const node of candidates) {
+    const nodeText = node.innerText || '';
+    if (nodeText.includes(text)) return node;
   }
-}
-
-function clearWordHighlight() {
-  if (currentHighlightedWordElement) {
-    currentHighlightedWordElement.classList.remove('highlight-word');
-    currentHighlightedWordElement = null;
-  }
-}
-
-
-function highlightSentence(sentenceId) {
-  clearSentenceHighlight(); // 先清除之前的句子高亮
-
-  // 通过 data-sentence-id 查找 DOM 元素
-  const sentenceElement = document.querySelector(`[data-sentence-id="${sentenceId}"]`);
-
-  if (sentenceElement) {
-    sentenceElement.classList.add('highlight-sentence');
-    currentHighlightedSentenceElement = sentenceElement;
-    // 滚动到视图中，平滑滚动
-    sentenceElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-}
-
-
-function highlightWord(wordId) {
-  clearWordHighlight(); // 先清除之前的单词高亮
-
-  // 通过 data-word-id 查找 DOM 元素
-  const wordElement = document.querySelector(`[data-word-id="${wordId}"]`);
-
-  if (wordElement) {
-    wordElement.classList.add('highlight-word');
-    currentHighlightedWordElement = wordElement;
-  }
+  return null;
 }
