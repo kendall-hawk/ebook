@@ -320,6 +320,7 @@ export function setupTooltips() {
 
     /**
      * 辅助函数：从 YouTube URL 中提取视频 ID。
+     * **修正：这个函数应该从 utils.js 导入，而不是在 tooltip.js 中重复定义**
      * @param {string} url - YouTube 视频 URL。
      * @returns {string|null} - 提取到的视频 ID 或 null。
      */
