@@ -438,26 +438,21 @@ body {
   color: #aaa;
 /* assets/main.css */
 
-/* 整个句子高亮 (可选，用于表示当前正在播放的句子) */
-.sentence.active-sentence {
-    background-color: #e0f7fa; /* 淡蓝色背景 */
-    border-radius: 4px;
-    padding: 2px 4px;
-    transition: background-color 0.3s ease;
-}
+        /* 高亮单词的CSS样式 */
+        .highlighted-word {
+            background-color: yellow;
+            font-weight: bold;
+            padding: 2px 0; /* 稍微增加内边距让高亮更明显 */
+            border-radius: 3px;
+        }
 
-.sentence.active-sentence {
-    background-color: #e0f7fa; /* 浅蓝色背景高亮整个句子 */
-}
-.word.highlight {
-    background-color: yellow; /* 逐词高亮 */
-    font-weight: bold;
-}
-
-
-/* 确保高亮不会影响 Tooltip 样式，如果需要可以调整 Tooltip 的 z-index */
-.tooltip {
-    z-index: 10000; /* 确保 Tooltip 在高亮之上 */
-}
+        /* 可点击单词的样式（可选，增强用户体验） */
+        .word-clickable {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .word-clickable:hover {
+            background-color: #f0f0f0;
+        }
 
 }
