@@ -7,6 +7,7 @@ import {
     getGlobalWordFrequenciesMap,
     getGlobalMaxFreq
 } from './chapterRenderer.js';
+
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer } from './audio/audioPlayer.js';
@@ -23,56 +24,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // --- 全局词频计算 ---
     const allParagraphs = [];
-    const protectedWordsForFrequency = new Set();
-
-    await Promise.all(allChapterIndexData.map(async (chMeta) => {
+    const chapterContentsPromises = allChapterIndexData.map(async (chMeta) => {
         const chapterData = await loadSingleChapterContent(chMeta.file);
         if (chapterData?.paragraphs) {
             chapterData.paragraphs.forEach(p => {
                 if (typeof p === 'string') allParagraphs.push(p);
             });
         }
+    });
+    await Promise.all(chapterContentsPromises);
 
-        const tooltipFilePath = `chapters/${chMeta.id}-tooltips.json`;
+    const protectedWordsForFrequency = new Set();
+    for (const chapterMeta of allChapterIndexData) {
+        const chapterId = chapterMeta.id;
+        const tooltipFilePath = `chapters/${chapterId}-tooltips.json`;
+
         try {
             const res = await fetch(`data/${tooltipFilePath}`);
             if (res.ok) {
-                const tooltips = await res.json();
-                for (const key in tooltips) {
-                    if (tooltips[key]?.word) {
-                        protectedWordsForFrequency.add(tooltips[key].word.toLowerCase());
+                const chapterTooltips = await res.json();
+                for (const tooltipId in chapterTooltips) {
+                    if (chapterTooltips[tooltipId]?.word) {
+                        protectedWordsForFrequency.add(chapterTooltips[tooltipId].word.toLowerCase());
                     }
                 }
+            } else {
+                console.warn(`无法加载 Tooltip 数据: ${tooltipFilePath}`);
             }
-        } catch (e) {
-            console.warn(`无法加载 Tooltip 数据：${tooltipFilePath}`);
+        } catch (err) {
+            console.error(`Tooltip 加载错误: ${tooltipFilePath}`, err);
         }
-    }));
+    }
 
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
 
     const categories = new Set();
     allChapterIndexData.forEach(ch => {
-        if (Array.isArray(ch.categories)) {
-            ch.categories.forEach(cat => categories.add(cat));
-        }
+        if (Array.isArray(ch.categories)) ch.categories.forEach(cat => categories.add(cat));
     });
-
     renderCategoryNavigation(Array.from(categories));
+
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
     setupTooltips();
 
     const initialChapterId = window.location.hash.substring(1);
     if (initialChapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === initialChapterId);
-        if (chapterMeta) {
-            handleChapterClick(chapterMeta.id, chapterMeta.file);
-        } else {
-            showTocPage();
-        }
+        chapterMeta ? handleChapterClick(chapterMeta.id, chapterMeta.file) : showTocPage();
     } else {
         showTocPage();
     }
@@ -83,24 +83,23 @@ function renderCategoryNavigation(categories) {
     if (!nav) return;
 
     nav.innerHTML = '';
+
     const allBtn = document.createElement('button');
-    allBtn.className = 'category-button';
+    allBtn.classList.add('category-button');
     allBtn.dataset.category = 'all';
     allBtn.textContent = 'All Articles';
     nav.appendChild(allBtn);
 
-    categories.sort().forEach(cat => {
+    categories.sort().forEach(category => {
         const btn = document.createElement('button');
-        btn.className = 'category-button';
-        btn.dataset.category = cat;
-        btn.textContent = cat;
+        btn.classList.add('category-button');
+        btn.dataset.category = category;
+        btn.textContent = category;
         nav.appendChild(btn);
     });
 
     nav.querySelectorAll('.category-button').forEach(btn => {
-        if (btn.dataset.category === currentFilterCategory) {
-            btn.classList.add('active');
-        }
+        btn.classList.toggle('active', btn.dataset.category === currentFilterCategory);
         btn.addEventListener('click', () => {
             currentFilterCategory = btn.dataset.category;
             nav.querySelectorAll('.category-button').forEach(b => b.classList.remove('active'));
@@ -129,7 +128,6 @@ function showTocPage() {
 async function handleChapterClick(chapterId, filePath) {
     if (!chapterId) {
         showTocPage();
-        window.location.hash = '';
         return;
     }
 
@@ -138,23 +136,20 @@ async function handleChapterClick(chapterId, filePath) {
     document.getElementById('chapters').style.display = 'block';
 
     const chapterContent = await loadSingleChapterContent(filePath);
-    let currentTooltips = {};
-    const tooltipPath = `data/chapters/${chapterId}-tooltips.json`;
 
+    let currentTooltips = {};
+    const tooltipFile = `chapters/${chapterId}-tooltips.json`;
     try {
-        const res = await fetch(tooltipPath);
-        if (res.ok) {
-            currentTooltips = await res.json();
-        } else {
-            console.warn(`无 Tooltip 数据：${tooltipPath}`);
-        }
-    } catch (e) {
-        console.error(`Tooltip 加载失败: ${tooltipPath}`, e);
+        const res = await fetch(`data/${tooltipFile}`);
+        if (res.ok) currentTooltips = await res.json();
+        else console.warn(`未找到 Tooltip 数据: ${tooltipFile}`);
+    } catch (err) {
+        console.error(`加载 Tooltip 错误: ${tooltipFile}`, err);
     }
 
-    updateActiveChapterTooltips(currentTooltips);
-
     if (chapterContent) {
+        updateActiveChapterTooltips(currentTooltips);
+
         renderSingleChapterContent(
             chapterContent,
             currentTooltips,
@@ -167,56 +162,44 @@ async function handleChapterClick(chapterId, filePath) {
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
         const driveId = allChapterIndexData.find(ch => ch.id === chapterId)?.googleDriveAudioId;
-        const srtPath = `data/chapters/srt/${chapterId}.srt`;
-        const localAudio = `audio/${chapterId}.mp3`;
-        const driveAudioUrl = driveId ? `https://docs.google.com/uc?export=download&id=${driveId}` : null;
-
-        if (!driveAudioUrl) {
-            console.warn(`章节 ${chapterId} 缺少 googleDriveAudioId，回退到本地音频`);
-            initAudioPlayer({ audioSrc: localAudio, srtSrc: srtPath });
-            return;
-        }
+        const driveUrl = `https://docs.google.com/uc?export=download&id=${driveId}`;
+        const localAudio = `data/chapters/audio/${chapterId}.mp3`;
+        const srtFile = `data/chapters/srt/${chapterId}.srt`;
 
         try {
-            const res = await fetch(driveAudioUrl, { method: 'HEAD' });
-            if (res.ok && res.headers.get('content-type')?.includes('audio')) {
-                initAudioPlayer({ audioSrc: driveAudioUrl, srtSrc: srtPath });
+            const testRes = await fetch(driveUrl, { method: 'HEAD' });
+            if (testRes.ok) {
+                initAudioPlayer({ audioSrc: driveUrl, srtSrc: srtFile });
             } else {
-                console.warn(`Google Drive 音频不可用，切换本地：${localAudio}`);
-                initAudioPlayer({ audioSrc: localAudio, srtSrc: srtPath });
+                console.warn(`Google Drive 音频不可用，使用本地备份: ${localAudio}`);
+                initAudioPlayer({ audioSrc: localAudio, srtSrc: srtFile });
             }
-        } catch (e) {
-            console.error(`加载 Google Drive 音频失败，切换本地：${localAudio}`, e);
-            initAudioPlayer({ audioSrc: localAudio, srtSrc: srtPath });
+        } catch (err) {
+            console.error(`Google Drive 音频加载失败，使用本地备份: ${localAudio}`, err);
+            initAudioPlayer({ audioSrc: localAudio, srtSrc: srtFile });
         }
 
-        const audioElement = document.querySelector('audio');
-        if (audioElement) {
-            audioElement.style.display = 'block';
-        }
+        const audioEl = document.querySelector('audio');
+        if (audioEl) audioEl.style.display = 'block';
 
     } else {
-        alert('无法加载章节内容！');
+        alert('章节加载失败！');
         showTocPage();
-        window.location.hash = '';
     }
 }
 
-window.addEventListener('hashchange', async () => {
+window.addEventListener('hashchange', () => {
     const chapterId = window.location.hash.substring(1);
-    if (chapterId) {
-        const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
-        if (chapterMeta) {
-            const chapterEl = document.getElementById('chapters');
-            const currentId = chapterEl.querySelector('h2')?.id;
-            if (chapterEl.style.display === 'none' || currentId !== chapterId) {
-                handleChapterClick(chapterMeta.id, chapterMeta.file);
-            }
-        } else {
-            showTocPage();
-            window.location.hash = '';
-        }
-    } else {
-        showTocPage();
+    if (!chapterId) return showTocPage();
+
+    const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
+    if (!chapterMeta) return showTocPage();
+
+    const currentChapterEl = document.getElementById('chapters');
+    const currentTitleEl = currentChapterEl.querySelector('h2');
+    const displayedId = currentTitleEl?.id;
+
+    if (currentChapterEl.style.display === 'none' || displayedId !== chapterId) {
+        handleChapterClick(chapterMeta.id, chapterMeta.file);
     }
 });
