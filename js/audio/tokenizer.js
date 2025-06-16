@@ -1,19 +1,19 @@
-// js/audio/tokenizer.js
-
 /**
  * 将句子分词为 { word, indexInText, length } 的数组
- * 保留原始索引，便于匹配点击的单词位置。
+ * - 支持英文、数字、标点
+ * - 支持中英文混排
+ * - 保留 indexInText 和 length 便于高亮与匹配
  */
 export function tokenizeText(sentence) {
   const words = [];
-  const wordRegex = /\b\w+(?:['’]\w+)?\b/g;
+  const regex = /[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)?|[.,!?;:"“”‘’…—\-]|[\p{Script=Han}]/gu;
   let match;
 
-  while ((match = wordRegex.exec(sentence)) !== null) {
+  while ((match = regex.exec(sentence)) !== null) {
     words.push({
       word: match[0],
       indexInText: match.index,
-      length: match[0].length,
+      length: match[0].length
     });
   }
 
