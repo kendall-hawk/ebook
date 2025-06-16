@@ -436,4 +436,29 @@ body {
 
 .dark-mode .tooltip-image-description-text {
   color: #aaa;
+/* assets/main.css */
+
+/* 整个句子高亮 (可选，用于表示当前正在播放的句子) */
+.sentence.active-sentence {
+    background-color: #e0f7fa; /* 淡蓝色背景 */
+    border-radius: 4px;
+    padding: 2px 4px;
+    transition: background-color 0.3s ease;
+}
+
+/* 逐词高亮 */
+.word.highlight {
+    background-color: #ffd700; /* 金黄色 */
+    color: #333;
+    font-weight: bold;
+    padding: 1px 2px;
+    border-radius: 3px;
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); /* 可选：增加一些光晕效果 */
+}
+
+/* 确保高亮不会影响 Tooltip 样式，如果需要可以调整 Tooltip 的 z-index */
+.tooltip {
+    z-index: 10000; /* 确保 Tooltip 在高亮之上 */
+}
+
 }
