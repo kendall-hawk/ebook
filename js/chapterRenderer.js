@@ -1,6 +1,8 @@
 // js/chapterRenderer.js
-import { renderMarkdownWithTooltips } from './tooltip.js';
+import { renderMarkdownWithTooltips } from './tooltip.js'; // 假设 renderMarkdownWithTooltips 在 tooltip.js
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
+import { tokenizeText } from './audio/tokenizer.js'; // 导入分词器
+import { parseSRT } from './audio/srtParser.js'; // 导入 SRT 解析器
 
 let allChapterIndex = [];
 let currentChapterData = null;
@@ -101,8 +103,16 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
  * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
  * @param {number} maxFreq - 词语的最高频率。
  * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
+ * @param {Array<Object>} srtEntries - 从 srtParser.js 解析出来的字幕数据数组，每个对象包含 { start, end, text }。
  */
-export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
+export async function renderSingleChapterContent(
+  chapterContent,
+  currentChapterTooltips,
+  wordFrequenciesMap,
+  maxFreq,
+  navigateToChapterCallback,
+  srtEntries = [] // 新增 SRT 数据参数
+) {
   const chaptersContainer = document.getElementById('chapters');
   if (!chaptersContainer) {
     console.error('未找到 #chapters 容器。');
@@ -117,22 +127,70 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
-  chapterContent.paragraphs.forEach(item => {
+  let srtIndex = 0; // 用于跟踪当前处理到哪个 SRT 句子
+
+  for (const item of chapterContent.paragraphs) {
     if (typeof item === 'string') {
-      const renderedHtml = renderMarkdownWithTooltips(
-          item,
-          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
-          wordFrequenciesMap,
-          maxFreq
-      );
+      const paragraphContainer = document.createElement('p'); // 使用 <p> 标签作为段落容器
+      paragraphContainer.classList.add('chapter-paragraph'); // 可选，用于样式
 
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = renderedHtml;
+      // 将段落文本与 SRT 句子进行匹配和切割
+      const segments = splitParagraphBySrtSentences(item, srtEntries, srtIndex);
 
-      Array.from(tempDiv.children).forEach(child => {
-          chaptersContainer.appendChild(child);
-      });
+      for (const segment of segments) {
+        if (segment.type === 'srtSentence') {
+          // 这是 SRT 对应的句子
+          const sentenceElement = document.createElement('span');
+          sentenceElement.classList.add('sentence');
+          sentenceElement.dataset.subIndex = srtIndex; // 关联到 SRT 索引
+          sentenceElement.dataset.startTime = srtEntries[srtIndex].start; // 存储开始时间
+          sentenceElement.dataset.endTime = srtEntries[srtIndex].end;   // 存储结束时间
 
+
+          // 对 SRT 句子进行分词并渲染 word <span>
+          const tokens = tokenizeText(segment.text);
+          tokens.forEach(token => {
+            const wordElement = document.createElement('span');
+            wordElement.classList.add('word');
+            wordElement.textContent = token.word;
+
+            const lowerWord = token.word.toLowerCase();
+            // 检查是否有 Tooltip
+            if (currentChapterTooltips.hasOwnProperty(lowerWord)) {
+              wordElement.dataset.tooltipId = lowerWord; // 添加 data-tooltip-id
+            }
+
+            // 计算并应用词频样式
+            const freq = wordFrequenciesMap.get(lowerWord) || 0;
+            const baseFontSize = 16; // 默认值，与 tooltip.js 中保持一致
+            const maxFontSizeIncrease = 12; // 默认值，与 tooltip.js 中保持一致
+            if (freq > 0 && maxFreq > 0) {
+              const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
+              wordElement.style.fontSize = `${calculatedFontSize.toFixed(1)}px`;
+            }
+
+            sentenceElement.appendChild(wordElement);
+          });
+          paragraphContainer.appendChild(sentenceElement);
+          srtIndex++; // 递增 SRT 索引
+        } else {
+          // 这是非 SRT 部分的文本，可能包含 Markdown，交给 renderMarkdownWithTooltips 处理
+          // renderMarkdownWithTooltips 内部会处理 Markdown、Tooltip 和词频
+          const processedHtml = renderMarkdownWithTooltips(
+            segment.text,
+            currentChapterTooltips,
+            wordFrequenciesMap,
+            maxFreq
+          );
+          // 创建一个临时 div 来解析 HTML 字符串，然后将子节点添加到 paragraphContainer
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = processedHtml;
+          while (tempDiv.firstChild) {
+            paragraphContainer.appendChild(tempDiv.firstChild);
+          }
+        }
+      }
+      chaptersContainer.appendChild(paragraphContainer);
     } else if (item.video) {
       const videoUrl = item.video;
       const wrapper = document.createElement('div');
@@ -167,7 +225,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
       wrapper.appendChild(iframe);
       chaptersContainer.appendChild(wrapper);
     }
-  });
+  }
 
   const navSection = document.createElement('div');
   navSection.classList.add('chapter-nav-links');
@@ -250,3 +308,55 @@ export function setGlobalWordFrequencies(map, maxF) {
   globalWordFrequenciesMap = map;
   globalMaxFreq = maxF;
 }
+
+/**
+ * 辅助函数：根据 SRT 句子切割段落文本
+ * 这会尝试在给定的段落文本中查找连续的 SRT 句子，并将其与非 SRT 部分分开。
+ * 注意：此函数假定 SRT 句子在原始段落中是连续的，且会从 startIndex 处开始查找。
+ * 它可能无法完美处理 SRT 句子在原始 Markdown 中被其他 Markdown 语法（如粗体、链接）分割的情况。
+ *
+ * @param {string} paragraphText - 原始的段落文本
+ * @param {Array<Object>} srtEntries - 所有的 SRT 条目
+ * @param {number} currentSrtIndex - 当前段落应该从哪个 SRT 索引开始匹配
+ * @returns {Array<Object>} - 包含 { type: 'srtSentence' | 'otherText', text: string, srtIndex?: number } 的数组
+ */
+function splitParagraphBySrtSentences(paragraphText, srtEntries, currentSrtIndex) {
+    const segments = [];
+    let remainingText = paragraphText;
+    let srtMatchFound = true; // 标记是否找到 SRT 匹配，用于处理剩余文本
+
+    while (remainingText.length > 0 && currentSrtIndex < srtEntries.length && srtMatchFound) {
+        const srtEntry = srtEntries[currentSrtIndex];
+        // 关键：为了准确匹配，需要对 SRT 句子文本进行预处理，移除可能影响匹配的 Markdown 字符
+        // 这里只是简单地去除前后空格，如果 SRT 文本包含 Markdown 语法，需要更复杂的清理
+        const cleanSrtSentenceText = srtEntry.text.trim();
+
+        // 使用 indexOf 进行匹配，因为它查找的是子字符串，不会被正则表达式的特殊字符影响
+        const matchIndex = remainingText.indexOf(cleanSrtSentenceText);
+
+        if (matchIndex !== -1) {
+            // 如果 SRT 句子在当前文本之前有其他文本（非SRT内容）
+            if (matchIndex > 0) {
+                segments.push({ type: 'otherText', text: remainingText.substring(0, matchIndex) });
+            }
+
+            // 添加 SRT 句子片段
+            segments.push({ type: 'srtSentence', text: cleanSrtSentenceText, srtIndex: currentSrtIndex });
+
+            // 更新剩余文本为 SRT 句子之后的部分
+            remainingText = remainingText.substring(matchIndex + cleanSrtSentenceText.length);
+            currentSrtIndex++; // 移到下一个 SRT 索引
+        } else {
+            // 如果当前 SRT 句子无法在剩余文本中找到，停止查找 SRT 匹配
+            srtMatchFound = false;
+        }
+    }
+
+    // 将循环结束后所有剩余的文本作为普通文本处理
+    if (remainingText.length > 0) {
+        segments.push({ type: 'otherText', text: remainingText });
+    }
+
+    return segments;
+}
+
