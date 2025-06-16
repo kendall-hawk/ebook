@@ -11,7 +11,6 @@ let currentSentenceElement = null; // 当前高亮的句子 DOM 元素
 
 /**
  * 辅助函数：将 SRT 时间格式（00:00:07,760）转换为秒。
- * 在你的原始文件中缺失，但对于 SRT 处理至关重要。
  * @param {string} timeString - SRT 格式的时间字符串。
  * @returns {number} 转换后的秒数。
  */
@@ -122,7 +121,7 @@ function handleAudioTimeUpdate() {
 
     // 如果当前句子索引没有变化，且正在高亮，则继续逐词高亮，不做整句切换
     if (newSentenceIndex === currentSentenceIndex && currentHighlightAnimationFrameId !== null) {
-        // **修正：即使句子没变，如果音频时间前进，也需要让 highlightWordsInSentence 内部更新单词高亮**
+        // 修正：即使句子没变，如果音频时间前进，也需要让 highlightWordsInSentence 内部更新单词高亮
         // 因此，我们在这里不再直接返回，而是让 highlightWordsInSentence 内部的 requestAnimationFrame 循环负责持续更新
         if (currentSentenceElement) { // 确保当前句子元素存在才继续高亮逻辑
             highlightWordsInSentence(
@@ -132,7 +131,7 @@ function handleAudioTimeUpdate() {
                 audio
             );
         }
-        return;
+        return; // 不再重复执行下面的句子切换逻辑
     }
 
     // 如果句子切换了，或者之前没有句子被高亮
@@ -150,9 +149,8 @@ function handleAudioTimeUpdate() {
 
             // 滚动到当前句子视图
             // **修正：只在句子真正切换时才滚动，避免过于频繁的滚动**
-            if (newSentenceIndex !== currentSentenceIndex) {
-                 sentenceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            // 注意：因为上面已经判断了 newSentenceIndex !== currentSentenceIndex，这里无需再次判断
+            sentenceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
 
             // 启动逐词高亮
@@ -212,6 +210,7 @@ function handleWordClick(e) {
     if (parentSentence) {
       // **修正：data-sub-index 在 chapterRenderer 中是基于 0 的索引，对应 SRT 的 id - 1**
       const subIndex = parseInt(parentSentence.dataset.subIndex, 10);
+      // **重要：确保 chapterRenderer.js 为 .sentence 元素设置了 data-start-time 属性**
       const startTime = parseFloat(parentSentence.dataset.startTime);
 
       if (!isNaN(startTime) && subtitleData[subIndex]) {
@@ -219,6 +218,8 @@ function handleWordClick(e) {
         audio.play();
         // 确保高亮立即更新
         handleAudioTimeUpdate();
+      } else {
+        console.warn('点击的单词或句子缺少有效的跳转时间或字幕数据:', target, parentSentence);
       }
     }
   }
@@ -232,6 +233,12 @@ function handleWordClick(e) {
  * @param {HTMLAudioElement} audioEl - 音频元素。
  */
 function highlightWordsInSentence(sentenceEl, sentenceStartTime, sentenceEndTime, audioEl) {
+    // 确保每次启动新的高亮时，都清除之前的动画
+    if (currentHighlightAnimationFrameId) {
+        cancelAnimationFrame(currentHighlightAnimationFrameId);
+        currentHighlightAnimationFrameId = null;
+    }
+
     // **修正：先清除当前句子的所有单词高亮，避免残留**
     Array.from(sentenceEl.querySelectorAll('.word')).forEach(w => w.classList.remove('highlight'));
 
@@ -249,53 +256,43 @@ function highlightWordsInSentence(sentenceEl, sentenceStartTime, sentenceEndTime
     const wordLengths = words.map(wordEl => {
         const text = wordEl.textContent.trim();
         // 进一步优化：可以去除单词中的非字母数字字符（如标点）再计算长度
-        const cleanText = text.replace(/[^a-zA-Z0-9'-]/g, ''); // 保留字母、数字、撇号、连字符
+        // 修正：更宽泛地匹配字母和数字，避免中文等字符被过滤
+        const cleanText = text.replace(/[\W_]/g, ''); // 移除所有非单词字符 (包括标点和下划线)
         totalChars += cleanText.length;
         return cleanText.length;
     });
 
-    // 如果总字符数为零，则无法进行加权分配
+    // 定义 wordStartTimes 变量，它将在两种情况下被赋值
+    const wordStartTimes = [];
+    let currentWordHighlightIndex = -1; // 记录当前高亮的单词索引
+
     if (totalChars === 0) {
-        // **修正：至少给每个单词一个最小持续时间，以防 totalChars 为 0 或过小导致 wordDuration 为 0**
-        // 例如，如果所有单词都是标点符号，cleanText.length 可能是 0。
-        // 这种情况下，可以平均分配时间，或者只高亮第一个词
+        // 如果所有单词的“有效”字符长度为零（例如，全是标点），则平均分配时间
         const averageDuration = totalSentenceDuration / words.length;
-        // 如果 averageDuration 仍然很小，可以设置一个最小阈值
-        const minDurationPerWord = Math.max(0.05, averageDuration); // 至少50ms
-        // 重新计算 wordStartTimes，平均分配
-        const newWordStartTimes = [];
+        const minDurationPerWord = Math.max(0.05, averageDuration); // 至少50ms，防止过短
         let cumulativeTimeAvg = sentenceStartTime;
         for (let i = 0; i < words.length; i++) {
-            newWordStartTimes.push(cumulativeTimeAvg);
+            wordStartTimes.push(cumulativeTimeAvg);
             cumulativeTimeAvg += minDurationPerWord;
         }
-        newWordStartTimes.push(sentenceEndTime); // 确保最后一个时间点是句子结束时间
-        // 覆盖 wordStartTimes
-        Object.assign(wordStartTimes, newWordStartTimes); // 覆盖现有数组内容
-
+        wordStartTimes.push(sentenceEndTime); // 确保最后一个时间点是句子结束时间
     } else {
-        // 2. 计算每个单词的起始高亮时间点
-        const calculatedWordStartTimes = [];
+        // 2. 计算每个单词的起始高亮时间点（基于字符长度加权）
         let cumulativeTime = sentenceStartTime;
         for (let i = 0; i < words.length; i++) {
-            calculatedWordStartTimes.push(cumulativeTime);
+            wordStartTimes.push(cumulativeTime);
             const wordDuration = (wordLengths[i] / totalChars) * totalSentenceDuration;
             cumulativeTime += wordDuration;
         }
         // 最后一个单词的结束时间，用于判断是否结束。注意：这里的最后一个时间点是句子结束时间。
-        calculatedWordStartTimes.push(sentenceEndTime);
-        Object.assign(wordStartTimes, calculatedWordStartTimes); // 覆盖现有数组内容
+        wordStartTimes.push(sentenceEndTime);
     }
 
-
-    let currentWordHighlightIndex = -1; // 记录当前高亮的单词索引
 
     const animateHighlight = () => {
         const currentTime = audioEl.currentTime;
 
         // 如果音频时间超出当前句子范围，或音频已暂停/结束，停止动画
-        // **修正：这里应使用 currentSentenceElement 和 sentenceStartTime/sentenceEndTime 来判断，
-        // 而不是依赖外部 currentSentenceIndex，因为这函数是针对特定句子被调用的。**
         if (
             !audioEl || audioEl.paused || audioEl.ended ||
             currentTime < sentenceStartTime || currentTime >= sentenceEndTime
@@ -306,8 +303,8 @@ function highlightWordsInSentence(sentenceEl, sentenceStartTime, sentenceEndTime
 
         // 找到当前时间对应的单词索引
         let nextWordIndex = -1;
-        // **修正：wordStartTimes 的长度比 words 多 1，循环条件是 wordStartTimes.length - 1**
-        for (let i = 0; i < words.length; i++) { // 或者 for (let i = 0; i < wordStartTimes.length - 1; i++)
+        // 修正：wordStartTimes 的长度比 words 多 1，循环条件是 words.length
+        for (let i = 0; i < words.length; i++) {
             if (currentTime >= wordStartTimes[i] && currentTime < wordStartTimes[i + 1]) {
                 nextWordIndex = i;
                 break;
