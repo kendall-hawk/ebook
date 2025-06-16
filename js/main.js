@@ -8,17 +8,17 @@ import {
     getGlobalWordFrequenciesMap,
     getGlobalMaxFreq
 } from './chapterRenderer.js';
-import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
+// 导入 updateActiveChapterTooltips，因为它需要被调用来更新 tooltip 模块的数据
+import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js'; 
 import { getWordFrequencies } from './wordFrequency.js';
-import { initAudioPlayer, showAudioPlayer, hideAudioPlayer } from './audio/audioPlayer.js';
-import { parseSRT } from './audio/srtParser.js';
+// ✨ 新增：导入 audioPlayer.js 模块
+import { initAudioPlayer } from './audio/audioPlayer.js'; 
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. 加载章节索引
-    allChapterIndexData = await loadChapterIndex();
+    allChapterIndexData = await loadChapterIndex(); // 加载所有章节索引
 
     if (allChapterIndexData.length === 0) {
         console.error('章节索引为空，无法渲染。');
@@ -26,11 +26,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // 2. 加载所有章节内容以计算词频
+    // --- 词频计算优化：在所有章节加载完成后一次性计算 ---
     const allParagraphs = [];
     const chapterContentsPromises = allChapterIndexData.map(async (chMeta) => {
         const chapterData = await loadSingleChapterContent(chMeta.file);
-        if (chapterData?.paragraphs) {
+        if (chapterData && chapterData.paragraphs) {
             chapterData.paragraphs.forEach(p => {
                 if (typeof p === 'string') {
                     allParagraphs.push(p);
@@ -38,33 +38,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     });
+    // 等待所有章节内容加载完毕
     await Promise.all(chapterContentsPromises);
 
-    // 3. 加载所有 Tooltip 数据以保护单词频率
+
+    // --- 收集所有 Tooltip 词汇（无论是 [[word|id]] 中的 word 还是 data/chapters/N-tooltips.json 中的 word）作为受保护词 ---
     const protectedWordsForFrequency = new Set();
     for (const chapterMeta of allChapterIndexData) {
-        const tooltipFilePath = `chapters/${chapterMeta.id}-tooltips.json`;
+        const chapterId = chapterMeta.id; // 例如 'chap-01'
+        const tooltipFilePath = `chapters/${chapterId}-tooltips.json`; // 假设约定好的路径
+
         try {
             const res = await fetch(`data/${tooltipFilePath}`);
             if (res.ok) {
                 const chapterTooltips = await res.json();
                 for (const tooltipId in chapterTooltips) {
-                    const tooltipEntry = chapterTooltips[tooltipId];
-                    if (tooltipEntry.word) {
-                        protectedWordsForFrequency.add(tooltipEntry.word.toLowerCase());
+                    if (Object.hasOwnProperty.call(chapterTooltips, tooltipId)) {
+                        const tooltipEntry = chapterTooltips[tooltipId];
+                        // 将 Tooltip 数据中的 `word` 字段加入受保护词列表 (如果存在)
+                        if (tooltipEntry.word) {
+                            protectedWordsForFrequency.add(tooltipEntry.word.toLowerCase());
+                        }
+                        // 如果 tooltipId 本身是一个有意义的词，也可以考虑加入
+                        // protectedWordsForFrequency.add(tooltipId.split('-')[0].toLowerCase()); // 例如 'invention-noun' -> 'invention'
                     }
                 }
+            } else {
+                console.warn(`未找到或无法加载章节 Tooltip 数据: ${tooltipFilePath}. Status: ${res.status}`);
             }
         } catch (error) {
-            console.error(`Tooltip 数据加载失败 (${tooltipFilePath}):`, error);
+            console.error(`加载章节 Tooltip 数据失败 (${tooltipFilePath}):`, error);
         }
     }
 
-    // 4. 计算全局词频
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
 
-    // 5. 渲染分类导航
+    console.log('--- 词频计算结果 (main.js) ---');
+    console.log('全局词频 Map:', getGlobalWordFrequenciesMap());
+    console.log('全局最高频率:', getGlobalMaxFreq());
+    console.log('受保护的 Tooltip 词 (用于词频计算):', protectedWordsForFrequency);
+    console.log('--- 词频计算结束 ---');
+
     const categories = new Set();
     allChapterIndexData.forEach(ch => {
         if (Array.isArray(ch.categories)) {
@@ -73,45 +88,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     renderCategoryNavigation(Array.from(categories));
 
-    // 6. 初始渲染章节目录
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 
-    // 7. 设置 Tooltip 事件监听器
-    setupTooltips();
+    // **重要：在页面首次加载时就设置 Tooltip 事件监听器**
+    setupTooltips(); // Tooltip 的事件监听器只需要设置一次
 
-    // 8. 根据 URL Hash 决定显示章节或目录
     const initialChapterId = window.location.hash.substring(1);
     if (initialChapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === initialChapterId);
         if (chapterMeta) {
-            // 注意：这里需要传递完整的章节元数据，以便 handleChapterClick 获取 audio/srt 路径
-            await handleChapterClick(chapterMeta.id, chapterMeta.file, chapterMeta.audio, chapterMeta.srt, chapterMeta.googleDriveAudioId);
+            handleChapterClick(chapterMeta.id, chapterMeta.file);
         } else {
-            showTocPage(); // Hash 无效，显示目录
+            showTocPage();
         }
     } else {
-        showTocPage(); // 没有 Hash，显示目录
+        showTocPage();
     }
 });
 
-/**
- * 渲染分类导航按钮。
- * @param {string[]} categories - 所有不重复的分类名称数组。
- */
+
 function renderCategoryNavigation(categories) {
     const categoryNav = document.getElementById('category-nav');
     if (!categoryNav) return;
 
     categoryNav.innerHTML = '';
 
-    // 添加“所有文章”按钮
     const newAllButton = document.createElement('button');
     newAllButton.classList.add('category-button');
     newAllButton.dataset.category = 'all';
     newAllButton.textContent = 'All Articles';
     categoryNav.appendChild(newAllButton);
 
-    // 添加其他分类按钮
     categories.sort().forEach(category => {
         const button = document.createElement('button');
         button.classList.add('category-button');
@@ -120,7 +127,6 @@ function renderCategoryNavigation(categories) {
         categoryNav.appendChild(button);
     });
 
-    // 设置当前激活的分类按钮样式
     categoryNav.querySelectorAll('.category-button').forEach(btn => {
         if (btn.dataset.category === currentFilterCategory) {
             btn.classList.add('active');
@@ -129,183 +135,149 @@ function renderCategoryNavigation(categories) {
         }
     });
 
-    // 为分类按钮添加点击事件
     categoryNav.querySelectorAll('.category-button').forEach(button => {
         button.addEventListener('click', () => {
-            currentFilterCategory = button.dataset.category;
-            // 更新按钮激活状态
+            const selectedCategory = button.dataset.category;
+            currentFilterCategory = selectedCategory;
+
             categoryNav.querySelectorAll('.category-button').forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
-            // 重新渲染目录并显示目录页
+
             renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
             showTocPage();
-            window.location.hash = ''; // 清空 hash
+            window.location.hash = '';
         });
     });
 }
 
-/**
- * 显示文章目录页面。
- */
+// 修复后的 showTocPage 函数
 function showTocPage() {
-    document.getElementById('chapters').style.display = 'none';
-    document.getElementById('toc').style.display = 'grid';
-    document.getElementById('category-nav').style.display = 'flex';
-    hideAudioPlayer(); // 使用 audioPlayer 模块的函数隐藏播放器
+    document.getElementById('chapters').style.display = 'none'; // 隐藏章节内容区
+    document.getElementById('toc').style.display = 'grid'; // 显示目录区
+    document.getElementById('category-nav').style.display = 'flex'; // 显示分类导航
+
+    // 当返回目录页时，隐藏并暂停音频播放器
+    const audioPlayerContainer = document.getElementById('audio-player-container'); // 获取音频播放器容器
+    const audioPlayerElement = document.querySelector('audio'); // 获取 audio 标签本身
+
+    if (audioPlayerContainer) {
+        audioPlayerContainer.style.display = 'none'; // 隐藏音频播放器容器
+    }
+    if (audioPlayerElement) {
+        audioPlayerElement.pause(); // 暂停播放
+    }
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 }
 
 /**
- * 处理章节点击事件，加载并显示章节内容。
- * @param {string} chapterId - 章节的 ID。
- * @param {string} filePath - 章节内容的 JSON 文件路径。
- * @param {string} [audioFileRelativePath] - 章节音频文件的相对路径 (例如 'chapters/audio/id.mp3')。
- * @param {string} [srtFileRelativePath] - 章节 SRT 字幕文件的相对路径 (例如 'chapters/srt/id.srt')。
- * @param {string} [googleDriveId] - 谷歌云盘音频ID。
+ * 处理章节点击事件的回调函数。
+ * @param {string} chapterId - 被点击章节的 ID。如果为空，表示返回主页。
+ * @param {string} filePath - 被点击章节的文件路径。
  */
-async function handleChapterClick(chapterId, filePath, audioFileRelativePath, srtFileRelativePath, googleDriveId) {
+// 修复后的 handleChapterClick 函数
+async function handleChapterClick(chapterId, filePath) {
     if (!chapterId) {
         showTocPage();
         window.location.hash = '';
         return;
     }
 
-    // 隐藏目录和分类导航，显示章节内容容器
-    document.getElementById('toc').style.display = 'none';
-    document.getElementById('category-nav').style.display = 'none';
-    document.getElementById('chapters').style.display = 'block';
+    document.getElementById('toc').style.display = 'none'; // 隐藏目录区
+    document.getElementById('category-nav').style.display = 'none'; // 隐藏分类导航
+    document.getElementById('chapters').style.display = 'block'; // 显示章节内容区
 
-    // 加载章节内容
     const chapterContent = await loadSingleChapterContent(filePath);
-    if (!chapterContent) {
-        alert('无法加载章节内容！');
-        showTocPage();
-        window.location.hash = '';
-        return;
-    }
 
-    // 1. 加载章节专属 Tooltip 数据
+    // --- 新增：加载当前章节的 Tooltip 数据 ---
     let currentChapterTooltips = {};
-    const chapterTooltipFilePath = `chapters/${chapterId}-tooltips.json`;
+    const chapterTooltipFilePath = `chapters/${chapterId}-tooltips.json`; // 根据章节ID构建 Tooltip 文件路径
     try {
         const res = await fetch(`data/${chapterTooltipFilePath}`);
         if (res.ok) {
             currentChapterTooltips = await res.json();
+            console.log(`加载章节 ${chapterId} 的 Tooltip 数据成功:`, currentChapterTooltips);
+        } else {
+            // 如果文件不存在，可能是该章节没有自定义 Tooltip，这不是错误
+            console.warn(`章节 ${chapterId} 没有专属 Tooltip 数据 (${chapterTooltipFilePath}). Status: ${res.status}`);
         }
     } catch (error) {
-        console.error(`加载 Tooltip 失败 (${chapterTooltipFilePath}):`, error);
+            console.error(`加载章节 ${chapterId} 的 Tooltip 数据失败:`, error);
     }
-    updateActiveChapterTooltips(currentChapterTooltips); // 更新 tooltip 模块的活跃数据
+    // --- 新增结束 ---
 
-    // 2. 加载并解析 SRT 数据
-    let srtEntries = [];
-    // 构建完整的 SRT 路径，假定所有音频和 SRT 文件都在 data/ 目录下
-    const fullSrtPath = srtFileRelativePath ? `data/${srtFileRelativePath}` : null;
-    if (fullSrtPath) {
-        try {
-            const srtRes = await fetch(fullSrtPath);
-            if (srtRes.ok) {
-                const srtText = await srtRes.text();
-                srtEntries = parseSRT(srtText);
+
+    if (chapterContent) {
+        // ✨ 关键修正：在渲染章节内容之前，更新 Tooltip 模块内部的当前章节数据 ✨
+        // 确保当用户点击单词时，tooltip.js 能够访问到当前章节的 tooltip 详情
+        updateActiveChapterTooltips(currentChapterTooltips); 
+
+        renderSingleChapterContent(
+            chapterContent,
+            currentChapterTooltips, // 将章节专属 Tooltip 数据传递给渲染器
+            getGlobalWordFrequenciesMap(),
+            getGlobalMaxFreq(),
+            handleChapterClick
+        );
+
+        window.location.hash = chapterId;
+        document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
+
+        // ✨ 关键更改：在这里初始化音频播放器 ✨
+        // 获取当前章节对应的 Google Drive 文件 ID
+        const currentGoogleDriveFileId = allChapterIndexData.find(ch => ch.id === chapterId)?.googleDriveAudioId;
+
+        if (!currentGoogleDriveFileId) {
+            console.warn(`未找到章节 ${chapterId} 对应的 Google Drive 音频文件 ID，无法初始化音频播放器。`);
+            // 如果缺少音频，隐藏播放器容器
+            const audioPlayerContainer = document.getElementById('audio-player-container');
+            if (audioPlayerContainer) {
+                audioPlayerContainer.style.display = 'none';
+                const audioPlayerElement = document.querySelector('audio');
+                if(audioPlayerElement) audioPlayerElement.pause(); // 暂停确保不残留播放
             }
-        } catch (error) {
-            console.error(`SRT 文件加载或解析失败 (${fullSrtPath}):`, error);
+            // 不要返回，让文章内容依然显示
+        } else {
+            const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${currentGoogleDriveFileId}`; 
+            const localSrtPath = `data/chapters/srt/${chapterId}.srt`; 
+
+            initAudioPlayer({
+                audioSrc: networkAudioUrl,
+                srtSrc: localSrtPath
+            });
+
+            // 确保音频播放器容器在章节加载时是可见的
+            const audioPlayerContainer = document.getElementById('audio-player-container');
+            if (audioPlayerContainer) {
+                audioPlayerContainer.style.display = 'block';
+            }
         }
-    }
 
-    // 3. 渲染章节内容，传入 SRT 数据
-    renderSingleChapterContent(
-        chapterContent,
-        currentChapterTooltips,
-        getGlobalWordFrequenciesMap(),
-        getGlobalMaxFreq(),
-        // 导航回调：确保在点击“上一篇/下一篇”时，传递完整的章节元数据信息
-        (newId, newFile) => {
-            const newChapterMeta = allChapterIndexData.find(ch => ch.id === newId);
-            if (newChapterMeta) {
-                handleChapterClick(newChapterMeta.id, newChapterMeta.file, newChapterMeta.audio, newChapterMeta.srt, newChapterMeta.googleDriveAudioId);
-            } else {
-                console.error(`未找到章节元数据: ${newId}`);
-                showTocPage();
-            }
-        },
-        srtEntries // 传入解析后的 SRT 数据
-    );
-
-    // 更新 URL Hash
-    window.location.hash = chapterId;
-    document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
-
-    // === 音频加载和播放器控制 ===
-    // 构建完整的本地音频路径
-    const fullLocalAudioPath = audioFileRelativePath ? `data/${audioFileRelativePath}` : null;
-
-    let finalAudioUrl = null;
-    const srtExists = srtEntries.length > 0; // 判断 SRT 是否已成功加载
-
-    // 检查 Google Drive 音频
-    if (googleDriveId) {
-        const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${googleDriveId}`;
-        try {
-            // 使用 HEAD 请求检查音频文件是否存在且可访问
-            const headRes = await fetch(networkAudioUrl, { method: 'HEAD' });
-            if (headRes.ok && headRes.status < 400) { // 检查状态码是否是成功的（2xx）或重定向（3xx）
-                finalAudioUrl = networkAudioUrl;
-            }
-        } catch (err) {
-            console.warn(`Google Drive 音频 (${googleDriveId}) 加载失败或不可访问，尝试本地音频:`, err);
-            // 发生错误，回退到本地音频检查
-        }
-    }
-
-    // 如果 Google Drive 音频不可用或未设置，检查本地音频
-    if (!finalAudioUrl && fullLocalAudioPath) {
-        try {
-            // 使用 HEAD 请求检查本地音频文件是否存在且可访问
-            const localAudioRes = await fetch(fullLocalAudioPath, { method: 'HEAD' });
-            if (localAudioRes.ok && localAudioRes.status < 400) {
-                finalAudioUrl = fullLocalAudioPath;
-            }
-        } catch (err) {
-            console.warn(`本地音频 (${fullLocalAudioPath}) 加载失败或不可访问:`, err);
-            // 发生错误，表示没有可用的音频
-        }
-    }
-
-    // 只有当找到有效音频源并且 SRT 文件存在时才初始化和显示播放器
-    if (finalAudioUrl && srtExists) {
-        initAudioPlayer({
-            audioSrc: finalAudioUrl,
-            srtSrc: fullSrtPath // 传递完整的 SRT 路径给 initAudioPlayer
-        });
-        showAudioPlayer(); // 使用 audioPlayer 模块的函数显示播放器
     } else {
-        // 如果没有可用音频或 SRT，则隐藏播放器
-        hideAudioPlayer(); // 使用 audioPlayer 模块的函数隐藏播放器
+        alert('无法加载章节内容！');
+        showTocPage();
+        window.location.hash = '';
     }
 }
 
-/**
- * 监听 URL Hash 变化，加载对应章节。
- */
+// 监听 URL hash 变化，实现前进/后退按钮的导航
 window.addEventListener('hashchange', async () => {
     const chapterId = window.location.hash.substring(1);
     if (chapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
-        const currentChapterElement = document.getElementById('chapters');
-        // 尝试获取当前章节的标题 ID，以判断是否已经显示
-        const currentTitleId = currentChapterElement.querySelector('h2[id]')?.id;
+        if (chapterMeta) {
+            const currentDisplayedChapterElement = document.getElementById('chapters');
+            // 获取当前显示的章节标题ID，以避免重复加载相同的章节
+            const currentDisplayedChapterTitleElement = currentDisplayedChapterElement.querySelector('h2');
+            const currentDisplayedChapterId = currentDisplayedChapterTitleElement ? currentDisplayedChapterTitleElement.id : null;
 
-        // 只有当章节页未显示，或者显示的章节与 hash 不符时才重新加载
-        if (currentChapterElement.style.display === 'none' || currentTitleId !== chapterId) {
-            if (chapterMeta) {
-                // 再次注意：传递完整的章节元数据中的 audio、srt 和 googleDriveAudioId 路径
-                await handleChapterClick(chapterMeta.id, chapterMeta.file, chapterMeta.audio, chapterMeta.srt, chapterMeta.googleDriveAudioId);
-            } else {
-                showTocPage(); // Hash 指向的章节不存在，显示目录
+            if (currentDisplayedChapterElement.style.display === 'none' || currentDisplayedChapterId !== chapterId) {
+                handleChapterClick(chapterMeta.id, chapterMeta.file);
             }
+        } else {
+            showTocPage();
+            window.location.hash = '';
         }
     } else {
-        showTocPage(); // Hash 为空，显示目录
+        showTocPage();
     }
 });
