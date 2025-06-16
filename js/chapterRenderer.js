@@ -80,6 +80,7 @@ export async function renderSingleChapterContent(
 
   container.innerHTML = '';
   currentChapterData = chapterContent;
+
   const title = document.createElement('h2');
   title.id = chapterContent.id;
   title.textContent = chapterContent.title;
@@ -103,7 +104,13 @@ export async function renderSingleChapterContent(
           sentenceEl.dataset.endTime = srtEntries[srtIndex]?.end || 0;
 
           const tokens = tokenizeText(seg.text);
-          tokens.forEach(token => {
+          let lastIndex = 0;
+
+          for (const token of tokens) {
+            if (token.indexInText > lastIndex) {
+              sentenceEl.appendChild(document.createTextNode(seg.text.slice(lastIndex, token.indexInText)));
+            }
+
             const el = document.createElement('span');
             el.classList.add('word');
             el.textContent = token.word;
@@ -120,7 +127,12 @@ export async function renderSingleChapterContent(
             }
 
             sentenceEl.appendChild(el);
-          });
+            lastIndex = token.indexInText + token.length;
+          }
+
+          if (lastIndex < seg.text.length) {
+            sentenceEl.appendChild(document.createTextNode(seg.text.slice(lastIndex)));
+          }
 
           p.appendChild(sentenceEl);
           srtIndex++;
@@ -128,7 +140,9 @@ export async function renderSingleChapterContent(
           const html = renderMarkdownWithTooltips(seg.text, currentChapterTooltips, wordFrequenciesMap, maxFreq);
           const temp = document.createElement('div');
           temp.innerHTML = html;
-          while (temp.firstChild) p.appendChild(temp.firstChild);
+          while (temp.firstChild) {
+            p.appendChild(temp.firstChild);
+          }
         }
       }
 
@@ -224,7 +238,7 @@ export function setGlobalWordFrequencies(map, maxF) {
 }
 
 /**
- * 改进后的句子切割函数，允许模糊匹配失败后的 fallback。
+ * 将段落按 SRT 句子分割。若找不到匹配，fallback 为剩余 SRT 全部作为句子插入。
  */
 function splitParagraphBySrtSentences(paragraphText, srtEntries, currentSrtIndex) {
   const segments = [];
@@ -249,10 +263,8 @@ function splitParagraphBySrtSentences(paragraphText, srtEntries, currentSrtIndex
   }
 
   if (remaining.length > 0) {
-    // fallback：尝试继续使用 SRT 句子渲染
     while (currentSrtIndex < srtEntries.length) {
-      const srt = srtEntries[currentSrtIndex++];
-      segments.push({ type: 'srtSentence', text: srt.text });
+      segments.push({ type: 'srtSentence', text: srtEntries[currentSrtIndex++].text });
     }
   }
 
