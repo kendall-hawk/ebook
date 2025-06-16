@@ -2,7 +2,7 @@
 
 /* --- Font Imports --- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Source+Serif+4:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap'); /* Added Open Sans import here for consistency */
 
 /* --- Global Base Styles --- */
 body {
@@ -26,8 +26,6 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   max-width: 800px;
   margin: 20px auto;
-  /* 新增：为高亮定位提供上下文 */
-  position: relative; 
 }
 
 /* --- Headings --- */
@@ -343,11 +341,7 @@ body {
   border-bottom-color: #0056b3;
 }
 
-/* --- Floating Video Player (You had this, but for the audio player, we'll use <audio> tags directly) --- */
-/* Your existing .floating-video and related styles are likely for a video player,
-   which is separate from the new audio player. Keeping them as is.
-   We'll add new styles for the audio player. */
-
+/* --- Floating Video Player --- */
 .floating-video {
   position: fixed;
   width: 320px;
@@ -390,56 +384,6 @@ body {
 
 .close-btn:hover {
   color: #f00;
-}
-
-/* --- NEW: Audio Player Styles --- */
-audio {
-  width: 100%;
-  margin-top: 20px;
-  display: block; /* Ensures it takes full width */
-  background-color: #f0f0f0;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 8px 10px; /* Add some padding around the controls */
-  box-sizing: border-box; /* Include padding in width calculation */
-}
-
-/* Hide the audio player by default, main.js will show it when audio is available */
-audio:not([controls]) {
-    display: none !important;
-}
-
-/* --- NEW: Audio Highlight Styles --- */
-.audio-highlight {
-  /* 定义高亮效果 */
-  background-color: #ffe0b2; /* 柔和的橙色背景 */
-  color: #333; /* 保持文本颜色 */
-  padding: 2px 4px; /* 轻微的内边距，让高亮更明显 */
-  border-radius: 3px; /* 柔和的圆角 */
-  transition: background-color 0.2s ease-out; /* 平滑的过渡效果 */
-  scroll-behavior: smooth; /* 滚动时平滑过渡 */
-  /* 可以添加一些轻微的阴影或边框，使其更突出 */
-  box-shadow: 0 0 5px rgba(255, 160, 0, 0.3);
-  display: inline; /* Ensure it behaves like text */
-}
-
-/* NEW: Style for the currently active highlighted phrase (if you want a different style for the *current* phrase) */
-.audio-highlight.current-phrase {
-  background-color: #ffd700; /* 更亮的金色，表示当前正在播放 */
-  color: #000; /* 文本颜色可能需要更深 */
-  font-weight: 700; /* 突出显示 */
-  /* 可以添加一个动画效果，使其更动态 */
-  animation: pulse-highlight 1.5s infinite alternate;
-}
-
-/* NEW: Keyframe animation for current-phrase highlight */
-@keyframes pulse-highlight {
-  from {
-    box-shadow: 0 0 5px rgba(255, 160, 0, 0.3);
-  }
-  to {
-    box-shadow: 0 0 10px rgba(255, 160, 0, 0.8), 0 0 15px rgba(255, 160, 0, 0.2);
-  }
 }
 
 /* --- Responsive Adjustments --- */
@@ -492,31 +436,4 @@ audio:not([controls]) {
 
 .dark-mode .tooltip-image-description-text {
   color: #aaa;
-}
-
-/* NEW: Dark Mode for audio player and highlights */
-.dark-mode audio {
-  background-color: #3a3a3a;
-  filter: invert(0.9) hue-rotate(180deg); /* Adjust colors for dark mode */
-}
-
-.dark-mode .audio-highlight {
-  background-color: #6a4000; /* Darker orange for dark mode */
-  color: #f0f0f0;
-  box-shadow: 0 0 5px rgba(255, 160, 0, 0.5);
-}
-
-.dark-mode .audio-highlight.current-phrase {
-  background-color: #8c6000; /* Even darker, more prominent for current phrase */
-  color: #fff;
-  animation: dark-pulse-highlight 1.5s infinite alternate;
-}
-
-@keyframes dark-pulse-highlight {
-  from {
-    box-shadow: 0 0 5px rgba(255, 160, 0, 0.5);
-  }
-  to {
-    box-shadow: 0 0 10px rgba(255, 160, 0, 0.8), 0 0 15px rgba(255, 160, 0, 0.4);
-  }
 }
