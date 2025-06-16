@@ -436,23 +436,9 @@ body {
 
 .dark-mode .tooltip-image-description-text {
   color: #aaa;
-/* assets/main.css */
-
-        /* 高亮单词的CSS样式 */
-        .highlighted-word {
-            background-color: yellow;
-            font-weight: bold;
-            padding: 2px 0; /* 稍微增加内边距让高亮更明显 */
-            border-radius: 3px;
-        }
-
-        /* 可点击单词的样式（可选，增强用户体验） */
-        .word-clickable {
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .word-clickable:hover {
-            background-color: #f0f0f0;
-        }
-
+  
+.highlight {
+  background-color: yellow;
+  transition: background-color 0.3s ease;
+}
 }
