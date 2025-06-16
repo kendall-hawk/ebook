@@ -10,7 +10,7 @@ import {
 } from './chapterRenderer.js';
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
-import { initAudioPlayer, showAudioPlayer, hideAudioPlayer } from './audio/audioPlayer.js'; // 导入新函数
+import { initAudioPlayer, showAudioPlayer, hideAudioPlayer } from './audio/audioPlayer.js';
 import { parseSRT } from './audio/srtParser.js';
 
 let allChapterIndexData = [];
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === initialChapterId);
         if (chapterMeta) {
             // 注意：这里需要传递完整的章节元数据，以便 handleChapterClick 获取 audio/srt 路径
-            await handleChapterClick(chapterMeta.id, chapterMeta.file, chapterMeta.audio, chapterMeta.srt);
+            await handleChapterClick(chapterMeta.id, chapterMeta.file, chapterMeta.audio, chapterMeta.srt, chapterMeta.googleDriveAudioId);
         } else {
             showTocPage(); // Hash 无效，显示目录
         }
@@ -159,10 +159,11 @@ function showTocPage() {
  * 处理章节点击事件，加载并显示章节内容。
  * @param {string} chapterId - 章节的 ID。
  * @param {string} filePath - 章节内容的 JSON 文件路径。
- * @param {string} [audioFile] - 章节音频文件的相对路径 (例如 'chapters/audio/id.mp3')。
- * @param {string} [srtFile] - 章节 SRT 字幕文件的相对路径 (例如 'chapters/srt/id.srt')。
+ * @param {string} [audioFileRelativePath] - 章节音频文件的相对路径 (例如 'chapters/audio/id.mp3')。
+ * @param {string} [srtFileRelativePath] - 章节 SRT 字幕文件的相对路径 (例如 'chapters/srt/id.srt')。
+ * @param {string} [googleDriveId] - 谷歌云盘音频ID。
  */
-async function handleChapterClick(chapterId, filePath, audioFile, srtFile) {
+async function handleChapterClick(chapterId, filePath, audioFileRelativePath, srtFileRelativePath, googleDriveId) {
     if (!chapterId) {
         showTocPage();
         window.location.hash = '';
@@ -198,7 +199,8 @@ async function handleChapterClick(chapterId, filePath, audioFile, srtFile) {
 
     // 2. 加载并解析 SRT 数据
     let srtEntries = [];
-    const fullSrtPath = srtFile ? `data/${srtFile}` : null; // 构建完整的 SRT 路径
+    // 构建完整的 SRT 路径，假定所有音频和 SRT 文件都在 data/ 目录下
+    const fullSrtPath = srtFileRelativePath ? `data/${srtFileRelativePath}` : null;
     if (fullSrtPath) {
         try {
             const srtRes = await fetch(fullSrtPath);
@@ -217,11 +219,11 @@ async function handleChapterClick(chapterId, filePath, audioFile, srtFile) {
         currentChapterTooltips,
         getGlobalWordFrequenciesMap(),
         getGlobalMaxFreq(),
-        // 导航回调：确保在点击“上一篇/下一篇”时，传递音频和 SRT 路径
+        // 导航回调：确保在点击“上一篇/下一篇”时，传递完整的章节元数据信息
         (newId, newFile) => {
             const newChapterMeta = allChapterIndexData.find(ch => ch.id === newId);
             if (newChapterMeta) {
-                handleChapterClick(newChapterMeta.id, newChapterMeta.file, newChapterMeta.audio, newChapterMeta.srt);
+                handleChapterClick(newChapterMeta.id, newChapterMeta.file, newChapterMeta.audio, newChapterMeta.srt, newChapterMeta.googleDriveAudioId);
             } else {
                 console.error(`未找到章节元数据: ${newId}`);
                 showTocPage();
@@ -235,35 +237,38 @@ async function handleChapterClick(chapterId, filePath, audioFile, srtFile) {
     document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
     // === 音频加载和播放器控制 ===
-    const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
-    const googleDriveId = chapterMeta?.googleDriveAudioId;
-    const localAudioPath = chapterMeta?.audio ? `data/${chapterMeta.audio}` : null; // 使用 chapterMeta.audio
-    const srtExists = srtEntries.length > 0; // 判断 SRT 是否已成功加载
+    // 构建完整的本地音频路径
+    const fullLocalAudioPath = audioFileRelativePath ? `data/${audioFileRelativePath}` : null;
 
     let finalAudioUrl = null;
+    const srtExists = srtEntries.length > 0; // 判断 SRT 是否已成功加载
 
     // 检查 Google Drive 音频
     if (googleDriveId) {
         const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${googleDriveId}`;
         try {
+            // 使用 HEAD 请求检查音频文件是否存在且可访问
             const headRes = await fetch(networkAudioUrl, { method: 'HEAD' });
-            if (headRes.ok && headRes.status < 400) {
+            if (headRes.ok && headRes.status < 400) { // 检查状态码是否是成功的（2xx）或重定向（3xx）
                 finalAudioUrl = networkAudioUrl;
             }
         } catch (err) {
-            // Error during fetch, fallback to local
+            console.warn(`Google Drive 音频 (${googleDriveId}) 加载失败或不可访问，尝试本地音频:`, err);
+            // 发生错误，回退到本地音频检查
         }
     }
 
     // 如果 Google Drive 音频不可用或未设置，检查本地音频
-    if (!finalAudioUrl && localAudioPath) {
+    if (!finalAudioUrl && fullLocalAudioPath) {
         try {
-            const localAudioRes = await fetch(localAudioPath, { method: 'HEAD' });
+            // 使用 HEAD 请求检查本地音频文件是否存在且可访问
+            const localAudioRes = await fetch(fullLocalAudioPath, { method: 'HEAD' });
             if (localAudioRes.ok && localAudioRes.status < 400) {
-                finalAudioUrl = localAudioPath;
+                finalAudioUrl = fullLocalAudioPath;
             }
         } catch (err) {
-            // Error during fetch, no local audio
+            console.warn(`本地音频 (${fullLocalAudioPath}) 加载失败或不可访问:`, err);
+            // 发生错误，表示没有可用的音频
         }
     }
 
@@ -288,13 +293,14 @@ window.addEventListener('hashchange', async () => {
     if (chapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
         const currentChapterElement = document.getElementById('chapters');
-        const currentTitleId = currentChapterElement.querySelector('h2')?.id; // 获取当前章节的 h2 元素的 ID
+        // 尝试获取当前章节的标题 ID，以判断是否已经显示
+        const currentTitleId = currentChapterElement.querySelector('h2[id]')?.id;
 
         // 只有当章节页未显示，或者显示的章节与 hash 不符时才重新加载
         if (currentChapterElement.style.display === 'none' || currentTitleId !== chapterId) {
             if (chapterMeta) {
-                // 再次注意：传递完整的章节元数据中的 audio 和 srt 路径
-                await handleChapterClick(chapterMeta.id, chapterMeta.file, chapterMeta.audio, chapterMeta.srt);
+                // 再次注意：传递完整的章节元数据中的 audio、srt 和 googleDriveAudioId 路径
+                await handleChapterClick(chapterMeta.id, chapterMeta.file, chapterMeta.audio, chapterMeta.srt, chapterMeta.googleDriveAudioId);
             } else {
                 showTocPage(); // Hash 指向的章节不存在，显示目录
             }
