@@ -29,9 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chapterData = await loadSingleChapterContent(chMeta.file);
         if (chapterData?.paragraphs) {
             chapterData.paragraphs.forEach(p => {
-                if (typeof p === 'string') {
-                    allParagraphs.push(p);
-                }
+                if (typeof p === 'string') allParagraphs.push(p);
             });
         }
     });
@@ -55,8 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error(`Tooltip 数据加载失败 (${tooltipFilePath}):`, error);
-                }
-            }
+        }
+    }
 
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
@@ -69,7 +67,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     renderCategoryNavigation(Array.from(categories));
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
-
     setupTooltips();
 
     const initialChapterId = window.location.hash.substring(1);
@@ -166,7 +163,6 @@ async function handleChapterClick(chapterId, filePath) {
 
     if (chapterContent) {
         updateActiveChapterTooltips(currentChapterTooltips);
-
         renderSingleChapterContent(
             chapterContent,
             currentChapterTooltips,
@@ -178,59 +174,57 @@ async function handleChapterClick(chapterId, filePath) {
         window.location.hash = chapterId;
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
-        // === Google Drive 音频加载 + 本地备份逻辑 ===
         const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
         const googleDriveId = chapterMeta?.googleDriveAudioId;
         const localAudioPath = `data/chapters/audio/${chapterId}.mp3`;
         const srtPath = `data/chapters/srt/${chapterId}.srt`;
 
         let finalAudioUrl = null;
-        let srtExists = false; // Flag to check if SRT exists
+        let srtExists = false;
 
-        // Check for Google Drive audio
         if (googleDriveId) {
             const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${googleDriveId}`;
             try {
                 const headRes = await fetch(networkAudioUrl, { method: 'HEAD' });
-                if (headRes.ok && headRes.status < 400) {
+                if (headRes.ok) {
                     finalAudioUrl = networkAudioUrl;
+                    console.log(`Google Drive audio found for chapter ${chapterId}.`);
                 } else {
-                    console.warn(`Google Drive 音频不可用，状态: ${headRes.status}。`);
+                    console.warn(`Google Drive audio not available (${headRes.status}).`);
                 }
             } catch (err) {
-                console.error('Google Drive 音频检测失败:', err);
+                console.error(`Error checking Google Drive audio:`, err);
             }
         }
 
-        // If Google Drive audio not found or not available, check local audio
         if (!finalAudioUrl) {
             try {
                 const localAudioRes = await fetch(localAudioPath, { method: 'HEAD' });
-                if (localAudioRes.ok && localAudioRes.status < 400) {
+                if (localAudioRes.ok) {
                     finalAudioUrl = localAudioPath;
+                    console.log(`Local audio found for chapter ${chapterId}.`);
                 } else {
-                    console.warn(`本地音频不可用: ${localAudioPath}`);
+                    console.warn(`Local audio not available (${localAudioRes.status}).`);
                 }
             } catch (err) {
-                console.error('本地音频检测失败:', err);
+                console.error(`Error checking local audio:`, err);
             }
         }
 
-        // Check for SRT file existence
         try {
             const srtRes = await fetch(srtPath, { method: 'HEAD' });
-            if (srtRes.ok && srtRes.status < 400) {
+            if (srtRes.ok) {
                 srtExists = true;
+                console.log(`SRT file found for chapter ${chapterId}.`);
             } else {
-                console.warn(`SRT 文件不存在: ${srtPath}`);
+                console.warn(`SRT file not found (${srtRes.status}).`);
             }
         } catch (err) {
-            console.error('SRT 文件检测失败:', err);
+            console.error(`Error checking SRT file:`, err);
         }
 
         const audioPlayerElement = document.querySelector('audio');
-
-        if (finalAudioUrl && srtExists) { // Only initialize and show if both audio and SRT exist
+        if (finalAudioUrl && srtExists) {
             initAudioPlayer({
                 audioSrc: finalAudioUrl,
                 srtSrc: srtPath
@@ -239,12 +233,11 @@ async function handleChapterClick(chapterId, filePath) {
                 audioPlayerElement.style.display = 'block';
             }
         } else {
-            // Hide player if no audio or no SRT
             if (audioPlayerElement) {
                 audioPlayerElement.style.display = 'none';
-                audioPlayerElement.pause(); // Pause if it was playing
+                audioPlayerElement.pause();
             }
-            console.warn(`章节 ${chapterId} 没有可用的音频或 SRT 文件，因此不显示音频播放器。`);
+            console.warn(`Audio or SRT missing. Audio player hidden.`);
         }
 
     } else {
