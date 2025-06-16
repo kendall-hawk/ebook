@@ -1,12 +1,12 @@
-// js/audio/audioPlayer.js
-
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
-let audio, subtitleData = [], wordToSubtitleMap = [];
+let audio;
+let subtitleData = [];
+let invertedIndex = new Map();
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  // 1. 初始化播放器元素
+  // 初始化音频播放器
   audio = document.createElement('audio');
   audio.src = audioSrc;
   audio.controls = true;
@@ -19,31 +19,28 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   audio.style.maxWidth = '600px';
   document.body.appendChild(audio);
 
-  // 2. 解析 .srt 文件
+  // 加载字幕并建立倒排索引
   const res = await fetch(srtSrc);
   const srtText = await res.text();
   subtitleData = parseSRT(srtText);
+  buildInvertedIndex(subtitleData);
 
-  // 3. 建立词→句子的映射
-  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
-
-  // 4. 监听页面中点击事件
+  // 添加点击监听
   document.body.addEventListener('click', handleWordClick);
 }
 
-function buildWordToSubtitleMap(subs) {
-  const map = [];
+function buildInvertedIndex(subs) {
+  invertedIndex.clear();
   subs.forEach((subtitle, i) => {
     const words = tokenizeText(subtitle.text);
     words.forEach(({ word }) => {
       const lower = word.toLowerCase();
-      map.push({
-        word: lower,
-        index: i,
-      });
+      if (!invertedIndex.has(lower)) {
+        invertedIndex.set(lower, new Set());
+      }
+      invertedIndex.get(lower).add(i);
     });
   });
-  return map;
 }
 
 function handleWordClick(e) {
@@ -53,16 +50,18 @@ function handleWordClick(e) {
   const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const possibleMatches = wordToSubtitleMap
-    .filter(entry => entry.word === clickedWord);
+  const possibleIndexes = invertedIndex.get(clickedWord);
+  if (!possibleIndexes || possibleIndexes.size === 0) return;
 
-  if (possibleMatches.length === 0) return;
+  const matches = Array.from(possibleIndexes).map(index => ({
+    word: clickedWord,
+    index
+  }));
 
-  // 精确比对是哪一句话中的该单词（通过 offsetTop）
-  const closest = findBestSubtitleMatch(target, possibleMatches);
-
-  if (closest !== null) {
-    const { start } = subtitleData[closest];
+  const bestIndex = findBestSubtitleMatch(target, matches);
+  if (bestIndex !== null) {
+    const { start, text } = subtitleData[bestIndex];
+    highlightAndScrollToText(text);
     audio.currentTime = start;
     audio.play();
   }
@@ -70,18 +69,19 @@ function handleWordClick(e) {
 
 function findBestSubtitleMatch(target, matches) {
   const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
-
   let closestIndex = null;
-  let minDistance = Infinity;
+  let minScore = Infinity;
 
   matches.forEach(({ index }) => {
-    const sText = subtitleData[index].text;
-    const foundNode = findVisibleTextNodeNearText(sText);
-    if (foundNode) {
-      const offset = foundNode.getBoundingClientRect().top + window.scrollY;
-      const dist = Math.abs(offset - clickedOffset);
-      if (dist < minDistance) {
-        minDistance = dist;
+    const subtitle = subtitleData[index];
+    const node = findVisibleTextNodeNearText(subtitle.text);
+    if (node) {
+      const offset = node.getBoundingClientRect().top + window.scrollY;
+      const distance = Math.abs(offset - clickedOffset);
+      const textDistance = levenshtein(target.textContent, subtitle.text);
+      const score = distance + textDistance * 5; // 可调权重
+      if (score < minScore) {
+        minScore = score;
         closestIndex = index;
       }
     }
@@ -98,4 +98,39 @@ function findVisibleTextNodeNearText(text) {
     }
   }
   return null;
+}
+
+function highlightAndScrollToText(text) {
+  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
+
+  nodes.forEach(n => n.classList.remove('highlight'));
+
+  for (const node of nodes) {
+    if (node.innerText && node.innerText.includes(text)) {
+      node.classList.add('highlight');
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      break;
+    }
+  }
+}
+
+// Levenshtein distance (简单实现)
+function levenshtein(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, () =>
+    new Array(b.length + 1).fill(0)
+  );
+
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+
+  return dp[a.length][b.length];
 }
