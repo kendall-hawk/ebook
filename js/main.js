@@ -18,6 +18,13 @@ let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 首次加载时隐藏音频播放器，直到章节内容加载
+    // 通常 audioPlayer.js 会动态创建并添加 audio 元素，
+    // 如果你希望在加载任何章节之前就让它存在于 DOM 但不显示，
+    // 可以在这里或 CSS 中对其进行初始隐藏设置。
+    // 不过，由于 audioPlayer.js 会在 initAudioPlayer 时动态创建，
+    // 这一步并非强制，只是一个考虑。
+
     allChapterIndexData = await loadChapterIndex(); // 加载所有章节索引
 
     if (allChapterIndexData.length === 0) {
@@ -155,6 +162,12 @@ function showTocPage() {
     document.getElementById('chapters').style.display = 'none';
     document.getElementById('toc').style.display = 'grid';
     document.getElementById('category-nav').style.display = 'flex';
+    // 当返回目录页时，如果之前加载了音频播放器，可以考虑隐藏它
+    const audioPlayerElement = document.querySelector('audio');
+    if (audioPlayerElement) {
+        audioPlayerElement.style.display = 'none';
+        audioPlayerElement.pause(); // 暂停播放
+    }
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 }
 
@@ -210,14 +223,37 @@ async function handleChapterClick(chapterId, filePath) {
         window.location.hash = chapterId;
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
-        // ✨ 新增：在这里初始化音频播放器 ✨
-        // 确保章节内容已经加载并渲染，这样 audioPlayer 才能找到文本节点
-        // 你需要根据你的实际文件路径约定来构建 audioSrc 和 srtSrc。
-        // 例如，如果你的章节文件是 'chapters/1.json'，那么音频和SRT文件可能是 'chapters/audio/1.mp3' 和 'chapters/srt/1.srt'
+        // ✨ 关键更改：在这里初始化音频播放器 ✨
+        // 获取当前章节对应的 Google Drive 文件 ID
+        // **非常重要：你需要确保 chapters.json 中的每个章节都包含一个 'googleDriveAudioId' 字段。**
+        const currentGoogleDriveFileId = allChapterIndexData.find(ch => ch.id === chapterId)?.googleDriveAudioId;
+
+        if (!currentGoogleDriveFileId) {
+            console.error(`未找到章节 ${chapterId} 对应的 Google Drive 音频文件 ID，无法初始化音频播放器。`);
+            // 你可以选择在这里不初始化音频播放器，或者显示一个用户友好的错误信息
+            // alert(`无法播放章节 ${chapterId} 的音频，缺少 Google Drive 文件 ID。`);
+            // 如果缺少音频，可以考虑隐藏播放器
+            const audioPlayerElement = document.querySelector('audio');
+            if (audioPlayerElement) {
+                audioPlayerElement.style.display = 'none';
+                audioPlayerElement.pause();
+            }
+            return; // 停止执行，不加载音频
+        }
+
+        const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${currentGoogleDriveFileId}`;
+        const localSrtPath = `data/chapters/srt/${chapterId}.srt`; 
+
         initAudioPlayer({
-            audioSrc: `data/chapters/audio/${chapterId}.mp3`, // 请根据你的实际路径调整
-            srtSrc: `data/chapters/srt/${chapterId}.srt`      // 请根据你的实际路径调整
+            audioSrc: networkAudioUrl,
+            srtSrc: localSrtPath
         });
+
+        // 确保音频播放器在章节加载时是可见的
+        const audioPlayerElement = document.querySelector('audio');
+        if (audioPlayerElement) {
+            audioPlayerElement.style.display = 'block';
+        }
 
     } else {
         alert('无法加载章节内容！');
