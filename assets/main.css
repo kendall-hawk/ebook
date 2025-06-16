@@ -438,7 +438,9 @@ body {
   color: #aaa;
   
 .highlight {
-  background-color: yellow;
-  transition: background-color 0.3s ease;
+  background-color: yellow !important;
+  outline: 3px solid red;
+  color: black;
 }
+
 }
