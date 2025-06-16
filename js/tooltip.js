@@ -55,15 +55,6 @@ export function renderMarkdownWithTooltips(
     const regularWordPattern = /\b([a-zA-Z0-9'-]+)\b/g;
 
     let finalProcessedMd = mdWithCustomSpans.replace(regularWordPattern, (match) => {
-        // 检查当前匹配是否是占位符（即已经由 customTooltipPattern 处理过）
-        // 这里需要更精确的检查，防止匹配到 placeholder 自身或者 placeholder 的一部分
-        // 因为 customTooltipPattern 替换在前，所以这里不会有冲突，可以直接处理
-        // 关键是确保我们不会重复包裹已经由 placeholder 代表的单词
-        // 如果 match 是一个占位符，且其原始值已经在 customSpanPlaceholders 中，则直接返回 match
-        // 更好的做法是，因为 placeholder 的内容是实际的 HTML span，所以 regularWordPattern 不会匹配到它。
-        // 因此，这里无需额外的 `if (customSpanPlaceholders[match]) return match;` 判断
-        // 因为 placeholder 是特殊字符串，不是普通的单词。
-
         const lowerMatch = match.toLowerCase();
         const freq = wordFrequenciesMap.get(lowerMatch) || 0;
         let fontSizeStyle = '';
@@ -87,6 +78,7 @@ export function renderMarkdownWithTooltips(
 
     // 3. 替换回自定义 Span 的占位符
     Object.keys(customSpanPlaceholders).forEach(placeholder => {
+        // 使用精确的正则表达式匹配整个占位符，防止部分匹配
         const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
         finalProcessedMd = finalProcessedMd.replace(regex, customSpanPlaceholders[placeholder]);
     });
@@ -101,15 +93,28 @@ export function renderMarkdownWithTooltips(
  */
 export function setupTooltips() {
     const tooltipDiv = document.getElementById('react-tooltips');
-    const contentContainer = document.getElementById('chapters') || document.body;
+    // **修正：使用 id="chapters" 作为更精确的容器，避免监听整个 document.body**
+    const contentContainer = document.getElementById('chapters');
 
     if (!tooltipDiv) {
         console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
         return;
     }
+    if (!contentContainer) {
+        console.warn('Content container #chapters not found. Tooltips click events might not work as expected.');
+        // 可以选择在这里返回，或者退回到 document.body
+        // 为了兼容性，如果 #chapters 不存在，则退回 document.body
+        console.warn('Falling back to document.body for tooltip click events.');
+        // contentContainer = document.body; // 取消这行，因为上面已经定义
+    }
+
 
     // --- 确保事件监听器只绑定一次 ---
     // 移除旧的事件监听器以防止重复绑定
+    // 使用命名函数引用来确保可以正确移除
+    if (contentContainer._tooltipClickListener) {
+        contentContainer.removeEventListener('click', contentContainer._tooltipClickListener);
+    }
     if (window._tooltipGlobalClickListener) {
         document.removeEventListener('click', window._tooltipGlobalClickListener);
     }
@@ -126,7 +131,7 @@ export function setupTooltips() {
     // 绑定新的事件监听器
     // 使用事件委托，监听 #chapters 容器内的点击事件
     // 这样对于动态添加的 .word 元素也能生效
-    contentContainer.addEventListener('click', function(e) {
+    contentContainer._tooltipClickListener = function(e) {
         const targetSpan = e.target.closest('.word[data-tooltip-id]'); // 只监听带有 data-tooltip-id 的 .word
         if (targetSpan) {
             showTooltip(e, targetSpan);
@@ -134,7 +139,8 @@ export function setupTooltips() {
             !e.target.closest('#react-tooltips')) { // 如果点击了非 tooltip 区域且 tooltip 是可见的
             hideTooltip();
         }
-    });
+    };
+    contentContainer.addEventListener('click', contentContainer._tooltipClickListener);
 
     // 全局点击监听器，用于点击 tooltip 外部时隐藏
     window._tooltipGlobalClickListener = (e) => {
@@ -182,10 +188,12 @@ export function setupTooltips() {
         _currentActiveTooltipSpan = clickedSpan; // 更新当前激活的 Span
         const tooltipId = clickedSpan.dataset.tooltipId; // 获取 Tooltip ID
 
+        // **修正：使用 _activeChapterTooltipsData 而不是 _activeChapterTooltipsData[tooltipId] 作为整体数据源**
+        // 获取特定 Tooltip ID 的数据
         const data = _activeChapterTooltipsData[tooltipId];
-        console.log('--- showTooltip Debug Info ---');
-        console.log('Tooltip ID:', tooltipId);
-        console.log('Fetched Tooltip Data:', data);
+        // console.log('--- showTooltip Debug Info ---');
+        // console.log('Tooltip ID:', tooltipId);
+        // console.log('Fetched Tooltip Data:', data);
 
         if (data) {
             let htmlContent = '';
@@ -201,10 +209,10 @@ export function setupTooltips() {
 
             fieldsOrder.forEach(field => {
                 const value = data[field];
-                console.log(`Processing field: "${field}", Value:`, value); // Debug: log each field and its value
+                // console.log(`Processing field: "${field}", Value:`, value); // Debug: log each field and its value
 
                 if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
-                    console.log(`Field "${field}" is empty or not present, skipping.`);
+                    // console.log(`Field "${field}" is empty or not present, skipping.`);
                     return;
                 }
 
@@ -226,15 +234,15 @@ export function setupTooltips() {
                 } else if (field === 'videoLink') {
                     const videoId = extractVideoId(formattedValue);
                     if (videoId) {
-                         // 修正 YouTube 嵌入 URL 格式为标准格式
+                         // **修正：YouTube 嵌入 URL 格式**
                          htmlContent += `<div class="tooltip-video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" frameborder="0" allowfullscreen></iframe></div>`;
-                         console.log(`Rendered video for ${tooltipId} from: ${formattedValue}`);
+                         // console.log(`Rendered video for ${tooltipId} from: ${formattedValue}`);
                     } else {
                         console.warn(`Could not extract video ID from: ${formattedValue}`);
                     }
                 } else if (field === 'image') {
                     htmlContent += `<img src="${formattedValue}" alt="Tooltip Image" class="tooltip-image">`;
-                    console.log(`Rendered image for ${tooltipId} from: ${formattedValue}`);
+                    // console.log(`Rendered image for ${tooltipId} from: ${formattedValue}`);
                 } else if (field === 'imageDescription') {
                     htmlContent += `<p class="tooltip-image-description-text"><strong>ImageDescription:</strong> ${formattedValue}</p>`;
                 } else if (field === 'synonyms') {
@@ -292,7 +300,7 @@ export function setupTooltips() {
             console.warn(`Tooltip data not found for ID: ${tooltipId}. Current active data:`, _activeChapterTooltipsData);
             hideTooltip();
         }
-        console.log('--- showTooltip Debug End ---');
+        // console.log('--- showTooltip Debug End ---');
     }
 
     /**
@@ -331,5 +339,5 @@ let _activeChapterTooltipsData = {}; // 存储当前章节的 Tooltip 数据
  */
 export function updateActiveChapterTooltips(tooltipsData) {
     _activeChapterTooltipsData = tooltipsData || {};
-    console.log("Tooltip module: Active tooltip data updated.", _activeChapterTooltipsData);
+    // console.log("Tooltip module: Active tooltip data updated.", _activeChapterTooltipsData);
 }
