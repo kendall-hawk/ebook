@@ -18,13 +18,6 @@ let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 首次加载时隐藏音频播放器，直到章节内容加载
-    // 通常 audioPlayer.js 会动态创建并添加 audio 元素，
-    // 如果你希望在加载任何章节之前就让它存在于 DOM 但不显示，
-    // 可以在这里或 CSS 中对其进行初始隐藏设置。
-    // 不过，由于 audioPlayer.js 会在 initAudioPlayer 时动态创建，
-    // 这一步并非强制，只是一个考虑。
-
     allChapterIndexData = await loadChapterIndex(); // 加载所有章节索引
 
     if (allChapterIndexData.length === 0) {
@@ -157,15 +150,20 @@ function renderCategoryNavigation(categories) {
     });
 }
 
-
+// 修复后的 showTocPage 函数
 function showTocPage() {
-    document.getElementById('chapters').style.display = 'none';
-    document.getElementById('toc').style.display = 'grid';
-    document.getElementById('category-nav').style.display = 'flex';
-    // 当返回目录页时，如果之前加载了音频播放器，可以考虑隐藏它
-    const audioPlayerElement = document.querySelector('audio');
+    document.getElementById('chapters').style.display = 'none'; // 隐藏章节内容区
+    document.getElementById('toc').style.display = 'grid'; // 显示目录区
+    document.getElementById('category-nav').style.display = 'flex'; // 显示分类导航
+
+    // 当返回目录页时，隐藏并暂停音频播放器
+    const audioPlayerContainer = document.getElementById('audio-player-container'); // 获取音频播放器容器
+    const audioPlayerElement = document.querySelector('audio'); // 获取 audio 标签本身
+
+    if (audioPlayerContainer) {
+        audioPlayerContainer.style.display = 'none'; // 隐藏音频播放器容器
+    }
     if (audioPlayerElement) {
-        audioPlayerElement.style.display = 'none';
         audioPlayerElement.pause(); // 暂停播放
     }
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
@@ -176,6 +174,7 @@ function showTocPage() {
  * @param {string} chapterId - 被点击章节的 ID。如果为空，表示返回主页。
  * @param {string} filePath - 被点击章节的文件路径。
  */
+// 修复后的 handleChapterClick 函数
 async function handleChapterClick(chapterId, filePath) {
     if (!chapterId) {
         showTocPage();
@@ -183,9 +182,9 @@ async function handleChapterClick(chapterId, filePath) {
         return;
     }
 
-    document.getElementById('toc').style.display = 'none';
-    document.getElementById('category-nav').style.display = 'none';
-    document.getElementById('chapters').style.display = 'block';
+    document.getElementById('toc').style.display = 'none'; // 隐藏目录区
+    document.getElementById('category-nav').style.display = 'none'; // 隐藏分类导航
+    document.getElementById('chapters').style.display = 'block'; // 显示章节内容区
 
     const chapterContent = await loadSingleChapterContent(filePath);
 
@@ -202,7 +201,7 @@ async function handleChapterClick(chapterId, filePath) {
             console.warn(`章节 ${chapterId} 没有专属 Tooltip 数据 (${chapterTooltipFilePath}). Status: ${res.status}`);
         }
     } catch (error) {
-        console.error(`加载章节 ${chapterId} 的 Tooltip 数据失败:`, error);
+            console.error(`加载章节 ${chapterId} 的 Tooltip 数据失败:`, error);
     }
     // --- 新增结束 ---
 
@@ -225,34 +224,32 @@ async function handleChapterClick(chapterId, filePath) {
 
         // ✨ 关键更改：在这里初始化音频播放器 ✨
         // 获取当前章节对应的 Google Drive 文件 ID
-        // **非常重要：你需要确保 chapters.json 中的每个章节都包含一个 'googleDriveAudioId' 字段。**
         const currentGoogleDriveFileId = allChapterIndexData.find(ch => ch.id === chapterId)?.googleDriveAudioId;
 
         if (!currentGoogleDriveFileId) {
-            console.error(`未找到章节 ${chapterId} 对应的 Google Drive 音频文件 ID，无法初始化音频播放器。`);
-            // 你可以选择在这里不初始化音频播放器，或者显示一个用户友好的错误信息
-            // alert(`无法播放章节 ${chapterId} 的音频，缺少 Google Drive 文件 ID。`);
-            // 如果缺少音频，可以考虑隐藏播放器
-            const audioPlayerElement = document.querySelector('audio');
-            if (audioPlayerElement) {
-                audioPlayerElement.style.display = 'none';
-                audioPlayerElement.pause();
+            console.warn(`未找到章节 ${chapterId} 对应的 Google Drive 音频文件 ID，无法初始化音频播放器。`);
+            // 如果缺少音频，隐藏播放器容器
+            const audioPlayerContainer = document.getElementById('audio-player-container');
+            if (audioPlayerContainer) {
+                audioPlayerContainer.style.display = 'none';
+                const audioPlayerElement = document.querySelector('audio');
+                if(audioPlayerElement) audioPlayerElement.pause(); // 暂停确保不残留播放
             }
-            return; // 停止执行，不加载音频
-        }
+            // 不要返回，让文章内容依然显示
+        } else {
+            const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${currentGoogleDriveFileId}`; 
+            const localSrtPath = `data/chapters/srt/${chapterId}.srt`; 
 
-        const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${currentGoogleDriveFileId}`;
-        const localSrtPath = `data/chapters/srt/${chapterId}.srt`; 
+            initAudioPlayer({
+                audioSrc: networkAudioUrl,
+                srtSrc: localSrtPath
+            });
 
-        initAudioPlayer({
-            audioSrc: networkAudioUrl,
-            srtSrc: localSrtPath
-        });
-
-        // 确保音频播放器在章节加载时是可见的
-        const audioPlayerElement = document.querySelector('audio');
-        if (audioPlayerElement) {
-            audioPlayerElement.style.display = 'block';
+            // 确保音频播放器容器在章节加载时是可见的
+            const audioPlayerContainer = document.getElementById('audio-player-container');
+            if (audioPlayerContainer) {
+                audioPlayerContainer.style.display = 'block';
+            }
         }
 
     } else {
