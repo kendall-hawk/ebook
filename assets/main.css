@@ -446,15 +446,14 @@ body {
     transition: background-color 0.3s ease;
 }
 
-/* 逐词高亮 */
-.word.highlight {
-    background-color: #ffd700; /* 金黄色 */
-    color: #333;
-    font-weight: bold;
-    padding: 1px 2px;
-    border-radius: 3px;
-    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); /* 可选：增加一些光晕效果 */
+.sentence.active-sentence {
+    background-color: #e0f7fa; /* 浅蓝色背景高亮整个句子 */
 }
+.word.highlight {
+    background-color: yellow; /* 逐词高亮 */
+    font-weight: bold;
+}
+
 
 /* 确保高亮不会影响 Tooltip 样式，如果需要可以调整 Tooltip 的 z-index */
 .tooltip {
