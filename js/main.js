@@ -11,6 +11,8 @@ import {
 // 导入 updateActiveChapterTooltips，因为它需要被调用来更新 tooltip 模块的数据
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js'; 
 import { getWordFrequencies } from './wordFrequency.js';
+// ✨ 新增：导入 audioPlayer.js 模块
+import { initAudioPlayer } from './audio/audioPlayer.js'; 
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
@@ -207,6 +209,16 @@ async function handleChapterClick(chapterId, filePath) {
 
         window.location.hash = chapterId;
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
+
+        // ✨ 新增：在这里初始化音频播放器 ✨
+        // 确保章节内容已经加载并渲染，这样 audioPlayer 才能找到文本节点
+        // 你需要根据你的实际文件路径约定来构建 audioSrc 和 srtSrc。
+        // 例如，如果你的章节文件是 'chapters/1.json'，那么音频和SRT文件可能是 'chapters/audio/1.mp3' 和 'chapters/srt/1.srt'
+        initAudioPlayer({
+            audioSrc: `data/chapters/audio/${chapterId}.mp3`, // 请根据你的实际路径调整
+            srtSrc: `data/chapters/srt/${chapterId}.srt`      // 请根据你的实际路径调整
+        });
+
     } else {
         alert('无法加载章节内容！');
         showTocPage();
