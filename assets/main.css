@@ -438,9 +438,12 @@ body {
   color: #aaa;
   
 .highlight {
-  background-color: yellow !important;
-  outline: 3px solid red;
-  color: black;
+  background-color: yellow; /* 醒目的背景色 */
+  font-weight: bold;      /* 加粗字体 */
+  /* 可以添加其他样式，例如： */
+  /* color: blue; */
+  /* transition: background-color 0.3s ease; */
 }
+
 
 }
