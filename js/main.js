@@ -8,32 +8,29 @@ import {
     getGlobalWordFrequenciesMap,
     getGlobalMaxFreq
 } from './chapterRenderer.js';
-// 导入 updateActiveChapterTooltips，因为它需要被调用来更新 tooltip 模块的数据
+// Import updateActiveChapterTooltips to update tooltip module's data
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js'; 
 import { getWordFrequencies } from './wordFrequency.js';
-// ✨ 新增：导入 audioPlayer.js 模块
+// ✨ New: Import the audioPlayer.js module
 import { initAudioPlayer } from './audio/audioPlayer.js'; 
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 首次加载时隐藏音频播放器，直到章节内容加载
-    // 通常 audioPlayer.js 会动态创建并添加 audio 元素，
-    // 如果你希望在加载任何章节之前就让它存在于 DOM 但不显示，
-    // 可以在这里或 CSS 中对其进行初始隐藏设置。
-    // 不过，由于 audioPlayer.js 会在 initAudioPlayer 时动态创建，
-    // 这一步并非强制，只是一个考虑。
+    // Initial setup: The audio player will be dynamically created by initAudioPlayer
+    // when a chapter is loaded. Its initial state and display are handled within audioPlayer.js,
+    // and its visibility is managed in handleChapterClick and showTocPage.
 
-    allChapterIndexData = await loadChapterIndex(); // 加载所有章节索引
+    allChapterIndexData = await loadChapterIndex(); // Load all chapter index data
 
     if (allChapterIndexData.length === 0) {
-        console.error('章节索引为空，无法渲染。');
+        console.error('Chapter index is empty, cannot render.');
         document.getElementById('toc').innerHTML = '<p style="text-align: center; padding: 50px; color: #666;">No articles found.</p>';
         return;
     }
 
-    // --- 词频计算优化：在所有章节加载完成后一次性计算 ---
+    // --- Word Frequency Calculation Optimization: Calculate once after loading all chapters ---
     const allParagraphs = [];
     const chapterContentsPromises = allChapterIndexData.map(async (chMeta) => {
         const chapterData = await loadSingleChapterContent(chMeta.file);
@@ -45,15 +42,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     });
-    // 等待所有章节内容加载完毕
+    // Wait for all chapter content to be loaded
     await Promise.all(chapterContentsPromises);
 
 
-    // --- 收集所有 Tooltip 词汇（无论是 [[word|id]] 中的 word 还是 data/chapters/N-tooltips.json 中的 word）作为受保护词 ---
+    // --- Collect all Tooltip words (from [[word|id]] and data/chapters/N-tooltips.json) as protected words ---
     const protectedWordsForFrequency = new Set();
     for (const chapterMeta of allChapterIndexData) {
-        const chapterId = chapterMeta.id; // 例如 'chap-01'
-        const tooltipFilePath = `chapters/${chapterId}-tooltips.json`; // 假设约定好的路径
+        const chapterId = chapterMeta.id; // e.g., 'chap-01'
+        const tooltipFilePath = `chapters/${chapterId}-tooltips.json`; // Assumed conventional path
 
         try {
             const res = await fetch(`data/${tooltipFilePath}`);
@@ -62,30 +59,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 for (const tooltipId in chapterTooltips) {
                     if (Object.hasOwnProperty.call(chapterTooltips, tooltipId)) {
                         const tooltipEntry = chapterTooltips[tooltipId];
-                        // 将 Tooltip 数据中的 `word` 字段加入受保护词列表 (如果存在)
+                        // Add the `word` field from Tooltip data to the protected words list (if it exists)
                         if (tooltipEntry.word) {
                             protectedWordsForFrequency.add(tooltipEntry.word.toLowerCase());
                         }
-                        // 如果 tooltipId 本身是一个有意义的词，也可以考虑加入
-                        // protectedWordsForFrequency.add(tooltipId.split('-')[0].toLowerCase()); // 例如 'invention-noun' -> 'invention'
+                        // If tooltipId itself is a meaningful word, also consider adding it
+                        // protectedWordsForFrequency.add(tooltipId.split('-')[0].toLowerCase()); // e.g., 'invention-noun' -> 'invention'
                     }
                 }
             } else {
-                console.warn(`未找到或无法加载章节 Tooltip 数据: ${tooltipFilePath}. Status: ${res.status}`);
+                console.warn(`Chapter Tooltip data not found or could not be loaded: ${tooltipFilePath}. Status: ${res.status}`);
             }
         } catch (error) {
-            console.error(`加载章节 Tooltip 数据失败 (${tooltipFilePath}):`, error);
+            console.error(`Failed to load chapter Tooltip data (${tooltipFilePath}):`, error);
         }
     }
 
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphs, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
 
-    console.log('--- 词频计算结果 (main.js) ---');
-    console.log('全局词频 Map:', getGlobalWordFrequenciesMap());
-    console.log('全局最高频率:', getGlobalMaxFreq());
-    console.log('受保护的 Tooltip 词 (用于词频计算):', protectedWordsForFrequency);
-    console.log('--- 词频计算结束 ---');
+    console.log('--- Word Frequency Calculation Results (main.js) ---');
+    console.log('Global Word Frequency Map:', getGlobalWordFrequenciesMap());
+    console.log('Global Max Frequency:', getGlobalMaxFreq());
+    console.log('Protected Tooltip Words (for frequency calculation):', protectedWordsForFrequency);
+    console.log('--- Word Frequency Calculation End ---');
 
     const categories = new Set();
     allChapterIndexData.forEach(ch => {
@@ -97,8 +94,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 
-    // **重要：在页面首次加载时就设置 Tooltip 事件监听器**
-    setupTooltips(); // Tooltip 的事件监听器只需要设置一次
+    // **Important: Set up Tooltip event listeners when the page first loads**
+    setupTooltips(); // Tooltip event listeners only need to be set up once
 
     const initialChapterId = window.location.hash.substring(1);
     if (initialChapterId) {
@@ -162,19 +159,19 @@ function showTocPage() {
     document.getElementById('chapters').style.display = 'none';
     document.getElementById('toc').style.display = 'grid';
     document.getElementById('category-nav').style.display = 'flex';
-    // 当返回目录页时，如果之前加载了音频播放器，可以考虑隐藏它
+    // When returning to the table of contents page, hide the audio player if it was loaded
     const audioPlayerElement = document.querySelector('audio');
     if (audioPlayerElement) {
         audioPlayerElement.style.display = 'none';
-        audioPlayerElement.pause(); // 暂停播放
+        audioPlayerElement.pause(); // Pause playback
     }
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 }
 
 /**
- * 处理章节点击事件的回调函数。
- * @param {string} chapterId - 被点击章节的 ID。如果为空，表示返回主页。
- * @param {string} filePath - 被点击章节的文件路径。
+ * Callback function to handle chapter clicks.
+ * @param {string} chapterId - The ID of the clicked chapter. If empty, it means returning to the home page.
+ * @param {string} filePath - The file path of the clicked chapter.
  */
 async function handleChapterClick(chapterId, filePath) {
     if (!chapterId) {
@@ -189,32 +186,32 @@ async function handleChapterClick(chapterId, filePath) {
 
     const chapterContent = await loadSingleChapterContent(filePath);
 
-    // --- 新增：加载当前章节的 Tooltip 数据 ---
+    // --- New: Load current chapter's Tooltip data ---
     let currentChapterTooltips = {};
-    const chapterTooltipFilePath = `chapters/${chapterId}-tooltips.json`; // 根据章节ID构建 Tooltip 文件路径
+    const chapterTooltipFilePath = `chapters/${chapterId}-tooltips.json`; // Build Tooltip file path based on chapter ID
     try {
         const res = await fetch(`data/${chapterTooltipFilePath}`);
         if (res.ok) {
             currentChapterTooltips = await res.json();
-            console.log(`加载章节 ${chapterId} 的 Tooltip 数据成功:`, currentChapterTooltips);
+            console.log(`Loaded Tooltip data for chapter ${chapterId}:`, currentChapterTooltips);
         } else {
-            // 如果文件不存在，可能是该章节没有自定义 Tooltip，这不是错误
-            console.warn(`章节 ${chapterId} 没有专属 Tooltip 数据 (${chapterTooltipFilePath}). Status: ${res.status}`);
+            // If the file doesn't exist, it might mean this chapter has no custom Tooltips, which is not an error
+            console.warn(`No dedicated Tooltip data for chapter ${chapterId} (${chapterTooltipFilePath}). Status: ${res.status}`);
         }
     } catch (error) {
-        console.error(`加载章节 ${chapterId} 的 Tooltip 数据失败:`, error);
+        console.error(`Failed to load Tooltip data for chapter ${chapterId}:`, error);
     }
-    // --- 新增结束 ---
+    // --- End new ---
 
 
     if (chapterContent) {
-        // ✨ 关键修正：在渲染章节内容之前，更新 Tooltip 模块内部的当前章节数据 ✨
-        // 确保当用户点击单词时，tooltip.js 能够访问到当前章节的 tooltip 详情
+        // ✨ Key fix: Update current chapter data inside the Tooltip module BEFORE rendering chapter content ✨
+        // Ensure tooltip.js can access current chapter's tooltip details when a word is clicked
         updateActiveChapterTooltips(currentChapterTooltips); 
 
         renderSingleChapterContent(
             chapterContent,
-            currentChapterTooltips, // 将章节专属 Tooltip 数据传递给渲染器
+            currentChapterTooltips, // Pass chapter-specific Tooltip data to the renderer
             getGlobalWordFrequenciesMap(),
             getGlobalMaxFreq(),
             handleChapterClick
@@ -223,25 +220,23 @@ async function handleChapterClick(chapterId, filePath) {
         window.location.hash = chapterId;
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
-        // ✨ 关键更改：在这里初始化音频播放器 ✨
-        // 获取当前章节对应的 Google Drive 文件 ID
-        // **非常重要：你需要确保 chapters.json 中的每个章节都包含一个 'googleDriveAudioId' 字段。**
+        // ✨ Key Change: Initialize the audio player here ✨
+        // Get the Google Drive file ID corresponding to the current chapter
+        // **VERY IMPORTANT: You must ensure that each chapter in chapters.json includes a 'googleDriveAudioId' field.**
         const currentGoogleDriveFileId = allChapterIndexData.find(ch => ch.id === chapterId)?.googleDriveAudioId;
 
         if (!currentGoogleDriveFileId) {
-            console.error(`未找到章节 ${chapterId} 对应的 Google Drive 音频文件 ID，无法初始化音频播放器。`);
-            // 你可以选择在这里不初始化音频播放器，或者显示一个用户友好的错误信息
-            // alert(`无法播放章节 ${chapterId} 的音频，缺少 Google Drive 文件 ID。`);
-            // 如果缺少音频，可以考虑隐藏播放器
+            console.error(`Google Drive audio file ID not found for chapter ${chapterId}, cannot initialize audio player.`);
+            // If audio is missing, consider hiding the player
             const audioPlayerElement = document.querySelector('audio');
             if (audioPlayerElement) {
                 audioPlayerElement.style.display = 'none';
                 audioPlayerElement.pause();
             }
-            return; // 停止执行，不加载音频
+            return; // Stop execution, do not load audio
         }
 
-        const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${currentGoogleDriveFileId}`;
+        const networkAudioUrl = `https://docs.google.com/uc?export=download&id=${currentGoogleDriveFileId}`; 
         const localSrtPath = `data/chapters/srt/${chapterId}.srt`; 
 
         initAudioPlayer({
@@ -249,27 +244,27 @@ async function handleChapterClick(chapterId, filePath) {
             srtSrc: localSrtPath
         });
 
-        // 确保音频播放器在章节加载时是可见的
+        // Ensure the audio player is visible when the chapter loads
         const audioPlayerElement = document.querySelector('audio');
         if (audioPlayerElement) {
             audioPlayerElement.style.display = 'block';
         }
 
     } else {
-        alert('无法加载章节内容！');
+        alert('Could not load chapter content!');
         showTocPage();
         window.location.hash = '';
     }
 }
 
-// 监听 URL hash 变化，实现前进/后退按钮的导航
+// Listen for URL hash changes to enable navigation with browser back/forward buttons
 window.addEventListener('hashchange', async () => {
     const chapterId = window.location.hash.substring(1);
     if (chapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
         if (chapterMeta) {
             const currentDisplayedChapterElement = document.getElementById('chapters');
-            // 获取当前显示的章节标题ID，以避免重复加载相同的章节
+            // Get the ID of the currently displayed chapter title to avoid reloading the same chapter
             const currentDisplayedChapterTitleElement = currentDisplayedChapterElement.querySelector('h2');
             const currentDisplayedChapterId = currentDisplayedChapterTitleElement ? currentDisplayedChapterTitleElement.id : null;
 
