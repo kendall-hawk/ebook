@@ -12,13 +12,62 @@
         <button class="category-button active" data-category="all">All Articles</button>
         </nav>
 
-    <main>
+    
         <nav id="toc" class="chapter-list-grid">
             </nav>
 
         <div id="chapters" style="display: none;">
             </div>
-    </main>
+      <!-- 你现有的 audioPlayer.js 等脚本 -->
+  <script type="module">
+    import { initAudioPlayer } from './js/audio/audioPlayer.js';
+
+    // 加载并渲染章节内容
+    async function loadChapter() {
+      const res = await fetch('chapters/1.json');
+      const json = await res.json();
+
+      renderChapter(json); // 渲染章节内容
+      initAudioPlayer({
+        audioSrc: json.audio,
+        srtSrc: json.srt
+      });
+    }
+
+    function renderChapter(json) {
+      const container = document.getElementById('chapters');
+      container.innerHTML = '';
+
+      json.paragraphs.forEach(entry => {
+        if (typeof entry === 'string') {
+          if (entry.startsWith('##')) {
+            const h2 = document.createElement('h2');
+            h2.textContent = entry.replace(/^##\s*/, '');
+            container.appendChild(h2);
+          } else {
+            const p = document.createElement('p');
+            p.innerHTML = processWordHints(entry);
+            container.appendChild(p);
+          }
+        } else if (typeof entry === 'object' && entry.video) {
+          const iframe = document.createElement('iframe');
+          iframe.src = entry.video.replace('watch?v=', 'embed/');
+          iframe.width = '560';
+          iframe.height = '315';
+          iframe.frameBorder = '0';
+          container.appendChild(iframe);
+        }
+      });
+    }
+
+    function processWordHints(text) {
+      return text.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, word, hint) => {
+        return `<span class="word" data-hint="${hint}">${word}</span>`;
+      });
+    }
+
+    loadChapter();
+  </script>
 
     <div id="react-tooltips" class="tooltip"></div>
 
