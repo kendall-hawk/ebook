@@ -325,9 +325,7 @@ body {
   font-size: 0.85em;
 }
 
-/* --- Original .word style (for general text where no specific class is applied) --- */
-/* This might conflict with .transcript-word if not carefully managed.
-   The new .tooltip-word and .transcript-word should replace its usage for specific cases. */
+/* --- Word Tooltip Styles --- */
 .word {
   cursor: help;
   border-bottom: 2px dotted #007bff;
@@ -342,7 +340,6 @@ body {
   color: #0056b3;
   border-bottom-color: #0056b3;
 }
-
 
 /* --- Floating Video Player --- */
 .floating-video {
@@ -441,73 +438,4 @@ body {
   color: #aaa;
 }
 
-/* --- NEW AUDIO SYNC & HIGHLIGHTING STYLES --- */
-/* Used for the fixed audio player at the bottom, if you chose to customize it further */
-/* Note: The <audio> tag itself has basic browser controls and styling */
-/* #custom-audio-player { } */ /* This ID might be applied to a custom wrapper, not the <audio> tag itself */
-
-
-/* Style for the entire transcript paragraph when highlighted */
-.transcript-paragraph.highlighted-paragraph {
-    background-color: #e0f7fa; /* 淡蓝色背景，表示当前正在播放的段落 */
-    border-left: 5px solid #00bcd4; /* 左侧边框 */
-    padding-left: 10px; /* 增加内边距，确保内容不被边框覆盖 */
-    padding-right: 5px;
-    margin-bottom: 15px; /* 与其他段落的间距 */
-    border-radius: 4px; /* 轻微圆角 */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08); /* 细微阴影 */
-    transition: background-color 0.3s ease, border-left-color 0.3s ease, box-shadow 0.3s ease; /* 平滑过渡效果 */
-}
-
-/* Styles for words within the transcript.
-   This class is added by chapterRenderer.js for all words in the transcript section. */
-.transcript-word {
-    cursor: pointer; /* 鼠标悬停时显示手形光标，表示可点击 */
-    /* text-decoration: underline dotted #007bff;  Optional: Add a subtle dotted underline */
-    color: inherit; /* 继承父级颜色 */
-    white-space: pre-wrap; /* Preserve spaces and allow wrapping */
-}
-
-/* Style for individual words when they are highlighted by the audio player */
-.transcript-word.highlighted {
-    background-color: yellow; /* 单词级高亮颜色 */
-    font-weight: bold; /* 加粗 */
-    border-radius: 3px; /* 圆角 */
-    padding: 1px 2px; /* 增加一点内边距，使高亮更明显 */
-    transition: background-color 0.1s ease; /* 快速过渡 */
-    box-shadow: 0 0 5px rgba(255, 255, 0, 0.5); /* 柔和的阴影，与背景色匹配 */
-}
-
-/* Style for words that are tooltips. They also have .transcript-word if in transcript. */
-.tooltip-word {
-    cursor: help; /* 鼠标悬停时显示问号光标，表示有帮助信息 */
-    text-decoration: underline dotted; /* 虚线下划线 */
-    color: #007bff; /* 蓝色，表示可交互的链接/信息 */
-}
-
-/* Ensuring .tooltip-word styles override .transcript-word for tooltip functionality if both are applied */
-.transcript-word.tooltip-word {
-    /* If a word is both clickable for audio and has a tooltip,
-       prioritize the tooltip visual style but keep the pointer cursor. */
-    text-decoration: underline dotted #007bff; /* Explicit dotted underline for tooltips */
-    color: #007bff; /* Ensure tooltip color */
-    cursor: help; /* Prioritize help cursor for tooltip */
-}
-
-/* Dark mode adjustments for new styles */
-.dark-mode .transcript-paragraph.highlighted-paragraph {
-    background-color: #3a3a3a; /* Darker background for highlighted paragraphs */
-    border-left-color: #00bcd4; /* Keep the same accent color */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-}
-
-.dark-mode .transcript-word.highlighted {
-    background-color: #6a6a00; /* Darker yellow for highlighted words */
-    color: #fff; /* Ensure text is visible on dark highlight */
-    box-shadow: 0 0 5px rgba(106, 106, 0, 0.5);
-}
-
-.dark-mode .tooltip-word {
-    color: #90caf9; /* Lighter blue for dark mode tooltips */
-    border-bottom-color: #90caf9;
 }
