@@ -7,6 +7,69 @@ let currentChapterData = null;
 let globalWordFrequenciesMap = new Map();
 let globalMaxFreq = 1;
 
+/**
+ * 简单的拆词包span函数。
+ * 这个版本通过直接操作DOM节点来包裹单词，比正则表达式替换更健壮，
+ * 能够避免破坏现有HTML标签。
+ * @param {string} htmlString - 包含HTML内容的字符串。
+ * @returns {string} - 包裹单词后的HTML字符串。
+ */
+function wrapWordsWithSpan(htmlString) {
+  const container = document.createElement('div');
+  container.innerHTML = htmlString;
+
+  function processNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      // 避免处理空的或只包含空白的文本节点
+      if (node.textContent.trim() === '') return;
+
+      // 分割单词和非单词部分，保留分隔符
+      const words = node.textContent.split(/(\b\w+\b)/);
+
+      const frag = document.createDocumentFragment();
+      let hasChanged = false; // 标记是否发生了DOM修改
+
+      for (const part of words) {
+        if (part.length === 0) continue; // 忽略空字符串部分，可能由 split 产生
+
+        if (/\b\w+\b/.test(part)) {
+          const span = document.createElement('span');
+          span.className = 'word';
+          span.dataset.word = part.toLowerCase();
+          span.textContent = part;
+          frag.appendChild(span);
+          hasChanged = true;
+        } else {
+          frag.appendChild(document.createTextNode(part));
+        }
+      }
+
+      // 只有当实际有单词被包裹时才替换节点，提高性能
+      if (hasChanged) {
+          node.replaceWith(frag);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      // 避免处理某些特殊标签的子节点，例如 <script>, <style>
+      if (node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE') {
+          return;
+      }
+      // 如果你不想嵌套包裹 tooltips 内部的单词，可以在这里添加判断
+      // 例如：如果 tooltip 触发器是 span 且有 data-tooltip-id，则跳过其子节点
+      if (node.tagName === 'SPAN' && node.hasAttribute('data-tooltip-id')) {
+          return; 
+      }
+      // 如果你的 renderMarkdownWithTooltips 会给某个特定的类名（如 'tooltip-trigger'）添加tooltip，可以这样判断：
+      // if (node.classList.contains('tooltip-trigger')) {
+      //     return;
+      // }
+
+      Array.from(node.childNodes).forEach(processNode);
+    }
+  }
+
+  processNode(container);
+  return container.innerHTML;
+}
 
 export async function loadChapterIndex() {
   try {
@@ -121,13 +184,16 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     if (typeof item === 'string') {
       const renderedHtml = renderMarkdownWithTooltips(
           item,
-          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
+          currentChapterTooltips,
           wordFrequenciesMap,
           maxFreq
       );
 
+      // 使用新的 wrapWordsWithSpan 函数处理已渲染的HTML
+      const wrappedHtml = wrapWordsWithSpan(renderedHtml);
+
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = renderedHtml;
+      tempDiv.innerHTML = wrappedHtml;
 
       Array.from(tempDiv.children).forEach(child => {
           chaptersContainer.appendChild(child);
@@ -159,7 +225,8 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
+          // 更正 YouTube embed URL 格式
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
       } else {
           iframe.src = ensureEnableJsApi(videoUrl);
       }
