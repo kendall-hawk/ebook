@@ -4,7 +4,7 @@ import { tokenizeText } from './tokenizer.js';
 
 let audio;
 let subtitleData = [];
-let wordToSubtitleMap = [];
+let wordToSubtitleMap = new Map();
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
   // 创建音频播放器
@@ -24,24 +24,28 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   });
   document.body.appendChild(audio);
 
-  // 加载并解析字幕文件
+  // 加载并解析字幕
   const res = await fetch(srtSrc);
   const srtText = await res.text();
   subtitleData = parseSRT(srtText);
 
-  // 构建词→字幕索引的映射
+  // 构建倒排索引 Map<word, Set<subtitleIndex>>
   wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
 
-  // 监听点击词汇事件
+  // 监听词汇点击
   document.body.addEventListener('click', handleWordClick);
 }
 
 function buildWordToSubtitleMap(subtitles) {
-  const map = [];
+  const map = new Map();
   subtitles.forEach((sub, index) => {
     const words = tokenizeText(sub.text);
     words.forEach(({ word }) => {
-      map.push({ word: word.toLowerCase(), index });
+      const w = word.toLowerCase();
+      if (!map.has(w)) {
+        map.set(w, new Set());
+      }
+      map.get(w).add(index);
     });
   });
   return map;
@@ -54,14 +58,18 @@ function handleWordClick(e) {
   const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
-  if (possibleMatches.length === 0) return;
+  const indices = wordToSubtitleMap.get(clickedWord);
+  if (!indices || indices.size === 0) return;
 
+  const possibleMatches = [...indices].map(index => ({ index }));
   const closest = findBestSubtitleMatch(target, possibleMatches);
+
   if (closest !== null) {
     const { start } = subtitleData[closest];
     audio.currentTime = start;
     audio.play();
+
+    scrollToSubtitle(closest); // ✅ 新增滚动功能
   }
 }
 
@@ -84,4 +92,14 @@ function findBestSubtitleMatch(target, matches) {
   });
 
   return closestIndex;
+}
+
+function scrollToSubtitle(index) {
+  const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
+  if (node) {
+    node.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  }
 }
