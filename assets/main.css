@@ -437,12 +437,9 @@ body {
 .dark-mode .tooltip-image-description-text {
   color: #aaa;
 }
-
-/* 将 .highlight 放到这里，作为独立且全局的规则 */
-.highlight {
-  background-color: yellow; /* 醒目的背景色 */
-  font-weight: bold;      /* 加粗字体 */
-  /* 可以添加其他样式，例如： */
-  /* color: blue; */
-  /* transition: background-color 0.3s ease; */
+.highlight-word {
+  color: #e91e63;  /* 比如亮粉色 */
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
 }
