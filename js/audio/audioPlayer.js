@@ -1,8 +1,8 @@
-// js/audio/audioPlayer.js (修正版)
+// js/audio/audioPlayer.js (弹性匹配版)
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
-let audio, subtitleData = [], wordToSubtitleMap = [];
+let audio, subtitleData = [];
 let allContentTextNodes = []; // 存储所有可搜索的文本节点
 
 /**
@@ -40,21 +40,20 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
     }
   }
 
-
-  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
-  
-  // 将事件监听器绑定到 body 上，并只处理带有 data-subtitle-id 的元素的点击
-  // 这会利用事件冒泡
+  // 绑定点击事件，处理用户点击跳转
   document.body.addEventListener('click', handleWordClick);
 
-  // 在初始化时获取所有章节内容中的文本节点，用于高亮
+  // 在初始化时获取所有章节内容中的文本节点，用于高亮和点击查找
   allContentTextNodes = [];
   const chapterContainer = document.getElementById('chapters');
   if (chapterContainer) {
     const walker = document.createTreeWalker(chapterContainer, NodeFilter.SHOW_TEXT, null, false);
     let node;
     while ((node = walker.nextNode())) {
-      allContentTextNodes.push(node);
+      // 过滤掉空的或只有空白的文本节点
+      if (node.nodeValue && node.nodeValue.trim().length > 0) {
+          allContentTextNodes.push(node);
+      }
     }
   }
 
@@ -80,39 +79,161 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
   console.log('音频播放器初始化完成。');
 }
 
-function buildWordToSubtitleMap(subs) {
-  const map = [];
-  subs.forEach((subtitle, i) => {
-    const words = tokenizeText(subtitle.text.toLowerCase());
-    words.forEach(({ word }) => {
-      map.push({ word, index: i });
-    });
-  });
-  return map;
-}
 
 function handleWordClick(e) {
-  // 只处理点击带有 data-subtitle-id 属性的元素
-  const targetElement = e.target.closest('[data-subtitle-id]');
+    // 找到点击位置附近的文本内容
+    const clickedElement = e.target;
+    const { textContent: clickedTextSnippet, containerElement } = findTextElementNearCoords(e.clientX, e.clientY, clickedElement);
 
-  if (targetElement && targetElement.dataset.subtitleId) {
-    const subtitleIndex = parseInt(targetElement.dataset.subtitleId, 10);
-    
-    // 确保点击的 ID 在 subtitleData 范围内
-    if (subtitleIndex >= 0 && subtitleIndex < subtitleData.length) {
-        const { start, text } = subtitleData[subtitleIndex];
+    if (!clickedTextSnippet || clickedTextSnippet.trim().length < 5) { // 至少5个字符以避免点击空白或单个字符
+        return;
+    }
+
+    // 在 SRT 数据中找到与点击文本片段最匹配的字幕
+    const bestMatchIndex = findBestSubtitleMatch(clickedTextSnippet, containerElement);
+
+    if (bestMatchIndex !== null) {
+        const { start, text: matchedSubtitleText } = subtitleData[bestMatchIndex];
         audio.currentTime = start;
         audio.play();
 
         clearAllHighlights();
-        // 重新高亮点击的文本对应的字幕文本
-        const highlightedElement = findAndHighlightTextInChapterContent(text);
+        // 再次高亮匹配到的字幕文本，以确保用户看到跳转后的高亮
+        const highlightedElement = findAndHighlightTextInChapterContent(matchedSubtitleText);
         if (highlightedElement) {
             highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+    } else {
+        // 如果没有找到好的匹配，则不做任何操作
+        // console.log("No good subtitle match found for clicked text:", clickedTextSnippet);
     }
-  }
-  // 如果没有点击到带有 data-subtitle-id 的元素，则不做任何操作
+}
+
+/**
+ * 根据坐标和点击元素，向上查找包含文本的元素，并提取其内容。
+ * @param {number} clientX - 点击事件的 X 坐标。
+ * @param {number} clientY - 点击事件的 Y 坐标。
+ * @param {HTMLElement} clickedElement - 实际被点击的 DOM 元素。
+ * @returns {{textContent: string, containerElement: HTMLElement}} - 提取的文本内容和包含该文本的元素。
+ */
+function findTextElementNearCoords(clientX, clientY, clickedElement) {
+    // 尝试从点击的元素开始，向上查找一个合适的文本容器（例如P标签或DIV）
+    let currentElement = clickedElement;
+    let textToAnalyze = '';
+    let container = null;
+
+    while (currentElement && currentElement !== document.body) {
+        if (currentElement.nodeType === Node.ELEMENT_NODE && ['P', 'DIV', 'SPAN', 'H1', 'H2', 'H3', 'LI'].includes(currentElement.tagName)) {
+            // 提取该元素的所有文本内容，或者限制在一个合理的长度
+            textToAnalyze = currentElement.textContent || '';
+            container = currentElement;
+            // 如果文本够长，或者已经找到一个段落级元素，就停止向上查找
+            if (textToAnalyze.length > 50 || currentElement.tagName === 'P' || currentElement.tagName === 'DIV') {
+                break;
+            }
+        }
+        currentElement = currentElement.parentNode;
+    }
+
+    // 如果没有找到合适的容器，或者文本过短，退而求其次从 body 抓取
+    if (!container || textToAnalyze.length < 5) {
+        // 尝试获取点击点附近的少量文本
+        const range = document.caretRangeFromPoint(clientX, clientY);
+        if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
+            const textNode = range.startContainer;
+            const fullText = textNode.nodeValue || '';
+            const start = Math.max(0, range.startOffset - 20); // 获取点击点前20字符
+            const end = Math.min(fullText.length, range.startOffset + 80); // 获取点击点后80字符
+            textToAnalyze = fullText.substring(start, end);
+            container = textNode.parentNode; // 文本节点的父元素
+        } else {
+             textToAnalyze = clickedElement.textContent || ''; // 最终 fallback 到点击元素的文本
+             container = clickedElement;
+        }
+    }
+
+    return { textContent: textToAnalyze.trim(), containerElement: container };
+}
+
+/**
+ * 在 SRT 数据中，找到与给定文本片段最相似的字幕条目。
+ * @param {string} clickedTextSnippet - 用户点击位置提取的文本片段。
+ * @param {HTMLElement} clickedTextContainer - 包含点击文本的 DOM 容器元素。
+ * @returns {number|null} - 最佳匹配字幕的索引，如果没有找到则为 null。
+ */
+function findBestSubtitleMatch(clickedTextSnippet, clickedTextContainer) {
+    if (!clickedTextSnippet || subtitleData.length === 0) {
+        return null;
+    }
+
+    const clickedTextLower = clickedTextSnippet.toLowerCase();
+    let bestIndex = null;
+    let highestScore = -Infinity;
+    const clickedElementRect = clickedTextContainer ? clickedTextContainer.getBoundingClientRect() : null;
+    const clickedElementTop = clickedElementRect ? clickedElementRect.top + window.scrollY : null;
+
+    for (let i = 0; i < subtitleData.length; i++) {
+        const subtitle = subtitleData[i];
+        const subtitleTextLower = subtitle.text.toLowerCase();
+
+        // 1. 文本相似度 (使用 Jaro-Winkler 更好，这里继续用 Levenshtein 作为示例)
+        const textSimilarity = computeLevenshteinSimilarity(clickedTextLower, subtitleTextLower);
+
+        // 如果相似度太低，直接跳过
+        if (textSimilarity < 0.2) continue; // 阈值可以调整
+
+        // 2. 空间接近度 (根据字幕在页面上的渲染位置)
+        let proximityScore = 0;
+        if (clickedElementTop !== null) {
+            // 找到包含当前 SRT 字幕文本的最近 DOM 元素，用作空间接近度计算
+            const subtitleDomElement = findDomElementForSubtitleText(subtitle.text);
+            if (subtitleDomElement) {
+                const subtitleDomRect = subtitleDomElement.getBoundingClientRect();
+                const subtitleDomTop = subtitleDomRect.top + window.scrollY;
+                const distance = Math.abs(subtitleDomTop - clickedElementTop);
+                const maxDist = window.innerHeight * 2; // 考虑两屏的距离作为最大距离
+                proximityScore = 1 - Math.min(distance / maxDist, 1);
+            }
+        } else {
+            // 如果无法获取点击元素的offsetTop (比如点击到非文本元素)，则只依赖文本相似度
+            proximityScore = 0.5; // 赋予一个中等值，表示位置未知
+        }
+
+
+        // 综合得分：文本相似度权重更高
+        // 调整权重以满足“弹性”需求，文本相似度更重要
+        const combinedScore = textSimilarity * 0.7 + proximityScore * 0.3;
+
+        if (combinedScore > highestScore) {
+            highestScore = combinedScore;
+            bestIndex = i;
+        }
+    }
+    
+    // 如果最高分低于某个阈值，则认为没有好的匹配
+    if (highestScore < 0.3) { // 再次调整阈值，防止低质量匹配
+        return null;
+    }
+
+    return bestIndex;
+}
+
+/**
+ * 在 DOM 中找到一个包含指定 SRT 文本的元素。
+ * 用于计算空间接近度，这是一个相对昂贵的操作，应谨慎使用。
+ * @param {string} srtText - SRT 字幕的原始文本。
+ * @returns {HTMLElement|null} - 找到的包含文本的 DOM 元素。
+ */
+function findDomElementForSubtitleText(srtText) {
+    const srtTextLower = srtText.toLowerCase();
+    // 遍历所有可搜索的文本节点，找到第一个包含该 SRT 文本的父元素
+    for (const textNode of allContentTextNodes) {
+        if (textNode.nodeValue && textNode.nodeValue.toLowerCase().includes(srtTextLower)) {
+            // 返回文本节点的父元素，通常是一个 <p>, <span> 或 <div>
+            return textNode.parentNode;
+        }
+    }
+    return null;
 }
 
 
@@ -158,23 +279,14 @@ function findAndHighlightTextInChapterContent(targetText) {
         span.className = 'highlighted'; // 这里的 'highlighted' 用于音频播放时的高亮
         range.surroundContents(span);
 
-        // 返回包含高亮span的最接近的父级章节内容元素 (例如 <p>, <div> 等)
-        // 向上查找最近的非 'subtitle-click-segment' 或 'highlighted' 的父元素，
-        // 确保滚动到的是段落级别而不是内部的小 span
+        // 向上查找最近的段落或块级元素进行滚动
         let currentParent = span.parentNode;
-        while (currentParent && !currentParent.id && !currentParent.classList.contains('chapter-content-block')) { 
-            // 假设章节的主要内容块有 'chapter-content-block' 类或者是一个 p 标签
-            // 或者你需要根据你的章节结构调整这里的条件，例如：
-            // currentParent.tagName.toLowerCase() !== 'body' && !['p', 'div', 'h1', 'h2', 'h3'].includes(currentParent.tagName.toLowerCase())
-            // 简单起见，可以考虑回到最初的逻辑：找到第一个非 Span 的父元素
-            if (currentParent.tagName.toLowerCase() === 'p' || currentParent.tagName.toLowerCase() === 'div' || currentParent.tagName.toLowerCase() === 'h1' || currentParent.tagName.toLowerCase() === 'h2' || currentParent.tagName.toLowerCase() === 'h3') {
-                return currentParent;
-            }
-            currentParent = currentParent.parentNode;
+        while (currentParent && currentParent !== document.getElementById('chapters') && !['P', 'DIV', 'H1', 'H2', 'H3'].includes(currentParent.tagName)) {
+             currentParent = currentParent.parentNode;
         }
-        return currentParent; // 最终返回找到的父元素，如果没找到合适的，可能是 body 或 null
+        return currentParent;
       } catch (e) {
-        // console.warn('高亮失败:', e, '文本:', targetText, '节点:', textNode);
+        console.warn('高亮失败:', e, '文本:', targetText, '节点:', textNode);
         return null;
       }
     }
@@ -183,21 +295,37 @@ function findAndHighlightTextInChapterContent(targetText) {
 }
 
 
+/**
+ * 计算两个字符串之间的 Levenshtein 相似度。
+ * 值介于 0 到 1 之间，1 表示完全相同。
+ * @param {string} a - 字符串 A。
+ * @param {string} b - 字符串 B。
+ * @returns {number} 相似度分数。
+ */
 function computeLevenshteinSimilarity(a, b) {
-  const m = a.length, n = b.length;
-  if (m === 0 || n === 0) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n === 0 ? 1 : 0; // 如果A为空，B也为空则相似度1，否则0
+  if (n === 0) return m === 0 ? 1 : 0; // 同理
+
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
   for (let i = 0; i <= m; i++) dp[i][0] = i;
   for (let j = 0; j <= n; j++) dp[0][j] = j;
+
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (a[i - 1] === b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
-      } else {
-        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-      }
+      const cost = (a[i - 1] === b[j - 1]) ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,      // deletion
+        dp[i][j - 1] + 1,      // insertion
+        dp[i - 1][j - 1] + cost // substitution
+      );
     }
   }
+
   const dist = dp[m][n];
-  return 1 - dist / Math.max(m, n);
+  const maxLength = Math.max(m, n);
+  return 1 - dist / maxLength; // 将距离转换为相似度
 }
+
