@@ -1,18 +1,18 @@
-// js/audio/audioPlayer.js (Jaro-Winkler 弹性匹配版)
+// js/audio/audioPlayer.js (修正版)
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
-let audio, subtitleData = [];
+let audio, subtitleData = [], wordToSubtitleMap = [];
 let allContentTextNodes = []; // 存储所有可搜索的文本节点
 
 /**
- * Initializes the audio player, creates the audio element, and loads subtitles.
- * @param {string} audioSrc - Path to the audio file.
- * @param {string} srtSrc - Path to the SRT subtitle file.
- * @param {Array<Object>} [initialSubtitleData] - Optional: If subtitle data is already loaded, it can be passed directly.
+ * 初始化音频播放器，创建音频元素并加载字幕。
+ * @param {string} audioSrc - 音频文件路径。
+ * @param {string} srtSrc - SRT 字幕文件路径。
+ * @param {Array<Object>} [initialSubtitleData] - 可选：如果字幕数据已经加载，可以直接传入。
  */
 export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = null }) {
-  // Remove existing audio player (if any) to prevent duplication
+  // 移除旧的音频播放器（如果有的话），防止重复创建
   const existingAudio = document.querySelector('audio');
   if (existingAudio) {
     existingAudio.remove();
@@ -26,7 +26,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
   });
   document.body.appendChild(audio);
 
-  // Use provided subtitle data if available, otherwise load and parse
+  // 如果字幕数据已经通过参数传入，则直接使用，否则加载并解析
   if (initialSubtitleData && initialSubtitleData.length > 0) {
     subtitleData = initialSubtitleData;
   } else {
@@ -35,27 +35,29 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
       const srtText = await res.text();
       subtitleData = parseSRT(srtText);
     } catch (error) {
-      console.error('Failed to load or parse SRT:', error);
+      console.error('加载或解析SRT失败:', error);
       return;
     }
   }
 
-  // Bind click event to document.body to handle user clicks for seeking
+
+  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
+  
+  // 将事件监听器绑定到 body 上，并只处理带有 data-subtitle-id 的元素的点击
+  // 这会利用事件冒泡
   document.body.addEventListener('click', handleWordClick);
 
-  // Collect all text nodes within the #chapters container for highlighting and click lookup
+  // 在初始化时获取所有章节内容中的文本节点，用于高亮
   allContentTextNodes = [];
   const chapterContainer = document.getElementById('chapters');
   if (chapterContainer) {
     const walker = document.createTreeWalker(chapterContainer, NodeFilter.SHOW_TEXT, null, false);
     let node;
     while ((node = walker.nextNode())) {
-      // Filter out empty or whitespace-only text nodes
-      if (node.nodeValue && node.nodeValue.trim().length > 0) {
-          allContentTextNodes.push(node);
-      }
+      allContentTextNodes.push(node);
     }
   }
+
 
   let lastIndex = null;
   audio.addEventListener('timeupdate', () => {
@@ -67,7 +69,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
       lastIndex = index;
       clearAllHighlights();
       const { text } = subtitleData[index];
-      // Highlight the text corresponding to the current subtitle
+      // 调用 findAndHighlightTextInChapterContent 函数进行高亮
       const highlightedElement = findAndHighlightTextInChapterContent(text);
       if (highlightedElement) {
         requestAnimationFrame(() => highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -75,194 +77,73 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
     }
   });
 
-  console.log('Audio player initialized.');
+  console.log('音频播放器初始化完成。');
+}
+
+function buildWordToSubtitleMap(subs) {
+  const map = [];
+  subs.forEach((subtitle, i) => {
+    const words = tokenizeText(subtitle.text.toLowerCase());
+    words.forEach(({ word }) => {
+      map.push({ word, index: i });
+    });
+  });
+  return map;
 }
 
 function handleWordClick(e) {
-    // Find text content near the click position
-    const clickedElement = e.target;
-    const { textContent: clickedTextSnippet, containerElement } = findTextElementNearCoords(e.clientX, e.clientY, clickedElement);
+  // 只处理点击带有 data-subtitle-id 属性的元素
+  const targetElement = e.target.closest('[data-subtitle-id]');
 
-    if (!clickedTextSnippet || clickedTextSnippet.trim().length < 5) { // At least 5 characters to avoid clicking whitespace or single characters
-        return;
-    }
-
-    // Find the best matching subtitle in the SRT data for the clicked text snippet
-    const bestMatchIndex = findBestSubtitleMatch(clickedTextSnippet, containerElement);
-
-    if (bestMatchIndex !== null) {
-        const { start, text: matchedSubtitleText } = subtitleData[bestMatchIndex];
+  if (targetElement && targetElement.dataset.subtitleId) {
+    const subtitleIndex = parseInt(targetElement.dataset.subtitleId, 10);
+    
+    // 确保点击的 ID 在 subtitleData 范围内
+    if (subtitleIndex >= 0 && subtitleIndex < subtitleData.length) {
+        const { start, text } = subtitleData[subtitleIndex];
         audio.currentTime = start;
         audio.play();
 
         clearAllHighlights();
-        // Re-highlight the matched subtitle text to ensure the user sees the highlight after seeking
-        const highlightedElement = findAndHighlightTextInChapterContent(matchedSubtitleText);
+        // 重新高亮点击的文本对应的字幕文本
+        const highlightedElement = findAndHighlightTextInChapterContent(text);
         if (highlightedElement) {
             highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    } else {
-        // If no good match is found, do nothing
-        // console.log("No good subtitle match found for clicked text:", clickedTextSnippet);
     }
+  }
+  // 如果没有点击到带有 data-subtitle-id 的元素，则不做任何操作
 }
 
-/**
- * Finds a text-containing element near the given coordinates and extracts its content.
- * @param {number} clientX - X-coordinate of the click event.
- * @param {number} clientY - Y-coordinate of the click event.
- * @param {HTMLElement} clickedElement - The actual DOM element that was clicked.
- * @returns {{textContent: string, containerElement: HTMLElement}} - Extracted text content and the containing element.
- */
-function findTextElementNearCoords(clientX, clientY, clickedElement) {
-    let currentElement = clickedElement;
-    let textToAnalyze = '';
-    let container = null;
 
-    // Try to find a suitable text container (e.g., P or DIV tag) by traversing up from the clicked element
-    while (currentElement && currentElement !== document.body) {
-        // Only consider elements that are likely to contain meaningful text blocks
-        if (currentElement.nodeType === Node.ELEMENT_NODE && ['P', 'DIV', 'SPAN', 'H1', 'H2', 'H3', 'LI'].includes(currentElement.tagName)) {
-            textToAnalyze = currentElement.textContent || '';
-            container = currentElement;
-            // If text is long enough or we found a block-level element, stop searching up
-            if (textToAnalyze.length > 50 || ['P', 'DIV'].includes(currentElement.tagName)) {
-                break;
-            }
-        }
-        currentElement = currentElement.parentNode;
-    }
-
-    // Fallback: If no suitable container found or text is too short, try to extract from text node directly
-    if (!container || textToAnalyze.length < 5) {
-        const range = document.caretRangeFromPoint(clientX, clientY);
-        if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
-            const textNode = range.startContainer;
-            const fullText = textNode.nodeValue || '';
-            const start = Math.max(0, range.startOffset - 20); // Get 20 characters before click
-            const end = Math.min(fullText.length, range.startOffset + 80); // Get 80 characters after click
-            textToAnalyze = fullText.substring(start, end);
-            container = textNode.parentNode; // Parent element of the text node
-        } else {
-             textToAnalyze = clickedElement.textContent || ''; // Final fallback to the clicked element's text
-             container = clickedElement;
-        }
-    }
-
-    return { textContent: textToAnalyze.trim(), containerElement: container };
-}
-
-/**
- * Finds the most similar subtitle entry in the SRT data for a given text snippet.
- * Uses Jaro-Winkler similarity for more flexible matching.
- * @param {string} clickedTextSnippet - Text snippet extracted from the user's click position.
- * @param {HTMLElement} clickedTextContainer - The DOM container element of the clicked text.
- * @returns {number|null} - Index of the best matching subtitle, or null if no good match is found.
- */
-function findBestSubtitleMatch(clickedTextSnippet, clickedTextContainer) {
-    if (!clickedTextSnippet || subtitleData.length === 0) {
-        return null;
-    }
-
-    const clickedTextLower = clickedTextSnippet.toLowerCase();
-    let bestIndex = null;
-    let highestScore = -Infinity;
-    const clickedElementRect = clickedTextContainer ? clickedTextContainer.getBoundingClientRect() : null;
-    const clickedElementTop = clickedElementRect ? clickedElementRect.top + window.scrollY : null;
-
-    for (let i = 0; i < subtitleData.length; i++) {
-        const subtitle = subtitleData[i];
-        const subtitleTextLower = subtitle.text.toLowerCase();
-
-        // 1. Text Similarity (using Jaro-Winkler)
-        const textSimilarity = computeJaroWinklerSimilarity(clickedTextLower, subtitleTextLower);
-
-        // If similarity is too low, skip directly (threshold can be adjusted)
-        if (textSimilarity < 0.6) continue; // Jaro-Winkler scores are generally higher, so threshold is higher
-
-        // 2. Spatial Proximity (based on subtitle rendering position on the page)
-        let proximityScore = 0;
-        if (clickedElementTop !== null) {
-            // Find the closest DOM element containing the current SRT subtitle text for proximity calculation
-            const subtitleDomElement = findDomElementForSubtitleText(subtitle.text);
-            if (subtitleDomElement) {
-                const subtitleDomRect = subtitleDomElement.getBoundingClientRect();
-                const subtitleDomTop = subtitleDomRect.top + window.scrollY;
-                const distance = Math.abs(subtitleDomTop - clickedElementTop);
-                const maxDist = window.innerHeight * 2; // Consider two screen heights as max distance
-                proximityScore = 1 - Math.min(distance / maxDist, 1);
-            }
-        } else {
-            // If cannot get offsetTop of clicked element (e.g., clicked non-text element), rely only on text similarity
-            proximityScore = 0.5; // Assign a medium value, indicating unknown position
-        }
-
-        // Combined score: Text similarity weighted higher
-        const combinedScore = textSimilarity * 0.7 + proximityScore * 0.3; // Weights can be fine-tuned
-
-        if (combinedScore > highestScore) {
-            highestScore = combinedScore;
-            bestIndex = i;
-        }
-    }
-    
-    // If the highest score is below a certain threshold, consider no good match found
-    if (highestScore < 0.65) { // Adjusted threshold for Jaro-Winkler
-        return null;
-    }
-
-    return bestIndex;
-}
-
-/**
- * Finds a DOM element that contains the specified SRT text.
- * Used for calculating spatial proximity. This can be a relatively expensive operation.
- * @param {string} srtText - The original text of the SRT subtitle.
- * @returns {HTMLElement|null} - The found DOM element containing the text.
- */
-function findDomElementForSubtitleText(srtText) {
-    const srtTextLower = srtText.toLowerCase();
-    // Iterate through all searchable text nodes to find the first parent element containing the SRT text
-    for (const textNode of allContentTextNodes) {
-        if (textNode.nodeValue && textNode.nodeValue.toLowerCase().includes(srtTextLower)) {
-            // Return the parent element of the text node, usually a <p>, <span>, or <div>
-            return textNode.parentNode;
-        }
-    }
-    return null;
-}
-
-/**
- * Clears all currently highlighted text elements.
- */
 function clearAllHighlights() {
   document.querySelectorAll('.highlighted').forEach(el => {
     const parent = el.parentNode;
     if (parent) {
-      // Check if el.firstChild exists to prevent issues if the element is already emptied
+      // 检查 el.firstChild 是否存在，以防万一元素已经被清空
       while (el.firstChild) {
         parent.insertBefore(el.firstChild, el);
       }
       parent.removeChild(el);
-      // parent.normalize() merges adjacent text nodes, important for clean highlight removal
+      // parent.normalize() 合并相邻的文本节点，这对于高亮清除很重要
       parent.normalize();
     }
   });
 }
 
 /**
- * Finds and highlights the specified text within the entire chapter content.
- * Returns the outermost element that was highlighted (typically a <p> or <div>).
- * @param {string} targetText - The subtitle text to find and highlight.
- * @returns {HTMLElement|null} - The nearest ancestor element containing the highlighted text, or null if not found and highlighted.
+ * 在整个章节内容中查找并高亮指定的文本。
+ * 返回被高亮的最外层元素（通常是 <p> 或 <div>）。
+ * @param {string} targetText - 要查找和高亮的字幕文本。
+ * @returns {HTMLElement|null} - 包含高亮文本的最近祖先元素，如果找到并高亮，否则为 null。
  */
 function findAndHighlightTextInChapterContent(targetText) {
   const targetLower = targetText.trim().toLowerCase();
 
-  // Iterate through all searchable text nodes
+  // 遍历所有可搜索的文本节点
   for (const textNode of allContentTextNodes) {
     const text = textNode.nodeValue;
-    // Avoid highlighting already highlighted areas or inside them
+    // 避免高亮已经高亮过的区域或其内部
     if (textNode.parentNode?.classList.contains('highlighted')) {
       continue;
     }
@@ -274,84 +155,49 @@ function findAndHighlightTextInChapterContent(targetText) {
         range.setStart(textNode, index);
         range.setEnd(textNode, index + targetLower.length);
         const span = document.createElement('span');
-        span.className = 'highlighted'; // 'highlighted' class for audio playback highlighting
+        span.className = 'highlighted'; // 这里的 'highlighted' 用于音频播放时的高亮
         range.surroundContents(span);
 
-        // Find the nearest paragraph or block-level element for scrolling
+        // 返回包含高亮span的最接近的父级章节内容元素 (例如 <p>, <div> 等)
+        // 向上查找最近的非 'subtitle-click-segment' 或 'highlighted' 的父元素，
+        // 确保滚动到的是段落级别而不是内部的小 span
         let currentParent = span.parentNode;
-        while (currentParent && currentParent !== document.getElementById('chapters') && !['P', 'DIV', 'H1', 'H2', 'H3'].includes(currentParent.tagName)) {
-             currentParent = currentParent.parentNode;
+        while (currentParent && !currentParent.id && !currentParent.classList.contains('chapter-content-block')) { 
+            // 假设章节的主要内容块有 'chapter-content-block' 类或者是一个 p 标签
+            // 或者你需要根据你的章节结构调整这里的条件，例如：
+            // currentParent.tagName.toLowerCase() !== 'body' && !['p', 'div', 'h1', 'h2', 'h3'].includes(currentParent.tagName.toLowerCase())
+            // 简单起见，可以考虑回到最初的逻辑：找到第一个非 Span 的父元素
+            if (currentParent.tagName.toLowerCase() === 'p' || currentParent.tagName.toLowerCase() === 'div' || currentParent.tagName.toLowerCase() === 'h1' || currentParent.tagName.toLowerCase() === 'h2' || currentParent.tagName.toLowerCase() === 'h3') {
+                return currentParent;
+            }
+            currentParent = currentParent.parentNode;
         }
-        return currentParent;
+        return currentParent; // 最终返回找到的父元素，如果没找到合适的，可能是 body 或 null
       } catch (e) {
-        console.warn('Highlighting failed:', e, 'Text:', targetText, 'Node:', textNode);
+        // console.warn('高亮失败:', e, '文本:', targetText, '节点:', textNode);
         return null;
       }
     }
   }
-  return null; // Text not found
+  return null; // 未找到匹配的文本
 }
 
-/**
- * Computes the Jaro-Winkler similarity between two strings.
- * Values range from 0 to 1, where 1 means identical strings.
- * @param {string} s1 - String 1.
- * @param {string} s2 - String 2.
- * @returns {number} The Jaro-Winkler similarity score.
- */
-function computeJaroWinklerSimilarity(s1, s2) {
-    if (s1 === s2) return 1.0;
-    if (!s1 || !s2) return 0.0;
 
-    const n1 = s1.length;
-    const n2 = s2.length;
-    if (n1 === 0 || n2 === 0) return 0.0;
-
-    const matchWindow = Math.floor(Math.max(n1, n2) / 2) - 1;
-    const s1Matches = new Array(n1).fill(false);
-    const s2Matches = new Array(n2).fill(false);
-    let numMatches = 0;
-
-    for (let i = 0; i < n1; i++) {
-        const start = Math.max(0, i - matchWindow);
-        const end = Math.min(i + matchWindow + 1, n2);
-        for (let j = start; j < end; j++) {
-            if (!s2Matches[j] && s1[i] === s2[j]) {
-                s1Matches[i] = true;
-                s2Matches[j] = true;
-                numMatches++;
-                break;
-            }
-        }
+function computeLevenshteinSimilarity(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0 || n === 0) return 0;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
     }
-
-    if (numMatches === 0) return 0.0;
-
-    let k = 0;
-    let numTranspositions = 0;
-    for (let i = 0; i < n1; i++) {
-        if (s1Matches[i]) {
-            while (!s2Matches[k]) k++;
-            if (s1[i] !== s2[k]) {
-                numTranspositions++;
-            }
-            k++;
-        }
-    }
-    const jaro = (numMatches / n1 + numMatches / n2 + (numMatches - numTranspositions / 2) / numMatches) / 3;
-
-    // Winkler modification
-    const prefixLength = Math.min(4, n1, n2); // Max prefix length to consider is 4
-    let commonPrefix = 0;
-    for (let i = 0; i < prefixLength; i++) {
-        if (s1[i] === s2[i]) {
-            commonPrefix++;
-        } else {
-            break;
-        }
-    }
-
-    const p = 0.1; // Scaling factor for the common prefix. Usually 0.1
-    return jaro + commonPrefix * p * (1 - jaro);
+  }
+  const dist = dp[m][n];
+  return 1 - dist / Math.max(m, n);
 }
-
