@@ -438,8 +438,8 @@ body {
   color: #aaa;
 }
 .highlighted {
-  color: red;                /* 高亮字体颜色 */
-  font-weight: bold;        /* 字体加粗 */
+  color: red;  !important;
+  font-weight: bold; !important;
   transition: all 0.3s ease;
 }
 
