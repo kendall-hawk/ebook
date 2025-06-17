@@ -1,3 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Reader</title>
+    <link rel="stylesheet" href="assets/main.css">
+</head>
+<body>
+
+    <nav id="category-nav">
+        <button class="category-button active" data-category="all">All Articles</button>
+        </nav>
+
+    
+        <nav id="toc" class="chapter-list-grid">
+            </nav>
+
+        <div id="chapters" style="display: none;">
+            </div>
+ 
+    <div id="react-tooltips" class="tooltip"></div>
 <script type="module">
     import { initAudioPlayer } from './js/audio/audioPlayer.js';
 
@@ -115,3 +137,7 @@
     // 页面加载完成后调用 loadChapterList
     document.addEventListener('DOMContentLoaded', loadChapterList);
 </script>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
