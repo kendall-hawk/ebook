@@ -437,10 +437,5 @@ body {
 .dark-mode .tooltip-image-description-text {
   color: #aaa;
 }
-.highlighted {
-  color: red !important;
-  font-weight: bold !important;
-  transition: all 0.3s ease;
-}
 
 }
