@@ -8,15 +8,15 @@ let globalWordFrequenciesMap = new Map();
 let globalMaxFreq = 1;
 
 /**
- * 简单的拆词包span函数。
- * 这个版本通过直接操作DOM节点来包裹单词，比正则表达式替换更健壮，
- * 能够避免破坏现有HTML标签。
- * @param {string} htmlString - 包含HTML内容的字符串。
+ * 健壮的单词包裹函数。它将HTML字符串转换为DOM，然后遍历文本节点，
+ * 安全地将每个单词包裹在带有data-word属性的<span>标签中，
+ * 同时保留原始HTML结构和Tooltips。
+ * @param {string} htmlString - 包含HTML内容的字符串（可能由renderMarkdownWithTooltips生成）。
  * @returns {string} - 包裹单词后的HTML字符串。
  */
 function wrapWordsWithSpan(htmlString) {
   const container = document.createElement('div');
-  container.innerHTML = htmlString;
+  container.innerHTML = htmlString; // 将HTML字符串解析为DOM结构
 
   function processNode(node) {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -24,51 +24,53 @@ function wrapWordsWithSpan(htmlString) {
       if (node.textContent.trim() === '') return;
 
       // 分割单词和非单词部分，保留分隔符
-      const words = node.textContent.split(/(\b\w+\b)/);
+      // 正则表达式 /(\b\w+\b)/ 会捕获单词，同时将其作为单独的元素包含在结果数组中
+      const parts = node.textContent.split(/(\b\w+\b)/);
 
-      const frag = document.createDocumentFragment();
+      const fragment = document.createDocumentFragment();
       let hasChanged = false; // 标记是否发生了DOM修改
 
-      for (const part of words) {
+      for (const part of parts) {
         if (part.length === 0) continue; // 忽略空字符串部分，可能由 split 产生
 
-        if (/\b\w+\b/.test(part)) {
+        if (/\b\w+\b/.test(part)) { // 如果这部分是一个单词
           const span = document.createElement('span');
           span.className = 'word';
           span.dataset.word = part.toLowerCase();
           span.textContent = part;
-          frag.appendChild(span);
+          fragment.appendChild(span);
           hasChanged = true;
-        } else {
-          frag.appendChild(document.createTextNode(part));
+        } else { // 如果这部分是非单词（空格、标点符号等）
+          fragment.appendChild(document.createTextNode(part));
         }
       }
 
       // 只有当实际有单词被包裹时才替换节点，提高性能
       if (hasChanged) {
-          node.replaceWith(frag);
+          node.replaceWith(fragment);
       }
     } else if (node.nodeType === Node.ELEMENT_NODE) {
-      // 避免处理某些特殊标签的子节点，例如 <script>, <style>
+      // 避免处理某些特殊标签的子节点，例如 <script>, <style>，因为它们不包含用户可见文本
       if (node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE') {
           return;
       }
-      // 如果你不想嵌套包裹 tooltips 内部的单词，可以在这里添加判断
-      // 例如：如果 tooltip 触发器是 span 且有 data-tooltip-id，则跳过其子节点
-      if (node.tagName === 'SPAN' && node.hasAttribute('data-tooltip-id')) {
-          return; 
-      }
-      // 如果你的 renderMarkdownWithTooltips 会给某个特定的类名（如 'tooltip-trigger'）添加tooltip，可以这样判断：
+      // 如果你的 Tooltip 触发器是特定的标签（如<span>）且带有 data-tooltip-id，
+      // 并且你不希望 Tooltip 内部的文本再次被包裹，可以添加以下判断：
+      // if (node.tagName === 'SPAN' && node.hasAttribute('data-tooltip-id')) {
+      //     return; // 跳过处理这个tooltip触发器及其子节点
+      // }
+      // 或者如果 Tooltip 触发器有特定的类名：
       // if (node.classList.contains('tooltip-trigger')) {
-      //     return;
+      //     return; // 跳过处理这个tooltip触发器及其子节点
       // }
 
+      // 递归处理子节点
       Array.from(node.childNodes).forEach(processNode);
     }
   }
 
-  processNode(container);
-  return container.innerHTML;
+  processNode(container); // 从根容器开始处理
+  return container.innerHTML; // 返回处理后的HTML字符串
 }
 
 export async function loadChapterIndex() {
@@ -159,6 +161,8 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
 
 /**
  * 渲染单个章节内容到 DOM。
+ * 此函数现在会先将Markdown内容转换为HTML并应用Tooltip，
+ * 然后再对生成的HTML进行单词包裹。
  * @param {Object} chapterContent - 当前章节的完整数据。
  * @param {Object} currentChapterTooltips - 当前章节专属的 Tooltips 数据。
  * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
@@ -171,7 +175,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     console.error('未找到 #chapters 容器。');
     return;
   }
-  chaptersContainer.innerHTML = '';
+  chaptersContainer.innerHTML = ''; // 清空容器内容
 
   currentChapterData = chapterContent;
 
@@ -182,19 +186,22 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
 
   chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
-      const renderedHtml = renderMarkdownWithTooltips(
+      // 1. 将Markdown内容渲染为HTML，并应用Tooltips
+      const renderedHtmlWithTooltips = renderMarkdownWithTooltips(
           item,
           currentChapterTooltips,
           wordFrequenciesMap,
           maxFreq
       );
 
-      // 使用新的 wrapWordsWithSpan 函数处理已渲染的HTML
-      const wrappedHtml = wrapWordsWithSpan(renderedHtml);
+      // 2. 对已经包含HTML和Tooltips的字符串进行单词包裹
+      const finalRenderedHtml = wrapWordsWithSpan(renderedHtmlWithTooltips);
 
+      // 3. 将最终的HTML添加到DOM中
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = wrappedHtml;
+      tempDiv.innerHTML = finalRenderedHtml; // 使用 innerHTML 解析字符串
 
+      // 将 tempDiv 的所有子元素（段落、列表、标题等）添加到章节容器中
       Array.from(tempDiv.children).forEach(child => {
           chaptersContainer.appendChild(child);
       });
@@ -204,7 +211,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
         position: 'relative',
-        paddingBottom: '56.25%',
+        paddingBottom: '56.25%', // 16:9 比例
         height: '0',
         overflow: 'hidden',
         maxWidth: '100%',
@@ -225,10 +232,10 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          // 更正 YouTube embed URL 格式
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
+          // 更正 YouTube embed URL 格式为标准格式
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}?enablejsapi=1`);
       } else {
-          iframe.src = ensureEnableJsApi(videoUrl);
+          iframe.src = ensureEnableJsApi(videoUrl); // 如果不是YouTube视频，直接使用原URL
       }
 
       wrapper.appendChild(iframe);
@@ -236,6 +243,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     }
   });
 
+  // 章节导航链接
   const navSection = document.createElement('div');
   navSection.classList.add('chapter-nav-links');
 
@@ -254,6 +262,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     navSection.appendChild(prevLink);
   }
 
+  // 添加分隔符，如果前面有链接且后面还有链接或本页返回
   if (currentIndex > 0 && (currentIndex < allChapterIndex.length - 1 || chapterContent.id)) {
     const separator1 = document.createTextNode(' | ');
     navSection.appendChild(separator1);
@@ -265,10 +274,12 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   toTopLink.classList.add('chapter-nav-link');
   toTopLink.addEventListener('click', (e) => {
       e.preventDefault();
-      document.getElementById(chapterContent.id).scrollIntoView({ behavior: 'smooth' });
+      // 使用 chapterContent.id 确保滚动到当前章节标题
+      document.getElementById(chapterContent.id)?.scrollIntoView({ behavior: 'smooth' });
   });
   navSection.appendChild(toTopLink);
 
+  // 添加分隔符，如果前面有链接或本页返回，且后面还有链接
   if (currentIndex < allChapterIndex.length - 1 && (currentIndex > 0 || chapterContent.id)) {
     const separator2 = document.createTextNode(' | ');
     navSection.appendChild(separator2);
@@ -287,6 +298,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     navSection.appendChild(nextLink);
   }
 
+  // 确保在 "返回文章列表" 前添加分隔符，只要navSection中有内容
   if (navSection.children.length > 0) {
       const separator3 = document.createTextNode(' | ');
       navSection.appendChild(separator3);
@@ -297,7 +309,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   backToTocLink.classList.add('chapter-nav-link');
   backToTocLink.addEventListener('click', (e) => {
       e.preventDefault();
-      navigateToChapterCallback('');
+      navigateToChapterCallback(''); // 传递空字符串或特定值表示返回主目录
   });
   navSection.appendChild(backToTocLink);
 
