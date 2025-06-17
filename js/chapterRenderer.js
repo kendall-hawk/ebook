@@ -7,13 +7,6 @@ let currentChapterData = null;
 let globalWordFrequenciesMap = new Map();
 let globalMaxFreq = 1;
 
-// 简单的拆词包span函数（可根据需要扩展）
-function wrapWordsWithSpan(text) {
-  // 用正则匹配单词，包span加data-word，忽略大小写
-  return text.replace(/\b(\w+)\b/g, (match) => {
-    return `<span class="word" data-word="${match.toLowerCase()}">${match}</span>`;
-  });
-}
 
 export async function loadChapterIndex() {
   try {
@@ -132,11 +125,9 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
           wordFrequenciesMap,
           maxFreq
       );
-      // 包词span
-      const wrappedHtml = wrapWordsWithSpan(renderedHtml); // 在这里调用 wrapWordsWithSpan
 
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = wrappedHtml;
+      tempDiv.innerHTML = renderedHtml;
 
       Array.from(tempDiv.children).forEach(child => {
           chaptersContainer.appendChild(child);
@@ -168,8 +159,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          // 更正 YouTube embed URL 格式为标准的 youtube.com/embed/
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); 
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
       } else {
           iframe.src = ensureEnableJsApi(videoUrl);
       }
