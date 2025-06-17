@@ -1,3 +1,4 @@
+// js/audio/audioPlayer.js
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
@@ -61,9 +62,6 @@ function handleWordClick(e) {
     const { start } = subtitleData[closest];
     audio.currentTime = start;
     audio.play();
-
-    scrollToSubtitle(closest);      // ✅ 滚动到字幕句子
-    highlightSubtitle(closest);    // ✅ 高亮字幕句子
   }
 }
 
@@ -86,25 +84,4 @@ function findBestSubtitleMatch(target, matches) {
   });
 
   return closestIndex;
-}
-
-function scrollToSubtitle(index) {
-  const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
-  if (node) {
-    node.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
-  }
-}
-
-function highlightSubtitle(index) {
-  // 移除之前高亮的句子
-  document.querySelectorAll('.sentence.active-sentence')
-    .forEach(el => el.classList.remove('active-sentence'));
-
-  const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
-  if (node) {
-    node.classList.add('active-sentence');
-  }
 }
