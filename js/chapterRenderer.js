@@ -1,13 +1,19 @@
 // js/chapterRenderer.js
 import { renderMarkdownWithTooltips } from './tooltip.js';
-import { ensureEnableJsApi, extractVideoId } from './utils.js';
+import { ensureEnableJsApi, extractVideoId } from './utils.js'; // 确保这些工具函数可用
+import { findAndJumpToSubtitle, updateArticleParagraphs } from './audio/audioPlayer.js'; // 导入 audioPlayer 的公共函数
 
-let allChapterIndex = [];
-let currentChapterData = null;
-let globalWordFrequenciesMap = new Map();
-let globalMaxFreq = 1;
+// 全局变量
+let allChapterIndex = []; // 所有章节的索引
+let currentChapterData = null; // 当前章节的完整数据
+let globalWordFrequenciesMap = new Map(); // 全局词频 Map
+let globalMaxFreq = 1; // 全局最高词频
+let transcriptParagraphIdCounter = 0; // 用于生成转录稿段落的唯一 ID
 
-
+/**
+ * 加载章节索引数据。
+ * @returns {Promise<Array<Object>>} - 章节索引数组。
+ */
 export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
@@ -23,6 +29,11 @@ export async function loadChapterIndex() {
   }
 }
 
+/**
+ * 加载单个章节的详细内容。
+ * @param {string} filePath - 章节内容文件的路径。
+ * @returns {Promise<Object>} - 章节内容的 JSON 对象。
+ */
 export async function loadSingleChapterContent(filePath) {
   try {
     const res = await fetch(`data/${filePath}`);
@@ -37,7 +48,7 @@ export async function loadSingleChapterContent(filePath) {
 }
 
 /**
- * 渲染章节目录到 DOM (现在用于主页的缩略图列表)。
+ * 渲染章节目录到 DOM (用于主页的缩略图列表)。
  * @param {Array<Object>} chapterIndex - 章节索引数组。
  * @param {Function} onChapterClick - 点击章节时触发的回调函数。
  * @param {string} [filterCategory='all'] - 用于过滤的分类名称，'all' 表示不过滤。
@@ -57,12 +68,10 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
     return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
   });
 
-
   if (filteredChapters.length === 0) {
       toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
       return;
   }
-
 
   filteredChapters.forEach(ch => {
     const itemLink = document.createElement('a');
@@ -108,32 +117,75 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     console.error('未找到 #chapters 容器。');
     return;
   }
-  chaptersContainer.innerHTML = '';
+  chaptersContainer.innerHTML = ''; // 清空旧内容
 
   currentChapterData = chapterContent;
+  transcriptParagraphIdCounter = 0; // 每次渲染新章节时重置转录稿段落计数器
 
   const title = document.createElement('h2');
   title.id = chapterContent.id;
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
+  let isTranscriptSection = false; // 标记当前是否处于转录稿部分
+  let currentWordIndex = 0; // 追踪转录稿中所有单词的全局索引
+
+  // 遍历章节内容的每个段落/项目
   chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
-      const renderedHtml = renderMarkdownWithTooltips(
-          item,
-          currentChapterTooltips, // 将章节专属 Tooltip 数据传递给 renderMarkdownWithTooltips
+      // 检查是否是特殊的标题（如 TRANSCRIPT 或 VOCABULARY）
+      const trimmedItem = item.trim().toUpperCase();
+      if (trimmedItem.includes('## TRANSCRIPT')) {
+        isTranscriptSection = true; // 进入转录稿部分
+        const transcriptTitle = document.createElement('h2');
+        transcriptTitle.textContent = item.replace('## ', '').trim();
+        chaptersContainer.appendChild(transcriptTitle);
+        return; // 跳过当前循环，不作为普通段落处理
+      } else if (trimmedItem.includes('## VOCABULARY')) {
+        isTranscriptSection = false; // 离开转录稿部分
+        const vocabTitle = document.createElement('h2');
+        vocabTitle.textContent = item.replace('## ', '').trim();
+        chaptersContainer.appendChild(vocabTitle);
+        return; // 跳过当前循环
+      }
+
+      // 如果是普通 Markdown 段落
+      const renderedResult = renderMarkdownWithTooltips(
+          item, // 传入当前段落的 Markdown 文本
+          currentChapterTooltips,
           wordFrequenciesMap,
-          maxFreq
+          maxFreq,
+          isTranscriptSection, // 告知 tooltip 模块是否为转录稿部分
+          currentWordIndex // 传递当前单词的起始索引
       );
+      currentWordIndex = renderedResult.wordCount; // 更新全局单词索引
 
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = renderedHtml;
+      // 创建一个临时 div 来包裹 Marked.js 渲染后的 HTML
+      // 这样可以确保每个段落或一系列元素作为一个整体被处理
+      const tempWrapper = document.createElement('div');
+      // Marked.js 应该在这里被调用，将 renderMarkdownWithTooltips 返回的 Markdown 渲染为 HTML
+      tempWrapper.innerHTML = marked.parse(renderedResult.html);
 
-      Array.from(tempDiv.children).forEach(child => {
-          chaptersContainer.appendChild(child);
-      });
+      // 如果当前是转录稿部分，给这个段落容器添加特殊类和ID
+      if (isTranscriptSection) {
+          // 将 tempWrapper 的内容移入一个真正的 .transcript-paragraph 容器
+          const paragraphContainer = document.createElement('div');
+          paragraphContainer.classList.add('transcript-paragraph');
+          paragraphContainer.dataset.paragraphId = `p-${transcriptParagraphIdCounter++}`;
+          // 将 tempWrapper 的所有子元素移动到 paragraphContainer
+          while (tempWrapper.firstChild) {
+              paragraphContainer.appendChild(tempWrapper.firstChild);
+          }
+          chaptersContainer.appendChild(paragraphContainer);
+      } else {
+          // 非转录稿部分，直接将内容添加到章节容器
+          while (tempWrapper.firstChild) {
+              chaptersContainer.appendChild(tempWrapper.firstChild);
+          }
+      }
 
     } else if (item.video) {
+      // 处理视频嵌入
       const videoUrl = item.video;
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
@@ -159,9 +211,10 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
 
       const videoId = extractVideoId(videoUrl);
       if (videoId) {
-          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`); // 更正 YouTube embed URL 格式
+          // 更正 YouTube embed URL 格式
+          iframe.src = ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`);
       } else {
-          iframe.src = ensureEnableJsApi(videoUrl);
+          iframe.src = ensureEnableJsApi(videoUrl); // 使用原始 URL
       }
 
       wrapper.appendChild(iframe);
@@ -169,6 +222,40 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     }
   });
 
+  // **为转录稿单词添加点击事件监听器**
+  // 确保在所有 HTML 都渲染完毕后执行
+  document.querySelectorAll('.transcript-word').forEach(wordSpan => {
+      wordSpan.addEventListener('click', function(e) {
+          e.preventDefault(); // 阻止默认行为
+
+          // 获取被点击单词所属的整个段落的文本
+          const paragraphElement = this.closest('.transcript-paragraph');
+          if (paragraphElement) {
+              // 获取段落的纯文本内容，用于与 SRT 匹配
+              const paragraphText = paragraphElement.innerText || paragraphElement.textContent;
+              // 调用 audioPlayer 模块的函数，传入段落文本进行匹配和跳转
+              if (window.audioPlayer && window.audioPlayer.findAndJumpToSubtitle) {
+                 window.audioPlayer.findAndJumpToSubtitle(paragraphText);
+              } else {
+                  console.warn('Audio player not initialized or findAndJumpToSubtitle function not found.');
+                  console.log(`Clicked transcript word in paragraph: ${paragraphText}`);
+              }
+          } else {
+              console.warn("Clicked word is not inside a .transcript-paragraph. Audio jump not possible for this word.");
+          }
+      });
+  });
+
+  // **通知 audioPlayer 模块更新其对文章段落的引用**
+  // 必须在章节内容渲染完毕且 .transcript-paragraph 元素都已存在之后调用
+  if (window.audioPlayer && window.audioPlayer.updateArticleParagraphs) {
+      window.audioPlayer.updateArticleParagraphs();
+  } else {
+      console.warn('Audio player not initialized or updateArticleParagraphs function not found.');
+  }
+
+
+  // 章节导航链接 (保持不变)
   const navSection = document.createElement('div');
   navSection.classList.add('chapter-nav-links');
 
@@ -238,6 +325,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   chaptersContainer.appendChild(navSection);
 }
 
+// 词频相关函数（保持不变）
 export function getGlobalWordFrequenciesMap() {
   return globalWordFrequenciesMap;
 }
