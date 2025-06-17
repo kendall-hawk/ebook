@@ -1,83 +1,80 @@
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
+import { computeLevenshteinSimilarity } from './levenshtein.js'; // 确保这个文件存在并能正确导出函数
 
 let audio, subtitleData = [], wordToSubtitleMap = [];
 
 /**
- * 初始化音频播放器，创建音频元素并加载字幕。
+ * 初始化音频播放器
  * @param {object} options - 配置选项。
  * @param {string} options.audioSrc - 音频文件的 URL。
  * @param {string} options.srtSrc - SRT 字幕文件的 URL。
  */
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  // 创建音频播放器
+  // 1. 确保样式被注入到页面中
+  injectHighlightStyles();
+
+  // 2. 创建并配置音频播放器
   audio = document.createElement('audio');
-  audio.src = audioSrc;
-  audio.controls = true;
-  audio.style.position = 'fixed';
-  audio.style.bottom = '20px';
-  audio.style.left = '50%';
-  audio.style.transform = 'translateX(-50%)';
-  audio.style.zIndex = 9999;
-  audio.style.width = '90%';
-  audio.style.maxWidth = '600px';
+  Object.assign(audio, {
+    src: audioSrc,
+    controls: true,
+    style: `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      width: 90%;
+      max-width: 600px;
+    `
+  });
   document.body.appendChild(audio);
 
-  // 加载并解析 SRT 字幕
+  // 3. 加载并解析 SRT 字幕
   try {
     const res = await fetch(srtSrc);
     const srtText = await res.text();
     subtitleData = parseSRT(srtText);
-  } catch (error) {
-    console.error('加载或解析SRT文件失败:', error);
+    console.log('字幕数据加载成功:', subtitleData); // 调试用
+  } catch (err) {
+    console.error('加载或解析SRT文件失败:', err);
     return;
   }
 
-  // 建立词到字幕句子的映射
+  // 4. 构建词到字幕的映射
   wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
+  console.log('词到字幕映射构建完成:', wordToSubtitleMap); // 调试用
 
-  // 注册点击事件监听器
+  // 5. 注册点击事件监听器
   document.body.addEventListener('click', handleWordClick);
 
-  // 播放进度更新时自动高亮当前字幕句子
-  let lastIndex = null;
+  // 6. 监听音频播放进度，自动高亮当前字幕
+  let lastIndex = -1;
   audio.addEventListener('timeupdate', () => {
     const currentTime = audio.currentTime;
-
     const index = subtitleData.findIndex(
-      (sub, i) =>
-        currentTime >= sub.start &&
-        (i === subtitleData.length - 1 || currentTime < subtitleData[i + 1].start)
+      (sub, i) => currentTime >= sub.start && (i === subtitleData.length - 1 || currentTime < subtitleData[i + 1].start)
     );
 
     if (index !== -1 && index !== lastIndex) {
       lastIndex = index;
+      console.log(`当前播放字幕索引: ${index}, 文本: "${subtitleData[index].text}"`); // 调试用
 
-      // 清除所有旧高亮
-      document.querySelectorAll('.highlighted').forEach(el => {
-        // 恢复原始文本内容
-        const parent = el.parentNode;
-        if (parent) {
-          // 将 span 内部的文本节点移到 span 外部
-          while (el.firstChild) {
-            parent.insertBefore(el.firstChild, el);
-          }
-          parent.removeChild(el); // 移除空的 span
-          // 清理可能因为文本节点合并产生的多余空白节点，可选
-          parent.normalize();
-        }
-      });
+      clearHighlights(); // 清除所有旧高亮
 
-      const { text } = subtitleData[index];
-      const el = findVisibleTextNodeNearText(text);
+      const currentSubtitleText = subtitleData[index].text;
+      const el = findVisibleTextNodeNearText(currentSubtitleText);
+      
       if (el) {
-        highlightTextInElement(el, text);
+        console.log('找到匹配的DOM元素进行高亮:', el); // 调试用
+        highlightTextInElement(el, currentSubtitleText);
+        // 确保滚动是在高亮完成并且浏览器有时间渲染之后
         requestAnimationFrame(() => {
-          el.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
+      } else {
+        console.warn('未找到DOM元素匹配当前字幕文本:', currentSubtitleText); // 调试用
       }
     }
   });
@@ -86,15 +83,18 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
 }
 
 /**
- * 构建单词到字幕句子索引的映射表
+ * 创建词到字幕的映射 Map
  */
 function buildWordToSubtitleMap(subs) {
   const map = [];
-  subs.forEach((subtitle, i) => {
-    if (typeof subtitle.text === 'string') {
-      const words = tokenizeText(subtitle.text);
+  subs.forEach((sub, i) => {
+    // 确保 subtitle.text 是字符串，并且有内容
+    if (typeof sub.text === 'string' && sub.text.trim().length > 0) {
+      const words = tokenizeText(sub.text);
       words.forEach(({ word }) => {
-        map.push({ word: word.toLowerCase(), index: i });
+        if (word.trim().length > 0) { // 避免空词
+          map.push({ word: word.toLowerCase(), index: i });
+        }
       });
     }
   });
@@ -102,167 +102,209 @@ function buildWordToSubtitleMap(subs) {
 }
 
 /**
- * 处理点击单词事件，跳转并播放对应句子
+ * 处理点击事件，跳转并播放对应句子
  */
 function handleWordClick(e) {
   const target = e.target;
   if (!target || !target.textContent) return;
 
-  // 避免点击到高亮元素本身，或者过长的内容
-  if (target.classList.contains('highlighted') || target.textContent.trim().length > 30) {
-    // 如果点击的是已高亮的元素，尝试获取其父级的文本内容
-    const parentText = target.parentNode?.textContent?.trim().toLowerCase();
-    const clickedWord = target.textContent.trim().toLowerCase();
-    
-    // 如果父级文本中包含被点击的词，并且该父级不是body，则认为是有效点击
-    if (parentText && parentText.includes(clickedWord) && target.parentNode !== document.body) {
-        // 这里需要更复杂的逻辑来找到实际的字幕容器，
-        // 暂时先跳过，让它在 findBestSubtitleMatch 中处理
-        // 或者直接尝试从父级找到最近的字幕文本
-    } else {
-        return; // 否则，不处理点击
-    }
+  // 简化点击逻辑，直接获取点击文本
+  const clickedText = target.textContent.trim();
+  if (clickedText.length === 0 || clickedText.length > 50) return; // 避免过长或空文本
+
+  const clickedWordLower = clickedText.toLowerCase();
+
+  // 查找包含该词的所有字幕候选项
+  const candidates = wordToSubtitleMap.filter(entry => entry.word.includes(clickedWordLower));
+  
+  if (candidates.length === 0) {
+    console.log(`未找到包含"${clickedWordLower}"的字幕候选词。`); // 调试用
+    return;
   }
 
-  const clickedWord = target.textContent.trim().toLowerCase();
-  if (!clickedWord) return;
-
-  const possibleMatches = wordToSubtitleMap
-    .filter(entry => entry.word === clickedWord);
-
-  if (possibleMatches.length === 0) return;
-
-  const closestIndex = findBestSubtitleMatch(target, possibleMatches);
-  if (closestIndex !== null) {
-    const { start, text } = subtitleData[closestIndex];
-    audio.currentTime = start;
+  const bestIndex = findBestSubtitleMatch(target, candidates);
+  
+  if (bestIndex !== null) {
+    const sub = subtitleData[bestIndex];
+    audio.currentTime = sub.start;
     audio.play();
+    console.log(`点击"${clickedText}"，跳转到字幕: ${sub.text}`); // 调试用
 
-    // 清除所有旧高亮（调用前移到timeupdate或这里，并确保清理逻辑正确）
-    document.querySelectorAll('.highlighted').forEach(el => {
-        const parent = el.parentNode;
-        if (parent) {
-            while (el.firstChild) {
-                parent.insertBefore(el.firstChild, el);
-            }
-            parent.removeChild(el);
-            parent.normalize();
-        }
-    });
+    clearHighlights(); // 清除所有旧高亮
 
-    const subtitleElement = findVisibleTextNodeNearText(text);
-    if (subtitleElement) {
-      highlightTextInElement(subtitleElement, text);
-      subtitleElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
+    const el = findVisibleTextNodeNearText(sub.text);
+    if (el) {
+      highlightTextInElement(el, sub.text);
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
+    } else {
+      console.warn('点击后未找到DOM元素匹配字幕文本:', sub.text); // 调试用
     }
+  } else {
+      console.log(`点击"${clickedText}"，未能找到最佳字幕匹配。`); // 调试用
   }
 }
 
 /**
- * 选择与点击位置最接近的字幕句子
+ * 清除所有高亮
  */
-function findBestSubtitleMatch(target, matches) {
-  const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
+function clearHighlights() {
+  document.querySelectorAll('.highlighted').forEach(span => {
+    const parent = span.parentNode;
+    if (parent) {
+      // 将 span 内部的所有子节点移到 span 外部，然后移除 span
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
+      }
+      parent.removeChild(span);
+      parent.normalize(); // 合并相邻的文本节点
+    }
+  });
+}
 
-  let closestIndex = null;
-  let minDistance = Infinity;
+/**
+ * 查找最接近点击位置的字幕
+ * @param {HTMLElement} target - 用户点击的DOM元素
+ * @param {Array<object>} candidates - 包含点击词的字幕索引列表
+ * @returns {number|null} 最佳匹配字幕的索引
+ */
+function findBestSubtitleMatch(target, candidates) {
+  const targetY = target.getBoundingClientRect().top + window.scrollY;
+  let minDist = Infinity;
+  let bestIndex = null;
 
-  matches.forEach(({ index }) => {
-    const sText = subtitleData[index].text;
-    const foundNode = findVisibleTextNodeNearText(sText);
-    if (foundNode) {
-      const offset = foundNode.getBoundingClientRect().top + window.scrollY;
-      const dist = Math.abs(offset - clickedOffset);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestIndex = index;
+  candidates.forEach(({ index }) => {
+    const node = findVisibleTextNodeNearText(subtitleData[index].text);
+    if (node) {
+      const y = node.getBoundingClientRect().top + window.scrollY;
+      const dist = Math.abs(targetY - y);
+      if (dist < minDist) {
+        minDist = dist;
+        bestIndex = index;
       }
     }
   });
-
-  return closestIndex;
+  return bestIndex;
 }
 
 /**
- * 查找页面中包含给定字幕文本的节点
- * 优化：查找时也应考虑 .highlighted 元素的父级，因为高亮会改变DOM结构
+ * 查找与字幕文本最接近的页面节点
+ * 使用 Levenshtein 相似度匹配，更鲁棒
+ * @param {string} text - 字幕的原始文本
+ * @returns {HTMLElement|null} 匹配到的DOM元素
  */
 function findVisibleTextNodeNearText(text) {
-  // 首先尝试查找未被高亮的原始文本节点或其容器
-  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
+  // 清理文本函数，去除多余空白并转小写
+  const clean = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const targetCleaned = clean(text);
+
+  // 查找 #chapters 下的 p, div, span 元素
+  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters div, #chapters span'));
+
+  let bestMatch = null;
+  let bestScore = 0;
+  const similarityThreshold = 0.6; // 相似度阈值
+
   for (const node of nodes) {
-    // 检查节点文本内容是否包含目标文本
-    // 排除已经高亮的span自身，我们想要找到的是包裹高亮span的父级容器
-    if (node.textContent && node.textContent.includes(text) && !node.classList.contains('highlighted')) {
-      return node;
+    // 检查节点是否连接到DOM并且可见（有offsetParent表示不是display:none等隐藏的）
+    if (!node.isConnected || !node.offsetParent) continue;
+
+    const nodeContentCleaned = clean(node.textContent || '');
+    if (nodeContentCleaned.length === 0) continue;
+
+    // 计算 Levenshtein 相似度
+    const score = computeLevenshteinSimilarity(nodeContentCleaned, targetCleaned);
+
+    // 如果相似度高于当前最佳，并且高于设定的阈值
+    if (score > bestScore && score >= similarityThreshold) {
+      bestScore = score;
+      bestMatch = node;
     }
   }
-
-  // 如果直接查找不到，可能是因为文本已经被高亮过，高亮文本被包裹在 .highlighted span 中
-  // 此时需要找到包含这个高亮 span 的父级
-  const highlightedSpans = Array.from(document.querySelectorAll('.highlighted'));
-  for (const span of highlightedSpans) {
-    // 检查高亮 span 的父级是否包含目标文本
-    if (span.parentNode && span.parentNode.textContent && span.parentNode.textContent.includes(text)) {
-      return span.parentNode;
-    }
-  }
-
-  return null;
+  return bestMatch;
 }
 
 /**
  * 高亮指定 DOM 元素中的目标文本（只变字体颜色）
- * 使用 TreeWalker 和 Range API 增强精确性
+ * 使用 TreeWalker 和 Range API 增强精确性，支持正则匹配多余空格
+ * @param {HTMLElement} el - 要在其内部高亮文本的父元素
+ * @param {string} targetText - 要高亮的字幕文本的原始字符串
+ * @returns {boolean} 是否成功高亮
  */
 function highlightTextInElement(el, targetText) {
-  if (!el || !targetText) return;
+  const originalTargetText = targetText.trim(); 
+  
+  // 用于构建正则表达式的安全转义函数
+  const escapeRegExp = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
 
-  // 清理现有高亮，确保每次高亮是干净的。
-  // 注意：这个清除逻辑应该在调用 highlightTextInElement 之前进行，
-  // 否则这里清除后，下面又重新高亮，可能导致重复操作或冲突。
-  // 我已经在 timeupdate 和 handleWordClick 中加入了更全面的清除逻辑。
+  // 构建一个更灵活的正则表达式，允许匹配中间的多个空格
+  // 使用 'gi' 标志进行全局和不区分大小写匹配
+  const regex = new RegExp(escapeRegExp(originalTargetText).replace(/\s+/g, '\\s*'), 'gi');
 
-  const targetLower = targetText.trim().toLowerCase();
-
-  // 使用 TreeWalker 遍历所有文本节点
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let highlighted = false; 
 
   while (walker.nextNode()) {
-    const textNode = walker.currentNode;
-    const text = textNode.nodeValue;
-    // 确保我们没有尝试在高亮span内部的文本节点上再次高亮
-    if (textNode.parentNode && textNode.parentNode.classList.contains('highlighted')) {
-        continue;
+    const node = walker.currentNode;
+    if (!node.nodeValue) continue;
+
+    // 避免在高亮过的<span>内部的文本节点上再次高亮
+    if (node.parentNode && node.parentNode.classList.contains('highlighted')) {
+      continue;
     }
 
-    const index = text.toLowerCase().indexOf(targetLower);
+    const rawTextNodeValue = node.nodeValue; // 获取原始文本节点内容
 
-    if (index !== -1) {
+    // 在原始文本节点内容上使用正则表达式进行匹配
+    const match = rawTextNodeValue.match(regex);
+
+    if (match) {
+      const startIndex = match.index;
+      const endIndex = match.index + match[0].length;
+
       const range = document.createRange();
-      range.setStart(textNode, index);
-      range.setEnd(textNode, index + targetLower.length);
+      range.setStart(node, startIndex);
+      range.setEnd(node, endIndex);
 
       const span = document.createElement('span');
       span.className = 'highlighted';
-      // 样式直接在 JS 中设置，确保生效，但建议放入 CSS 文件
-      span.style.color = '#d60000';
-      span.style.fontWeight = 'bold';
-      
+      // 注意：这里不再设置内联样式，因为 injectHighlightStyles 已经处理
+
       try {
         range.surroundContents(span);
-        // 成功高亮后停止，因为我们通常只高亮字幕的一个匹配项
-        break; 
-      } catch (e) {
-        // 捕获可能的 HierarchyRequestError，例如当Range跨越非文本节点时
-        console.warn('高亮文本失败 (Range API Error):', e, '文本:', targetText, '节点:', textNode);
-        // 尝试回退到旧的innerHTML方式（如果需要，但推荐修复结构问题）
-        // 或者简单地跳过当前高亮，继续寻找下一个
+        highlighted = true;
+        break; // 成功高亮一个匹配后就停止
+      } catch (err) {
+        console.warn('高亮文本失败 (Range API Error):', err, '文本:', originalTargetText, '节点值:', rawTextNodeValue);
         continue; 
       }
     }
   }
+  return highlighted; 
+}
+
+/**
+ * 注入高亮样式到文档头部
+ */
+function injectHighlightStyles() {
+  // 检查是否已经注入过样式，避免重复
+  if (document.getElementById('audio-player-highlight-styles')) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = 'audio-player-highlight-styles'; // 添加ID方便检查
+  style.textContent = `
+    .highlighted {
+      color: #d60000 !important;
+      font-weight: bold !important;
+    }
+    /* 你也可以在这里添加音频播放器的基本样式，或者保持在JS中 */
+    audio {
+      /* 这里的样式与JS中设置的保持一致，或者只在这里设置 */
+    }
+  `;
+  document.head.appendChild(style);
 }
