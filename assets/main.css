@@ -437,5 +437,13 @@ body {
 .dark-mode .tooltip-image-description-text {
   color: #aaa;
 }
-
+/* 高亮当前播放字幕的句子 */
+.highlighted {
+  color: #d6336c;             /* 明显但不刺眼的高亮字体颜色 */
+  font-weight: bold;
+  background-color: rgba(255, 238, 240, 0.3); /* 轻柔背景，适配 tooltip */
+  border-radius: 4px;
+  padding: 0 2px;
+  transition: background-color 0.3s, color 0.3s;
+}
 }
