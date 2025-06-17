@@ -6,8 +6,11 @@ let subtitleData = [];
 let invertedIndex = new Map();
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
+  if (document.getElementById('custom-audio-player')) return; // 避免重复插入
+
   // 初始化音频播放器
   audio = document.createElement('audio');
+  audio.id = 'custom-audio-player';
   audio.src = audioSrc;
   audio.controls = true;
   audio.style.position = 'fixed';
@@ -61,7 +64,7 @@ function handleWordClick(e) {
   const bestIndex = findBestSubtitleMatch(target, matches);
   if (bestIndex !== null) {
     const { start, text } = subtitleData[bestIndex];
-    highlightAndScrollToText(text);
+    highlightAndScrollToText(text, clickedWord); // 添加 clickedWord 参数
     audio.currentTime = start;
     audio.play();
   }
@@ -100,17 +103,27 @@ function findVisibleTextNodeNearText(text) {
   return null;
 }
 
-function highlightAndScrollToText(text) {
+function highlightAndScrollToText(text, clickedWord) {
   const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
 
+  // 移除所有高亮
   nodes.forEach(n => n.classList.remove('highlight'));
+  document.querySelectorAll('.word.highlight').forEach(el => el.classList.remove('highlight'));
 
+  // 高亮句子文本所在节点
   for (const node of nodes) {
     if (node.innerText && node.innerText.includes(text)) {
       node.classList.add('highlight');
       node.scrollIntoView({ behavior: 'smooth', block: 'center' });
       break;
     }
+  }
+
+  // 高亮所有匹配的 `.word[data-word=xxx]` 元素
+  if (clickedWord) {
+    document.querySelectorAll(`.word[data-word="${clickedWord}"]`).forEach(el => {
+      el.classList.add('highlight');
+    });
   }
 }
 
