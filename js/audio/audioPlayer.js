@@ -1,83 +1,78 @@
-Import { parseSRT } from './srtParser.js';
+// js/audio/audioPlayer.js (修正版)
+import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
 let audio, subtitleData = [], wordToSubtitleMap = [];
+let allContentTextNodes = []; // 存储所有可搜索的文本节点
 
 /**
  * 初始化音频播放器，创建音频元素并加载字幕。
- * @param {object} options - 配置选项。
- * @param {string} options.audioSrc - 音频文件的 URL。
- * @param {string} options.srtSrc - SRT 字幕文件的 URL。
+ * @param {string} audioSrc - 音频文件路径。
+ * @param {string} srtSrc - SRT 字幕文件路径。
+ * @param {Array<Object>} [initialSubtitleData] - 可选：如果字幕数据已经加载，可以直接传入。
  */
-export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  // 创建音频播放器
-  audio = document.createElement('audio');
-  audio.src = audioSrc;
-  audio.controls = true;
-  audio.style.position = 'fixed';
-  audio.style.bottom = '20px';
-  audio.style.left = '50%';
-  audio.style.transform = 'translateX(-50%)';
-  audio.style.zIndex = 9999;
-  audio.style.width = '90%';
-  audio.style.maxWidth = '600px';
-  document.body.appendChild(audio);
-
-  // 加载并解析 SRT 字幕
-  try {
-    const res = await fetch(srtSrc);
-    const srtText = await res.text();
-    subtitleData = parseSRT(srtText);
-  } catch (error) {
-    console.error('加载或解析SRT文件失败:', error);
-    return;
+export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = null }) {
+  // 移除旧的音频播放器（如果有的话），防止重复创建
+  const existingAudio = document.querySelector('audio');
+  if (existingAudio) {
+    existingAudio.remove();
   }
 
-  // 建立词到字幕句子的映射
-  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
+  audio = document.createElement('audio');
+  Object.assign(audio, {
+    src: audioSrc,
+    controls: true,
+    style: 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;width:90%;max-width:600px;',
+  });
+  document.body.appendChild(audio);
 
-  // 注册点击事件监听器
+  // 如果字幕数据已经通过参数传入，则直接使用，否则加载并解析
+  if (initialSubtitleData && initialSubtitleData.length > 0) {
+    subtitleData = initialSubtitleData;
+  } else {
+    try {
+      const res = await fetch(srtSrc);
+      const srtText = await res.text();
+      subtitleData = parseSRT(srtText);
+    } catch (error) {
+      console.error('加载或解析SRT失败:', error);
+      return;
+    }
+  }
+
+
+  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
+  
+  // 将事件监听器绑定到 body 上，并只处理带有 data-subtitle-id 的元素的点击
+  // 这会利用事件冒泡
   document.body.addEventListener('click', handleWordClick);
 
-  // 播放进度更新时自动高亮当前字幕句子
+  // 在初始化时获取所有章节内容中的文本节点，用于高亮
+  allContentTextNodes = [];
+  const chapterContainer = document.getElementById('chapters');
+  if (chapterContainer) {
+    const walker = document.createTreeWalker(chapterContainer, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while ((node = walker.nextNode())) {
+      allContentTextNodes.push(node);
+    }
+  }
+
+
   let lastIndex = null;
   audio.addEventListener('timeupdate', () => {
     const currentTime = audio.currentTime;
-
     const index = subtitleData.findIndex(
-      (sub, i) =>
-        currentTime >= sub.start &&
-        (i === subtitleData.length - 1 || currentTime < subtitleData[i + 1].start)
+      (sub, i) => currentTime >= sub.start && (i === subtitleData.length - 1 || currentTime < subtitleData[i + 1].start)
     );
-
     if (index !== -1 && index !== lastIndex) {
       lastIndex = index;
-
-      // 清除所有旧高亮
-      document.querySelectorAll('.highlighted').forEach(el => {
-        // 恢复原始文本内容
-        const parent = el.parentNode;
-        if (parent) {
-          // 将 span 内部的文本节点移到 span 外部
-          while (el.firstChild) {
-            parent.insertBefore(el.firstChild, el);
-          }
-          parent.removeChild(el); // 移除空的 span
-          // 清理可能因为文本节点合并产生的多余空白节点，可选
-          parent.normalize();
-        }
-      });
-
+      clearAllHighlights();
       const { text } = subtitleData[index];
-      const el = findVisibleTextNodeNearText(text);
-      if (el) {
-        highlightTextInElement(el, text);
-        requestAnimationFrame(() => {
-          el.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        });
+      // 调用 findAndHighlightTextInChapterContent 函数进行高亮
+      const highlightedElement = findAndHighlightTextInChapterContent(text);
+      if (highlightedElement) {
+        requestAnimationFrame(() => highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       }
     }
   });
@@ -85,184 +80,124 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   console.log('音频播放器初始化完成。');
 }
 
-/**
- * 构建单词到字幕句子索引的映射表
- */
 function buildWordToSubtitleMap(subs) {
   const map = [];
   subs.forEach((subtitle, i) => {
-    if (typeof subtitle.text === 'string') {
-      const words = tokenizeText(subtitle.text);
-      words.forEach(({ word }) => {
-        map.push({ word: word.toLowerCase(), index: i });
-      });
-    }
+    const words = tokenizeText(subtitle.text.toLowerCase());
+    words.forEach(({ word }) => {
+      map.push({ word, index: i });
+    });
   });
   return map;
 }
 
-/**
- * 处理点击单词事件，跳转并播放对应句子
- */
 function handleWordClick(e) {
-  const target = e.target;
-  if (!target || !target.textContent) return;
+  // 只处理点击带有 data-subtitle-id 属性的元素
+  const targetElement = e.target.closest('[data-subtitle-id]');
 
-  // 避免点击到高亮元素本身，或者过长的内容
-  if (target.classList.contains('highlighted') || target.textContent.trim().length > 30) {
-    // 如果点击的是已高亮的元素，尝试获取其父级的文本内容
-    const parentText = target.parentNode?.textContent?.trim().toLowerCase();
-    const clickedWord = target.textContent.trim().toLowerCase();
+  if (targetElement && targetElement.dataset.subtitleId) {
+    const subtitleIndex = parseInt(targetElement.dataset.subtitleId, 10);
     
-    // 如果父级文本中包含被点击的词，并且该父级不是body，则认为是有效点击
-    if (parentText && parentText.includes(clickedWord) && target.parentNode !== document.body) {
-        // 这里需要更复杂的逻辑来找到实际的字幕容器，
-        // 暂时先跳过，让它在 findBestSubtitleMatch 中处理
-        // 或者直接尝试从父级找到最近的字幕文本
-    } else {
-        return; // 否则，不处理点击
-    }
-  }
+    // 确保点击的 ID 在 subtitleData 范围内
+    if (subtitleIndex >= 0 && subtitleIndex < subtitleData.length) {
+        const { start, text } = subtitleData[subtitleIndex];
+        audio.currentTime = start;
+        audio.play();
 
-  const clickedWord = target.textContent.trim().toLowerCase();
-  if (!clickedWord) return;
-
-  const possibleMatches = wordToSubtitleMap
-    .filter(entry => entry.word === clickedWord);
-
-  if (possibleMatches.length === 0) return;
-
-  const closestIndex = findBestSubtitleMatch(target, possibleMatches);
-  if (closestIndex !== null) {
-    const { start, text } = subtitleData[closestIndex];
-    audio.currentTime = start;
-    audio.play();
-
-    // 清除所有旧高亮（调用前移到timeupdate或这里，并确保清理逻辑正确）
-    document.querySelectorAll('.highlighted').forEach(el => {
-        const parent = el.parentNode;
-        if (parent) {
-            while (el.firstChild) {
-                parent.insertBefore(el.firstChild, el);
-            }
-            parent.removeChild(el);
-            parent.normalize();
+        clearAllHighlights();
+        // 重新高亮点击的文本对应的字幕文本
+        const highlightedElement = findAndHighlightTextInChapterContent(text);
+        if (highlightedElement) {
+            highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    });
-
-    const subtitleElement = findVisibleTextNodeNearText(text);
-    if (subtitleElement) {
-      highlightTextInElement(subtitleElement, text);
-      subtitleElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
     }
   }
+  // 如果没有点击到带有 data-subtitle-id 的元素，则不做任何操作
 }
 
-/**
- * 选择与点击位置最接近的字幕句子
- */
-function findBestSubtitleMatch(target, matches) {
-  const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
 
-  let closestIndex = null;
-  let minDistance = Infinity;
-
-  matches.forEach(({ index }) => {
-    const sText = subtitleData[index].text;
-    const foundNode = findVisibleTextNodeNearText(sText);
-    if (foundNode) {
-      const offset = foundNode.getBoundingClientRect().top + window.scrollY;
-      const dist = Math.abs(offset - clickedOffset);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestIndex = index;
+function clearAllHighlights() {
+  document.querySelectorAll('.highlighted').forEach(el => {
+    const parent = el.parentNode;
+    if (parent) {
+      // 检查 el.firstChild 是否存在，以防万一元素已经被清空
+      while (el.firstChild) {
+        parent.insertBefore(el.firstChild, el);
       }
+      parent.removeChild(el);
+      // parent.normalize() 合并相邻的文本节点，这对于高亮清除很重要
+      parent.normalize();
     }
   });
-
-  return closestIndex;
 }
 
 /**
- * 查找页面中包含给定字幕文本的节点
- * 优化：查找时也应考虑 .highlighted 元素的父级，因为高亮会改变DOM结构
+ * 在整个章节内容中查找并高亮指定的文本。
+ * 返回被高亮的最外层元素（通常是 <p> 或 <div>）。
+ * @param {string} targetText - 要查找和高亮的字幕文本。
+ * @returns {HTMLElement|null} - 包含高亮文本的最近祖先元素，如果找到并高亮，否则为 null。
  */
-function findVisibleTextNodeNearText(text) {
-  // 首先尝试查找未被高亮的原始文本节点或其容器
-  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
-  for (const node of nodes) {
-    // 检查节点文本内容是否包含目标文本
-    // 排除已经高亮的span自身，我们想要找到的是包裹高亮span的父级容器
-    if (node.textContent && node.textContent.includes(text) && !node.classList.contains('highlighted')) {
-      return node;
-    }
-  }
-
-  // 如果直接查找不到，可能是因为文本已经被高亮过，高亮文本被包裹在 .highlighted span 中
-  // 此时需要找到包含这个高亮 span 的父级
-  const highlightedSpans = Array.from(document.querySelectorAll('.highlighted'));
-  for (const span of highlightedSpans) {
-    // 检查高亮 span 的父级是否包含目标文本
-    if (span.parentNode && span.parentNode.textContent && span.parentNode.textContent.includes(text)) {
-      return span.parentNode;
-    }
-  }
-
-  return null;
-}
-
-/**
- * 高亮指定 DOM 元素中的目标文本（只变字体颜色）
- * 使用 TreeWalker 和 Range API 增强精确性
- */
-function highlightTextInElement(el, targetText) {
-  if (!el || !targetText) return;
-
-  // 清理现有高亮，确保每次高亮是干净的。
-  // 注意：这个清除逻辑应该在调用 highlightTextInElement 之前进行，
-  // 否则这里清除后，下面又重新高亮，可能导致重复操作或冲突。
-  // 我已经在 timeupdate 和 handleWordClick 中加入了更全面的清除逻辑。
-
+function findAndHighlightTextInChapterContent(targetText) {
   const targetLower = targetText.trim().toLowerCase();
 
-  // 使用 TreeWalker 遍历所有文本节点
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
-
-  while (walker.nextNode()) {
-    const textNode = walker.currentNode;
+  // 遍历所有可搜索的文本节点
+  for (const textNode of allContentTextNodes) {
     const text = textNode.nodeValue;
-    // 确保我们没有尝试在高亮span内部的文本节点上再次高亮
-    if (textNode.parentNode && textNode.parentNode.classList.contains('highlighted')) {
-        continue;
+    // 避免高亮已经高亮过的区域或其内部
+    if (textNode.parentNode?.classList.contains('highlighted')) {
+      continue;
     }
 
     const index = text.toLowerCase().indexOf(targetLower);
-
     if (index !== -1) {
       const range = document.createRange();
-      range.setStart(textNode, index);
-      range.setEnd(textNode, index + targetLower.length);
-
-      const span = document.createElement('span');
-      span.className = 'highlighted';
-      // 样式直接在 JS 中设置，确保生效，但建议放入 CSS 文件
-      span.style.color = '#d60000';
-      span.style.fontWeight = 'bold';
-      
       try {
+        range.setStart(textNode, index);
+        range.setEnd(textNode, index + targetLower.length);
+        const span = document.createElement('span');
+        span.className = 'highlighted'; // 这里的 'highlighted' 用于音频播放时的高亮
         range.surroundContents(span);
-        // 成功高亮后停止，因为我们通常只高亮字幕的一个匹配项
-        break; 
+
+        // 返回包含高亮span的最接近的父级章节内容元素 (例如 <p>, <div> 等)
+        // 向上查找最近的非 'subtitle-click-segment' 或 'highlighted' 的父元素，
+        // 确保滚动到的是段落级别而不是内部的小 span
+        let currentParent = span.parentNode;
+        while (currentParent && !currentParent.id && !currentParent.classList.contains('chapter-content-block')) { 
+            // 假设章节的主要内容块有 'chapter-content-block' 类或者是一个 p 标签
+            // 或者你需要根据你的章节结构调整这里的条件，例如：
+            // currentParent.tagName.toLowerCase() !== 'body' && !['p', 'div', 'h1', 'h2', 'h3'].includes(currentParent.tagName.toLowerCase())
+            // 简单起见，可以考虑回到最初的逻辑：找到第一个非 Span 的父元素
+            if (currentParent.tagName.toLowerCase() === 'p' || currentParent.tagName.toLowerCase() === 'div' || currentParent.tagName.toLowerCase() === 'h1' || currentParent.tagName.toLowerCase() === 'h2' || currentParent.tagName.toLowerCase() === 'h3') {
+                return currentParent;
+            }
+            currentParent = currentParent.parentNode;
+        }
+        return currentParent; // 最终返回找到的父元素，如果没找到合适的，可能是 body 或 null
       } catch (e) {
-        // 捕获可能的 HierarchyRequestError，例如当Range跨越非文本节点时
-        console.warn('高亮文本失败 (Range API Error):', e, '文本:', targetText, '节点:', textNode);
-        // 尝试回退到旧的innerHTML方式（如果需要，但推荐修复结构问题）
-        // 或者简单地跳过当前高亮，继续寻找下一个
-        continue; 
+        // console.warn('高亮失败:', e, '文本:', targetText, '节点:', textNode);
+        return null;
       }
     }
   }
+  return null; // 未找到匹配的文本
+}
+
+
+function computeLevenshteinSimilarity(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0 || n === 0) return 0;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  const dist = dp[m][n];
+  return 1 - dist / Math.max(m, n);
 }
