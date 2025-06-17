@@ -1,18 +1,15 @@
-// js/tooltip.js
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 
-// 合并 marked.setOptions: 确保 sanitize: false 被保留以允许 HTML 注入
 marked.setOptions({
   gfm: true,
   breaks: true,
-  // 新增/确认：允许 marked 解析我们注入的 HTML
   sanitize: false,
   sanitizer: (html) => html,
 });
 
 let _currentHideTimeout = null;
 let _currentActiveTooltipSpan = null;
-let _activeChapterTooltipsData = {}; // 存储当前章节的工具提示数据
+let _activeChapterTooltipsData = {};
 
 export function renderMarkdownWithTooltips(
     md,
@@ -24,6 +21,8 @@ export function renderMarkdownWithTooltips(
 ) {
     const customSpanPlaceholders = {};
     let placeholderCounter = 0;
+
+    // 处理 [[word|tooltipId]] 的自定义标记
     const customTooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
     let mdWithCustomSpans = md.replace(customTooltipPattern, (match, word, tooltipId) => {
         const lowerWord = word.toLowerCase();
@@ -38,12 +37,10 @@ export function renderMarkdownWithTooltips(
         return placeholder;
     });
 
+    // 自动高亮普通词
     const regularWordPattern = /\b([a-zA-Z0-9'-]+)\b/g;
-
     let finalProcessedMd = mdWithCustomSpans.replace(regularWordPattern, (match) => {
-        if (customSpanPlaceholders[match]) {
-            return match;
-        }
+        if (customSpanPlaceholders[match]) return match;
         const lowerMatch = match.toLowerCase();
         const freq = wordFrequenciesMap.get(lowerMatch) || 0;
         let fontSizeStyle = '';
@@ -59,12 +56,12 @@ export function renderMarkdownWithTooltips(
         return match;
     });
 
+    // 替换占位符为真实 span
     Object.keys(customSpanPlaceholders).forEach(placeholder => {
         const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
         finalProcessedMd = finalProcessedMd.replace(regex, customSpanPlaceholders[placeholder]);
     });
 
-    // 关键：marked.parse 会保留我们预先注入的 .subtitle-segment 标签
     return marked.parse(finalProcessedMd);
 }
 
@@ -73,11 +70,10 @@ export function setupTooltips() {
     const contentContainer = document.getElementById('chapters') || document.body;
 
     if (!tooltipDiv) {
-        console.warn('Tooltip container #react-tooltips not found. Tooltips may not display.');
+        console.warn('Tooltip container #react-tooltips not found.');
         return;
     }
 
-    // Remove old event listeners to prevent duplicates
     if (window._tooltipGlobalClickListener) {
         document.removeEventListener('click', window._tooltipGlobalClickListener);
     }
@@ -91,7 +87,7 @@ export function setupTooltips() {
         tooltipDiv.removeEventListener('mouseenter', tooltipDiv._mouseEnterListener);
     }
 
-    contentContainer.addEventListener('click', function(e) {
+    contentContainer.addEventListener('click', function (e) {
         const targetSpan = e.target.closest('.word');
         if (targetSpan) {
             showTooltip(e, targetSpan);
@@ -137,112 +133,93 @@ export function setupTooltips() {
 
         _currentActiveTooltipSpan = clickedSpan;
         const tooltipId = clickedSpan.dataset.tooltipId;
-
         const data = _activeChapterTooltipsData[tooltipId];
-        console.log('--- showTooltip Debug Info ---');
-        console.log('Tooltip ID:', tooltipId);
-        console.log('Fetched Tooltip Data:', data);
 
-        if (data) {
-            let htmlContent = '';
-            // Adjust fieldsOrder to separate 'image' and 'imageDescription'
-            const fieldsOrder = [
-                'word', 'title', 'partOfSpeech', 'pronunciation', 'definition',
-                'contextualMeaning', 'exampleSentence', 'videoLink',
-                'image', // Image path itself
-                'imageDescription', // Text description of the image
-                'synonyms', 'antonyms', 'etymology',
-                'category', 'source', 'lastUpdated'
-            ];
-
-            fieldsOrder.forEach(field => {
-                const value = data[field];
-                console.log(`Processing field: "${field}", Value:`, value); // Debug: log each field and its value
-
-                // Only attempt to render if value is not empty or undefined
-                if (value === undefined || value === null || value === '') {
-                    console.log(`Field "${field}" is empty or not present, skipping.`);
-                    return;
-                }
-
-                let formattedValue = Array.isArray(value) ? value.join(', ') : value;
-
-                // --- Explicitly handle each field ---
-                if (field === 'word' || field === 'title') {
-                    htmlContent += `<p class="tooltip-title"><strong>${formattedValue}</strong></p>`;
-                } else if (field === 'partOfSpeech') {
-                    htmlContent += `<p class="tooltip-pos">(${formattedValue})</p>`;
-                } else if (field === 'pronunciation') {
-                    htmlContent += `<p class="tooltip-pronunciation">/${formattedValue}/</p>`;
-                } else if (field === 'definition') {
-                    htmlContent += `<p class="tooltip-definition">${formattedValue}</p>`;
-                } else if (field === 'contextualMeaning') {
-                    htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formattedValue}</em></p>`; // Changed prefix
-                } else if (field === 'exampleSentence') {
-                    htmlContent += `<p class="tooltip-example"><strong>example:</strong> ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'videoLink') {
-                    const videoId = extractVideoId(formattedValue);
-                    if (videoId) {
-                         // 修正了 YouTube 嵌入链接的语法，确保 videoId 正确插入
-                         htmlContent += `<div class="tooltip-video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" frameborder="0" allowfullscreen></iframe></div>`;
-                         console.log(`Rendered video for ${tooltipId} from: ${formattedValue}`);
-                    } else {
-                        console.warn(`Could not extract video ID from: ${formattedValue}`);
-                    }
-                } else if (field === 'image') { // NEW: Handle image path independently
-                    htmlContent += `<img src="${formattedValue}" alt="Tooltip Image" class="tooltip-image">`;
-                    console.log(`Rendered image for ${tooltipId} from: ${formattedValue}`);
-                } else if (field === 'imageDescription') { // NEW: Handle image description independently
-                    htmlContent += `<p class="tooltip-image-description-text"><strong>ImageDescription:</strong> ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'synonyms') {
-                    htmlContent += `<p class="tooltip-synonyms"><strong>synonyms:</strong> ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'antonyms') {
-                    htmlContent += `<p class="tooltip-antonyms"><strong>antonyms:</strong> ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'etymology') {
-                    htmlContent += `<p class="tooltip-etymology">Etymology: ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'category') {
-                    htmlContent += `<p class="tooltip-category">Category: ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'source') {
-                    htmlContent += `<p class="tooltip-source">Source: ${formattedValue}</p>`; // Changed prefix
-                } else if (field === 'lastUpdated') {
-                    htmlContent += `<p class="tooltip-last-updated">Updated: ${formattedValue}</p>`; // Changed prefix
-                } else {
-                    // This block should rarely be triggered if all expected fields are handled
-                    console.warn(`Unhandled field encountered: "${field}" with value: "${value}". Please add a specific handler for it.`);
-                    htmlContent += `<p class="tooltip-unhandled-field"><strong>${field.replace(/([A-Z])/g, ' $1').trim()}:</strong> ${formattedValue}</p>`;
-                }
-            });
-
-            if (!htmlContent) {
-                htmlContent = `<p>No detailed information available for "${tooltipId}".</p>`;
-            }
-
-            tooltipDiv.innerHTML = htmlContent;
-            tooltipDiv.style.display = 'block';
-            tooltipDiv.classList.add('visible');
-
-            // Positioning logic remains unchanged
-            const spanRect = clickedSpan.getBoundingClientRect();
-            const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-            const scrollX = window.scrollX || window.pageXOffset;
-            const scrollY = window.scrollY || window.pageYOffset;
-
-            let left = spanRect.left + scrollX + (spanRect.width / 2) - (tooltipDiv.offsetWidth / 2);
-            let top = spanRect.top + scrollY - tooltipDiv.offsetHeight - 10;
-
-            if (left < scrollX + 10) left = scrollX + 10;
-            if (left + tooltipDiv.offsetWidth > scrollX + viewportWidth - 10) left = scrollX + viewportWidth - tooltipDiv.offsetWidth - 10;
-            if (top < scrollY + 10) top = spanRect.bottom + scrollY + 10;
-
-            tooltipDiv.style.left = `${left}px`;
-            tooltipDiv.style.top = `${top}px`;
-
-        } else {
-            console.warn(`Tooltip data not found for ID: ${tooltipId}. Current active data:`, _activeChapterTooltipsData);
+        if (!data) {
+            console.warn(`Tooltip data not found for ID: ${tooltipId}`);
             hideTooltip();
+            return;
         }
-        console.log('--- showTooltip Debug End ---');
+
+        const fieldsOrder = [
+            'word', 'title', 'partOfSpeech', 'pronunciation', 'definition',
+            'contextualMeaning', 'exampleSentence', 'videoLink',
+            'image', 'imageDescription',
+            'synonyms', 'antonyms', 'etymology',
+            'category', 'source', 'lastUpdated'
+        ];
+
+        let htmlContent = '';
+        fieldsOrder.forEach(field => {
+            const value = data[field];
+            if (!value) return;
+
+            const formatted = Array.isArray(value) ? value.join(', ') : value;
+
+            if (field === 'word' || field === 'title') {
+                htmlContent += `<p class="tooltip-title"><strong>${formatted}</strong></p>`;
+            } else if (field === 'partOfSpeech') {
+                htmlContent += `<p class="tooltip-pos">(${formatted})</p>`;
+            } else if (field === 'pronunciation') {
+                htmlContent += `<p class="tooltip-pronunciation">/${formatted}/</p>`;
+            } else if (field === 'definition') {
+                htmlContent += `<p class="tooltip-definition">${formatted}</p>`;
+            } else if (field === 'contextualMeaning') {
+                htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formatted}</em></p>`;
+            } else if (field === 'exampleSentence') {
+                htmlContent += `<p class="tooltip-example"><strong>example:</strong> ${formatted}</p>`;
+            } else if (field === 'videoLink') {
+                const videoId = extractVideoId(formatted);
+                if (videoId) {
+                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" frameborder="0" allowfullscreen></iframe></div>`;
+                }
+            } else if (field === 'image') {
+                htmlContent += `<img src="${formatted}" alt="Tooltip Image" class="tooltip-image">`;
+            } else if (field === 'imageDescription') {
+                htmlContent += `<p class="tooltip-image-description-text"><strong>ImageDescription:</strong> ${formatted}</p>`;
+            } else if (field === 'synonyms') {
+                htmlContent += `<p class="tooltip-synonyms"><strong>synonyms:</strong> ${formatted}</p>`;
+            } else if (field === 'antonyms') {
+                htmlContent += `<p class="tooltip-antonyms"><strong>antonyms:</strong> ${formatted}</p>`;
+            } else if (field === 'etymology') {
+                htmlContent += `<p class="tooltip-etymology">Etymology: ${formatted}</p>`;
+            } else if (field === 'category') {
+                htmlContent += `<p class="tooltip-category">Category: ${formatted}</p>`;
+            } else if (field === 'source') {
+                htmlContent += `<p class="tooltip-source">Source: ${formatted}</p>`;
+            } else if (field === 'lastUpdated') {
+                htmlContent += `<p class="tooltip-last-updated">Updated: ${formatted}</p>`;
+            }
+        });
+
+        if (!htmlContent) {
+            htmlContent = `<p>No detailed information available for "${tooltipId}".</p>`;
+        }
+
+        tooltipDiv.innerHTML = htmlContent;
+        tooltipDiv.style.display = 'block';
+        tooltipDiv.classList.add('visible');
+
+        // 定位 tooltip
+        const spanRect = clickedSpan.getBoundingClientRect();
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        let left = spanRect.left + scrollX + (spanRect.width / 2) - (tooltipDiv.offsetWidth / 2);
+        let top = spanRect.top + scrollY - tooltipDiv.offsetHeight - 10;
+
+        if (left < scrollX + 10) left = scrollX + 10;
+        if (left + tooltipDiv.offsetWidth > scrollX + viewportWidth - 10) {
+            left = scrollX + viewportWidth - tooltipDiv.offsetWidth - 10;
+        }
+        if (top < scrollY + 10) {
+            top = spanRect.bottom + scrollY + 10;
+        }
+
+        tooltipDiv.style.left = `${left}px`;
+        tooltipDiv.style.top = `${top}px`;
     }
 
     function hideTooltip() {
@@ -252,11 +229,10 @@ export function setupTooltips() {
             setTimeout(() => {
                 tooltipDiv.style.display = 'none';
                 _currentActiveTooltipSpan = null;
-            }, 300); // Matches CSS transition time
-        }, 100); // Delay hide to allow user to move mouse to tooltip
+            }, 300);
+        }, 100);
     }
 
-    // Helper function: Extracts video ID from YouTube URL
     function extractVideoId(url) {
         const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|\?(?:v=)|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
         const match = url.match(regExp);
@@ -264,7 +240,6 @@ export function setupTooltips() {
     }
 }
 
-// updateActiveChapterTooltips 函数完全没有变化
 export function updateActiveChapterTooltips(tooltipsData) {
     _activeChapterTooltipsData = tooltipsData || {};
     console.log("Tooltip module: Active tooltip data updated.", _activeChapterTooltipsData);
