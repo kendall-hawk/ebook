@@ -3,12 +3,6 @@ import { tokenizeText } from './tokenizer.js';
 
 let audio, subtitleData = [], wordToSubtitleMap = [];
 
-/**
- * 初始化音频播放器，创建音频元素并加载字幕。
- * @param {object} options - 配置选项。
- * @param {string} options.audioSrc - 音频文件的 URL。
- * @param {string} options.srtSrc - SRT 字幕文件的 URL。
- */
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
   // 创建音频播放器
   audio = document.createElement('audio');
@@ -23,7 +17,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   audio.style.maxWidth = '600px';
   document.body.appendChild(audio);
 
-  // 加载并解析 SRT 字幕
+  // 加载并解析字幕
   try {
     const res = await fetch(srtSrc);
     const srtText = await res.text();
@@ -33,67 +27,28 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
     return;
   }
 
-  // 建立词到字幕句子的映射
   wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
-
-  // 注册点击事件监听器
   document.body.addEventListener('click', handleWordClick);
-
-  // 播放进度更新时自动高亮当前字幕句子
-  let lastIndex = null;
-  audio.addEventListener('timeupdate', () => {
-    const currentTime = audio.currentTime;
-
-    const index = subtitleData.findIndex(
-      (sub, i) =>
-        currentTime >= sub.start &&
-        (i === subtitleData.length - 1 || currentTime < subtitleData[i + 1].start)
-    );
-
-    if (index !== -1 && index !== lastIndex) {
-      lastIndex = index;
-
-      // 清除所有旧高亮
-      document.querySelectorAll('.highlighted').forEach(el =>
-        el.classList.remove('highlighted')
-      );
-
-      const { text } = subtitleData[index];
-      const el = findVisibleTextNodeNearText(text);
-      if (el) {
-        highlightTextInElement(el, text);
-        requestAnimationFrame(() => {
-          el.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        });
-      }
-    }
-  });
 
   console.log('音频播放器初始化完成。');
 }
 
-/**
- * 构建单词到字幕句子索引的映射表
- */
 function buildWordToSubtitleMap(subs) {
   const map = [];
   subs.forEach((subtitle, i) => {
     if (typeof subtitle.text === 'string') {
       const words = tokenizeText(subtitle.text);
       words.forEach(({ word }) => {
-        map.push({ word: word.toLowerCase(), index: i });
+        map.push({
+          word: word.toLowerCase(),
+          index: i,
+        });
       });
     }
   });
   return map;
 }
 
-/**
- * 处理点击单词事件，跳转并播放对应句子
- */
 function handleWordClick(e) {
   const target = e.target;
   if (!target || !target.textContent) return;
@@ -101,9 +56,7 @@ function handleWordClick(e) {
   const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const possibleMatches = wordToSubtitleMap
-    .filter(entry => entry.word === clickedWord);
-
+  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
   if (possibleMatches.length === 0) return;
 
   const closestIndex = findBestSubtitleMatch(target, possibleMatches);
@@ -112,28 +65,20 @@ function handleWordClick(e) {
     audio.currentTime = start;
     audio.play();
 
-    // 清除所有旧高亮
-    document.querySelectorAll('.highlighted').forEach(el =>
-      el.classList.remove('highlighted')
-    );
-
     const subtitleElement = findVisibleTextNodeNearText(text);
     if (subtitleElement) {
+      clearAllHighlights();
       highlightTextInElement(subtitleElement, text);
       subtitleElement.scrollIntoView({
         behavior: 'smooth',
-        block: 'center',
+        block: 'center'
       });
     }
   }
 }
 
-/**
- * 选择与点击位置最接近的字幕句子
- */
 function findBestSubtitleMatch(target, matches) {
   const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
-
   let closestIndex = null;
   let minDistance = Infinity;
 
@@ -153,9 +98,6 @@ function findBestSubtitleMatch(target, matches) {
   return closestIndex;
 }
 
-/**
- * 查找页面中包含给定字幕文本的节点
- */
 function findVisibleTextNodeNearText(text) {
   const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
   for (const node of nodes) {
@@ -166,19 +108,38 @@ function findVisibleTextNodeNearText(text) {
   return null;
 }
 
-/**
- * 高亮指定 DOM 元素中的目标文本（只变字体颜色）
- */
+function clearAllHighlights() {
+  document.querySelectorAll('.highlighted').forEach(el => {
+    const parent = el.parentNode;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+    parent.normalize(); // 合并文本节点
+  });
+}
+
 function highlightTextInElement(el, targetText) {
   if (!el || !targetText) return;
 
-  const html = el.innerHTML;
-  const escapedText = targetText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex
-  const regex = new RegExp(escapedText, 'i');
+  const targetLower = targetText.trim().toLowerCase();
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
 
-  const newHTML = html.replace(regex, match => {
-    return `<span class="highlighted" style="color: #d60000; font-weight: bold;">${match}</span>`;
-  });
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const text = textNode.nodeValue;
+    const index = text.toLowerCase().indexOf(targetLower);
 
-  el.innerHTML = newHTML;
+    if (index !== -1) {
+      const range = document.createRange();
+      range.setStart(textNode, index);
+      range.setEnd(textNode, index + targetLower.length);
+
+      const span = document.createElement('span');
+      span.className = 'highlighted';
+      span.style.color = '#d60000';
+      span.style.fontWeight = 'bold';
+
+      range.surroundContents(span);
+      break;
+    }
+  }
 }
