@@ -1,87 +1,85 @@
-Import { parseSRT } from './srtParser.js';
+import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
 let audio;
 let subtitleData = [];
-let invertedIndex = new Map();
+let wordToSubtitleMap = [];
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  // 初始化音频播放器
+  // 创建音频播放器
   audio = document.createElement('audio');
-  audio.src = audioSrc;
-  audio.controls = true;
-  audio.style.position = 'fixed';
-  audio.style.bottom = '20px';
-  audio.style.left = '50%';
-  audio.style.transform = 'translateX(-50%)';
-  audio.style.zIndex = 9999;
-  audio.style.width = '90%';
-  audio.style.maxWidth = '600px';
+  Object.assign(audio, {
+    src: audioSrc,
+    controls: true,
+  });
+  Object.assign(audio.style, {
+    position: 'fixed',
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 9999,
+    width: '90%',
+    maxWidth: '600px'
+  });
   document.body.appendChild(audio);
 
-  // 加载字幕并建立倒排索引
+  // 加载并解析字幕文件
   const res = await fetch(srtSrc);
   const srtText = await res.text();
   subtitleData = parseSRT(srtText);
-  buildInvertedIndex(subtitleData);
 
-  // 添加点击监听（委托）
+  // 构建词→字幕索引的映射
+  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
+
+  // 监听点击词汇事件
   document.body.addEventListener('click', handleWordClick);
 }
 
-function buildInvertedIndex(subs) {
-  invertedIndex.clear();
-  subs.forEach((subtitle, i) => {
-    const words = tokenizeText(subtitle.text);
+function buildWordToSubtitleMap(subtitles) {
+  const map = [];
+  subtitles.forEach((sub, index) => {
+    const words = tokenizeText(sub.text);
     words.forEach(({ word }) => {
-      const lower = word.toLowerCase();
-      if (!invertedIndex.has(lower)) {
-        invertedIndex.set(lower, new Set());
-      }
-      invertedIndex.get(lower).add(i);
+      map.push({ word: word.toLowerCase(), index });
     });
   });
+  return map;
 }
 
 function handleWordClick(e) {
   const target = e.target;
   if (!target || !target.classList.contains('word')) return;
 
-  const clickedWord = target.dataset.word?.trim().toLowerCase();
+  const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const possibleIndexes = invertedIndex.get(clickedWord);
-  if (!possibleIndexes || possibleIndexes.size === 0) return;
+  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
+  if (possibleMatches.length === 0) return;
 
-  const matches = Array.from(possibleIndexes).map(index => ({
-    word: clickedWord,
-    index
-  }));
-
-  const bestIndex = findBestSubtitleMatch(target, matches);
-  if (bestIndex !== null) {
-    const { start, text } = subtitleData[bestIndex];
-    highlightAndScrollToText(text, clickedWord);
+  const closest = findBestSubtitleMatch(target, possibleMatches);
+  if (closest !== null) {
+    const { start } = subtitleData[closest];
     audio.currentTime = start;
     audio.play();
+
+    scrollToSubtitle(closest);      // ✅ 滚动到字幕句子
+    highlightSubtitle(closest);    // ✅ 高亮字幕句子
   }
 }
 
 function findBestSubtitleMatch(target, matches) {
-  const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
+  const clickedTop = target.getBoundingClientRect().top + window.scrollY;
+
   let closestIndex = null;
-  let minScore = Infinity;
+  let minDistance = Infinity;
 
   matches.forEach(({ index }) => {
-    const subtitle = subtitleData[index];
-    const node = findVisibleTextNodeNearText(subtitle.text);
+    const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
     if (node) {
-      const offset = node.getBoundingClientRect().top + window.scrollY;
-      const distance = Math.abs(offset - clickedOffset);
-      const textDistance = levenshtein(target.textContent, subtitle.text);
-      const score = distance + textDistance * 5; // 可调权重
-      if (score < minScore) {
-        minScore = score;
+      const nodeTop = node.getBoundingClientRect().top + window.scrollY;
+      const dist = Math.abs(clickedTop - nodeTop);
+      if (dist < minDistance) {
+        minDistance = dist;
         closestIndex = index;
       }
     }
@@ -90,61 +88,23 @@ function findBestSubtitleMatch(target, matches) {
   return closestIndex;
 }
 
-function findVisibleTextNodeNearText(text) {
-  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
-  for (const node of nodes) {
-    if (node.innerText && node.innerText.includes(text)) {
-      return node;
-    }
-  }
-  return null;
-}
-
-function highlightAndScrollToText(text, targetWord) {
-  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
-
-  // 移除现有高亮
-  nodes.forEach(n => n.classList.remove('highlight'));
-  document.querySelectorAll('.word').forEach(w => w.classList.remove('highlight'));
-
-  // 匹配字幕文本的段落
-  for (const node of nodes) {
-    if (node.innerText && node.innerText.includes(text)) {
-      node.classList.add('highlight');
-
-      // 高亮匹配单词
-      const wordSpans = node.querySelectorAll(`.word[data-word="${targetWord}"]`);
-      wordSpans.forEach(span => span.classList.add('highlight'));
-
-      // 滚动到第一个匹配单词
-      if (wordSpans.length > 0) {
-        wordSpans[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-
-      break;
-    }
+function scrollToSubtitle(index) {
+  const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
+  if (node) {
+    node.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
   }
 }
 
-// Levenshtein distance
-function levenshtein(a, b) {
-  const dp = Array.from({ length: a.length + 1 }, () =>
-    new Array(b.length + 1).fill(0)
-  );
+function highlightSubtitle(index) {
+  // 移除之前高亮的句子
+  document.querySelectorAll('.sentence.active-sentence')
+    .forEach(el => el.classList.remove('active-sentence'));
 
-  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
-  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
-
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      dp[i][j] =
-        a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1]
-          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
+  const node = document.querySelector(`.sentence[data-sub-index="${index}"]`);
+  if (node) {
+    node.classList.add('active-sentence');
   }
-
-  return dp[a.length][b.length];
 }
