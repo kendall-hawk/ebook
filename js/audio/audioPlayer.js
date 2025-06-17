@@ -1,4 +1,4 @@
-// js/audio/audioPlayer.js (弹性匹配版)
+// js/audio/audioPlayer.js (Jaro-Winkler 弹性匹配版)
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
@@ -6,13 +6,13 @@ let audio, subtitleData = [];
 let allContentTextNodes = []; // 存储所有可搜索的文本节点
 
 /**
- * 初始化音频播放器，创建音频元素并加载字幕。
- * @param {string} audioSrc - 音频文件路径。
- * @param {string} srtSrc - SRT 字幕文件路径。
- * @param {Array<Object>} [initialSubtitleData] - 可选：如果字幕数据已经加载，可以直接传入。
+ * Initializes the audio player, creates the audio element, and loads subtitles.
+ * @param {string} audioSrc - Path to the audio file.
+ * @param {string} srtSrc - Path to the SRT subtitle file.
+ * @param {Array<Object>} [initialSubtitleData] - Optional: If subtitle data is already loaded, it can be passed directly.
  */
 export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = null }) {
-  // 移除旧的音频播放器（如果有的话），防止重复创建
+  // Remove existing audio player (if any) to prevent duplication
   const existingAudio = document.querySelector('audio');
   if (existingAudio) {
     existingAudio.remove();
@@ -26,7 +26,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
   });
   document.body.appendChild(audio);
 
-  // 如果字幕数据已经通过参数传入，则直接使用，否则加载并解析
+  // Use provided subtitle data if available, otherwise load and parse
   if (initialSubtitleData && initialSubtitleData.length > 0) {
     subtitleData = initialSubtitleData;
   } else {
@@ -35,28 +35,27 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
       const srtText = await res.text();
       subtitleData = parseSRT(srtText);
     } catch (error) {
-      console.error('加载或解析SRT失败:', error);
+      console.error('Failed to load or parse SRT:', error);
       return;
     }
   }
 
-  // 绑定点击事件，处理用户点击跳转
+  // Bind click event to document.body to handle user clicks for seeking
   document.body.addEventListener('click', handleWordClick);
 
-  // 在初始化时获取所有章节内容中的文本节点，用于高亮和点击查找
+  // Collect all text nodes within the #chapters container for highlighting and click lookup
   allContentTextNodes = [];
   const chapterContainer = document.getElementById('chapters');
   if (chapterContainer) {
     const walker = document.createTreeWalker(chapterContainer, NodeFilter.SHOW_TEXT, null, false);
     let node;
     while ((node = walker.nextNode())) {
-      // 过滤掉空的或只有空白的文本节点
+      // Filter out empty or whitespace-only text nodes
       if (node.nodeValue && node.nodeValue.trim().length > 0) {
           allContentTextNodes.push(node);
       }
     }
   }
-
 
   let lastIndex = null;
   audio.addEventListener('timeupdate', () => {
@@ -68,7 +67,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
       lastIndex = index;
       clearAllHighlights();
       const { text } = subtitleData[index];
-      // 调用 findAndHighlightTextInChapterContent 函数进行高亮
+      // Highlight the text corresponding to the current subtitle
       const highlightedElement = findAndHighlightTextInChapterContent(text);
       if (highlightedElement) {
         requestAnimationFrame(() => highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -76,20 +75,19 @@ export async function initAudioPlayer({ audioSrc, srtSrc, initialSubtitleData = 
     }
   });
 
-  console.log('音频播放器初始化完成。');
+  console.log('Audio player initialized.');
 }
 
-
 function handleWordClick(e) {
-    // 找到点击位置附近的文本内容
+    // Find text content near the click position
     const clickedElement = e.target;
     const { textContent: clickedTextSnippet, containerElement } = findTextElementNearCoords(e.clientX, e.clientY, clickedElement);
 
-    if (!clickedTextSnippet || clickedTextSnippet.trim().length < 5) { // 至少5个字符以避免点击空白或单个字符
+    if (!clickedTextSnippet || clickedTextSnippet.trim().length < 5) { // At least 5 characters to avoid clicking whitespace or single characters
         return;
     }
 
-    // 在 SRT 数据中找到与点击文本片段最匹配的字幕
+    // Find the best matching subtitle in the SRT data for the clicked text snippet
     const bestMatchIndex = findBestSubtitleMatch(clickedTextSnippet, containerElement);
 
     if (bestMatchIndex !== null) {
@@ -98,56 +96,55 @@ function handleWordClick(e) {
         audio.play();
 
         clearAllHighlights();
-        // 再次高亮匹配到的字幕文本，以确保用户看到跳转后的高亮
+        // Re-highlight the matched subtitle text to ensure the user sees the highlight after seeking
         const highlightedElement = findAndHighlightTextInChapterContent(matchedSubtitleText);
         if (highlightedElement) {
             highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     } else {
-        // 如果没有找到好的匹配，则不做任何操作
+        // If no good match is found, do nothing
         // console.log("No good subtitle match found for clicked text:", clickedTextSnippet);
     }
 }
 
 /**
- * 根据坐标和点击元素，向上查找包含文本的元素，并提取其内容。
- * @param {number} clientX - 点击事件的 X 坐标。
- * @param {number} clientY - 点击事件的 Y 坐标。
- * @param {HTMLElement} clickedElement - 实际被点击的 DOM 元素。
- * @returns {{textContent: string, containerElement: HTMLElement}} - 提取的文本内容和包含该文本的元素。
+ * Finds a text-containing element near the given coordinates and extracts its content.
+ * @param {number} clientX - X-coordinate of the click event.
+ * @param {number} clientY - Y-coordinate of the click event.
+ * @param {HTMLElement} clickedElement - The actual DOM element that was clicked.
+ * @returns {{textContent: string, containerElement: HTMLElement}} - Extracted text content and the containing element.
  */
 function findTextElementNearCoords(clientX, clientY, clickedElement) {
-    // 尝试从点击的元素开始，向上查找一个合适的文本容器（例如P标签或DIV）
     let currentElement = clickedElement;
     let textToAnalyze = '';
     let container = null;
 
+    // Try to find a suitable text container (e.g., P or DIV tag) by traversing up from the clicked element
     while (currentElement && currentElement !== document.body) {
+        // Only consider elements that are likely to contain meaningful text blocks
         if (currentElement.nodeType === Node.ELEMENT_NODE && ['P', 'DIV', 'SPAN', 'H1', 'H2', 'H3', 'LI'].includes(currentElement.tagName)) {
-            // 提取该元素的所有文本内容，或者限制在一个合理的长度
             textToAnalyze = currentElement.textContent || '';
             container = currentElement;
-            // 如果文本够长，或者已经找到一个段落级元素，就停止向上查找
-            if (textToAnalyze.length > 50 || currentElement.tagName === 'P' || currentElement.tagName === 'DIV') {
+            // If text is long enough or we found a block-level element, stop searching up
+            if (textToAnalyze.length > 50 || ['P', 'DIV'].includes(currentElement.tagName)) {
                 break;
             }
         }
         currentElement = currentElement.parentNode;
     }
 
-    // 如果没有找到合适的容器，或者文本过短，退而求其次从 body 抓取
+    // Fallback: If no suitable container found or text is too short, try to extract from text node directly
     if (!container || textToAnalyze.length < 5) {
-        // 尝试获取点击点附近的少量文本
         const range = document.caretRangeFromPoint(clientX, clientY);
         if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
             const textNode = range.startContainer;
             const fullText = textNode.nodeValue || '';
-            const start = Math.max(0, range.startOffset - 20); // 获取点击点前20字符
-            const end = Math.min(fullText.length, range.startOffset + 80); // 获取点击点后80字符
+            const start = Math.max(0, range.startOffset - 20); // Get 20 characters before click
+            const end = Math.min(fullText.length, range.startOffset + 80); // Get 80 characters after click
             textToAnalyze = fullText.substring(start, end);
-            container = textNode.parentNode; // 文本节点的父元素
+            container = textNode.parentNode; // Parent element of the text node
         } else {
-             textToAnalyze = clickedElement.textContent || ''; // 最终 fallback 到点击元素的文本
+             textToAnalyze = clickedElement.textContent || ''; // Final fallback to the clicked element's text
              container = clickedElement;
         }
     }
@@ -156,10 +153,11 @@ function findTextElementNearCoords(clientX, clientY, clickedElement) {
 }
 
 /**
- * 在 SRT 数据中，找到与给定文本片段最相似的字幕条目。
- * @param {string} clickedTextSnippet - 用户点击位置提取的文本片段。
- * @param {HTMLElement} clickedTextContainer - 包含点击文本的 DOM 容器元素。
- * @returns {number|null} - 最佳匹配字幕的索引，如果没有找到则为 null。
+ * Finds the most similar subtitle entry in the SRT data for a given text snippet.
+ * Uses Jaro-Winkler similarity for more flexible matching.
+ * @param {string} clickedTextSnippet - Text snippet extracted from the user's click position.
+ * @param {HTMLElement} clickedTextContainer - The DOM container element of the clicked text.
+ * @returns {number|null} - Index of the best matching subtitle, or null if no good match is found.
  */
 function findBestSubtitleMatch(clickedTextSnippet, clickedTextContainer) {
     if (!clickedTextSnippet || subtitleData.length === 0) {
@@ -176,33 +174,31 @@ function findBestSubtitleMatch(clickedTextSnippet, clickedTextContainer) {
         const subtitle = subtitleData[i];
         const subtitleTextLower = subtitle.text.toLowerCase();
 
-        // 1. 文本相似度 (使用 Jaro-Winkler 更好，这里继续用 Levenshtein 作为示例)
-        const textSimilarity = computeLevenshteinSimilarity(clickedTextLower, subtitleTextLower);
+        // 1. Text Similarity (using Jaro-Winkler)
+        const textSimilarity = computeJaroWinklerSimilarity(clickedTextLower, subtitleTextLower);
 
-        // 如果相似度太低，直接跳过
-        if (textSimilarity < 0.2) continue; // 阈值可以调整
+        // If similarity is too low, skip directly (threshold can be adjusted)
+        if (textSimilarity < 0.6) continue; // Jaro-Winkler scores are generally higher, so threshold is higher
 
-        // 2. 空间接近度 (根据字幕在页面上的渲染位置)
+        // 2. Spatial Proximity (based on subtitle rendering position on the page)
         let proximityScore = 0;
         if (clickedElementTop !== null) {
-            // 找到包含当前 SRT 字幕文本的最近 DOM 元素，用作空间接近度计算
+            // Find the closest DOM element containing the current SRT subtitle text for proximity calculation
             const subtitleDomElement = findDomElementForSubtitleText(subtitle.text);
             if (subtitleDomElement) {
                 const subtitleDomRect = subtitleDomElement.getBoundingClientRect();
                 const subtitleDomTop = subtitleDomRect.top + window.scrollY;
                 const distance = Math.abs(subtitleDomTop - clickedElementTop);
-                const maxDist = window.innerHeight * 2; // 考虑两屏的距离作为最大距离
+                const maxDist = window.innerHeight * 2; // Consider two screen heights as max distance
                 proximityScore = 1 - Math.min(distance / maxDist, 1);
             }
         } else {
-            // 如果无法获取点击元素的offsetTop (比如点击到非文本元素)，则只依赖文本相似度
-            proximityScore = 0.5; // 赋予一个中等值，表示位置未知
+            // If cannot get offsetTop of clicked element (e.g., clicked non-text element), rely only on text similarity
+            proximityScore = 0.5; // Assign a medium value, indicating unknown position
         }
 
-
-        // 综合得分：文本相似度权重更高
-        // 调整权重以满足“弹性”需求，文本相似度更重要
-        const combinedScore = textSimilarity * 0.7 + proximityScore * 0.3;
+        // Combined score: Text similarity weighted higher
+        const combinedScore = textSimilarity * 0.7 + proximityScore * 0.3; // Weights can be fine-tuned
 
         if (combinedScore > highestScore) {
             highestScore = combinedScore;
@@ -210,8 +206,8 @@ function findBestSubtitleMatch(clickedTextSnippet, clickedTextContainer) {
         }
     }
     
-    // 如果最高分低于某个阈值，则认为没有好的匹配
-    if (highestScore < 0.3) { // 再次调整阈值，防止低质量匹配
+    // If the highest score is below a certain threshold, consider no good match found
+    if (highestScore < 0.65) { // Adjusted threshold for Jaro-Winkler
         return null;
     }
 
@@ -219,52 +215,54 @@ function findBestSubtitleMatch(clickedTextSnippet, clickedTextContainer) {
 }
 
 /**
- * 在 DOM 中找到一个包含指定 SRT 文本的元素。
- * 用于计算空间接近度，这是一个相对昂贵的操作，应谨慎使用。
- * @param {string} srtText - SRT 字幕的原始文本。
- * @returns {HTMLElement|null} - 找到的包含文本的 DOM 元素。
+ * Finds a DOM element that contains the specified SRT text.
+ * Used for calculating spatial proximity. This can be a relatively expensive operation.
+ * @param {string} srtText - The original text of the SRT subtitle.
+ * @returns {HTMLElement|null} - The found DOM element containing the text.
  */
 function findDomElementForSubtitleText(srtText) {
     const srtTextLower = srtText.toLowerCase();
-    // 遍历所有可搜索的文本节点，找到第一个包含该 SRT 文本的父元素
+    // Iterate through all searchable text nodes to find the first parent element containing the SRT text
     for (const textNode of allContentTextNodes) {
         if (textNode.nodeValue && textNode.nodeValue.toLowerCase().includes(srtTextLower)) {
-            // 返回文本节点的父元素，通常是一个 <p>, <span> 或 <div>
+            // Return the parent element of the text node, usually a <p>, <span>, or <div>
             return textNode.parentNode;
         }
     }
     return null;
 }
 
-
+/**
+ * Clears all currently highlighted text elements.
+ */
 function clearAllHighlights() {
   document.querySelectorAll('.highlighted').forEach(el => {
     const parent = el.parentNode;
     if (parent) {
-      // 检查 el.firstChild 是否存在，以防万一元素已经被清空
+      // Check if el.firstChild exists to prevent issues if the element is already emptied
       while (el.firstChild) {
         parent.insertBefore(el.firstChild, el);
       }
       parent.removeChild(el);
-      // parent.normalize() 合并相邻的文本节点，这对于高亮清除很重要
+      // parent.normalize() merges adjacent text nodes, important for clean highlight removal
       parent.normalize();
     }
   });
 }
 
 /**
- * 在整个章节内容中查找并高亮指定的文本。
- * 返回被高亮的最外层元素（通常是 <p> 或 <div>）。
- * @param {string} targetText - 要查找和高亮的字幕文本。
- * @returns {HTMLElement|null} - 包含高亮文本的最近祖先元素，如果找到并高亮，否则为 null。
+ * Finds and highlights the specified text within the entire chapter content.
+ * Returns the outermost element that was highlighted (typically a <p> or <div>).
+ * @param {string} targetText - The subtitle text to find and highlight.
+ * @returns {HTMLElement|null} - The nearest ancestor element containing the highlighted text, or null if not found and highlighted.
  */
 function findAndHighlightTextInChapterContent(targetText) {
   const targetLower = targetText.trim().toLowerCase();
 
-  // 遍历所有可搜索的文本节点
+  // Iterate through all searchable text nodes
   for (const textNode of allContentTextNodes) {
     const text = textNode.nodeValue;
-    // 避免高亮已经高亮过的区域或其内部
+    // Avoid highlighting already highlighted areas or inside them
     if (textNode.parentNode?.classList.contains('highlighted')) {
       continue;
     }
@@ -276,56 +274,84 @@ function findAndHighlightTextInChapterContent(targetText) {
         range.setStart(textNode, index);
         range.setEnd(textNode, index + targetLower.length);
         const span = document.createElement('span');
-        span.className = 'highlighted'; // 这里的 'highlighted' 用于音频播放时的高亮
+        span.className = 'highlighted'; // 'highlighted' class for audio playback highlighting
         range.surroundContents(span);
 
-        // 向上查找最近的段落或块级元素进行滚动
+        // Find the nearest paragraph or block-level element for scrolling
         let currentParent = span.parentNode;
         while (currentParent && currentParent !== document.getElementById('chapters') && !['P', 'DIV', 'H1', 'H2', 'H3'].includes(currentParent.tagName)) {
              currentParent = currentParent.parentNode;
         }
         return currentParent;
       } catch (e) {
-        console.warn('高亮失败:', e, '文本:', targetText, '节点:', textNode);
+        console.warn('Highlighting failed:', e, 'Text:', targetText, 'Node:', textNode);
         return null;
       }
     }
   }
-  return null; // 未找到匹配的文本
+  return null; // Text not found
 }
 
-
 /**
- * 计算两个字符串之间的 Levenshtein 相似度。
- * 值介于 0 到 1 之间，1 表示完全相同。
- * @param {string} a - 字符串 A。
- * @param {string} b - 字符串 B。
- * @returns {number} 相似度分数。
+ * Computes the Jaro-Winkler similarity between two strings.
+ * Values range from 0 to 1, where 1 means identical strings.
+ * @param {string} s1 - String 1.
+ * @param {string} s2 - String 2.
+ * @returns {number} The Jaro-Winkler similarity score.
  */
-function computeLevenshteinSimilarity(a, b) {
-  const m = a.length;
-  const n = b.length;
-  if (m === 0) return n === 0 ? 1 : 0; // 如果A为空，B也为空则相似度1，否则0
-  if (n === 0) return m === 0 ? 1 : 0; // 同理
+function computeJaroWinklerSimilarity(s1, s2) {
+    if (s1 === s2) return 1.0;
+    if (!s1 || !s2) return 0.0;
 
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    const n1 = s1.length;
+    const n2 = s2.length;
+    if (n1 === 0 || n2 === 0) return 0.0;
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+    const matchWindow = Math.floor(Math.max(n1, n2) / 2) - 1;
+    const s1Matches = new Array(n1).fill(false);
+    const s2Matches = new Array(n2).fill(false);
+    let numMatches = 0;
 
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = (a[i - 1] === b[j - 1]) ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,      // deletion
-        dp[i][j - 1] + 1,      // insertion
-        dp[i - 1][j - 1] + cost // substitution
-      );
+    for (let i = 0; i < n1; i++) {
+        const start = Math.max(0, i - matchWindow);
+        const end = Math.min(i + matchWindow + 1, n2);
+        for (let j = start; j < end; j++) {
+            if (!s2Matches[j] && s1[i] === s2[j]) {
+                s1Matches[i] = true;
+                s2Matches[j] = true;
+                numMatches++;
+                break;
+            }
+        }
     }
-  }
 
-  const dist = dp[m][n];
-  const maxLength = Math.max(m, n);
-  return 1 - dist / maxLength; // 将距离转换为相似度
+    if (numMatches === 0) return 0.0;
+
+    let k = 0;
+    let numTranspositions = 0;
+    for (let i = 0; i < n1; i++) {
+        if (s1Matches[i]) {
+            while (!s2Matches[k]) k++;
+            if (s1[i] !== s2[k]) {
+                numTranspositions++;
+            }
+            k++;
+        }
+    }
+    const jaro = (numMatches / n1 + numMatches / n2 + (numMatches - numTranspositions / 2) / numMatches) / 3;
+
+    // Winkler modification
+    const prefixLength = Math.min(4, n1, n2); // Max prefix length to consider is 4
+    let commonPrefix = 0;
+    for (let i = 0; i < prefixLength; i++) {
+        if (s1[i] === s2[i]) {
+            commonPrefix++;
+        } else {
+            break;
+        }
+    }
+
+    const p = 0.1; // Scaling factor for the common prefix. Usually 0.1
+    return jaro + commonPrefix * p * (1 - jaro);
 }
 
