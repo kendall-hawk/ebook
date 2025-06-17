@@ -1,4 +1,4 @@
-// js/main.js (优化后)
+// js/main.js (最终修正版)
 import {
     loadChapterIndex,
     loadSingleChapterContent,
@@ -11,7 +11,7 @@ import {
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer } from './audio/audioPlayer.js';
-import { parseSRT } from './audio/srtParser.js'; // 🚨 新增：导入 parseSRT
+import { parseSRT } from './audio/srtParser.js'; // 导入 parseSRT
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const allParagraphs = [];
-    // 使用 Promise.allSettled 来处理所有章节内容加载，即使某个章节失败也不影响其他
     const chapterContentsPromises = allChapterIndexData.map(async (chMeta) => {
         try {
             const chapterData = await loadSingleChapterContent(chMeta.file);
@@ -41,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn(`加载章节内容失败 (${chMeta.file}):`, error);
         }
     });
-    await Promise.allSettled(chapterContentsPromises); // 🚨 建议使用 Promise.allSettled
+    await Promise.allSettled(chapterContentsPromises); // 使用 Promise.allSettled
 
     const protectedWordsForFrequency = new Set();
     for (const chapterMeta of allChapterIndexData) {
@@ -173,19 +172,21 @@ async function handleChapterClick(chapterId, filePath) {
     // === 音频和 SRT 逻辑提前：先加载 SRT，再渲染章节内容 ===
     const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
     const googleDriveId = chapterMeta?.googleDriveAudioId;
-    const localAudioPath = `data/audio/${chapterId}.mp3`; // 🚨 路径修正: 从 data/audio/ 而不是 data/chapters/audio/
-    const srtPath = `data/srt/${chapterId}.srt`; // 🚨 路径修正: 从 data/srt/ 而不是 data/chapters/srt/
+    // 🚨 路径修正: 使用你确认的 `data/chapters/audio/`
+    const localAudioPath = `data/chapters/audio/${chapterId}.mp3`;
+    // 🚨 路径修正: 使用你确认的 `data/chapters/srt/`
+    const srtPath = `data/chapters/srt/${chapterId}.srt`;
 
     let finalAudioUrl = null;
-    let subtitleData = []; // 🚨 定义字幕数据变量
+    let subtitleData = []; // 定义字幕数据变量
     let srtExists = false;
 
     // 尝试加载 SRT 文件
     try {
-        const srtRes = await fetch(srtPath); // 🚨 注意：这里不再是 HEAD 请求，而是直接获取内容
+        const srtRes = await fetch(srtPath); // 注意：这里是直接获取内容
         if (srtRes.ok && srtRes.status < 400) {
             const srtText = await srtRes.text();
-            subtitleData = parseSRT(srtText); // 🚨 解析 SRT 内容
+            subtitleData = parseSRT(srtText); // 解析 SRT 内容
             srtExists = true;
             console.log(`SRT 文件加载并解析成功: ${srtPath}, 条目数: ${subtitleData.length}`);
         } else {
@@ -228,14 +229,14 @@ async function handleChapterClick(chapterId, filePath) {
     if (chapterContent) {
         updateActiveChapterTooltips(currentChapterTooltips);
 
-        // 🚨 关键修正：将 subtitleData 传递给 renderSingleChapterContent
+        // 关键修正：将 subtitleData 传递给 renderSingleChapterContent
         renderSingleChapterContent(
             chapterContent,
             currentChapterTooltips,
             getGlobalWordFrequenciesMap(),
             getGlobalMaxFreq(),
             handleChapterClick,
-            subtitleData // 🚨 传递字幕数据，以便在渲染时进行预标记
+            subtitleData // 传递字幕数据，以便在渲染时进行预标记
         );
 
         window.location.hash = chapterId;
@@ -244,11 +245,11 @@ async function handleChapterClick(chapterId, filePath) {
         const audioPlayerElement = document.querySelector('audio');
 
         if (finalAudioUrl && srtExists && subtitleData.length > 0) { // 确保音频、SRT和解析后的字幕数据都存在
-            // 🚨 关键修正：将已解析的 subtitleData 传递给 initAudioPlayer
+            // 关键修正：将已解析的 subtitleData 传递给 initAudioPlayer
             initAudioPlayer({
                 audioSrc: finalAudioUrl,
                 srtSrc: srtPath, // srtSrc 仍然保留用于 fallback 或调试
-                initialSubtitleData: subtitleData // 🚨 传递已解析的数据，避免重复 fetch
+                initialSubtitleData: subtitleData // 传递已解析的数据，避免重复 fetch
             });
             if (audioPlayerElement) {
                 audioPlayerElement.style.display = 'block';
