@@ -1,16 +1,19 @@
+/* main.css */
+
 /* --- Font Imports --- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lora:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lora:wght@400;500;700&display=swap'); /* Updated Inter with 500 weight, added Lora */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap'); /* Added Open Sans import here for consistency */
 
 /* --- Global Base Styles --- */
 body {
-  font-family: 'Lora', serif;
-  font-size: 18px;
+  font-family: 'Lora', serif, Georgia, 'Times New Roman', Times; /* Changed to Lora for body text */
+  font-size: 19px; /* Slightly increased base font size */
   font-weight: 400;
-  line-height: 1.75;
+  line-height: 1.8; /* Increased line height for better readability */
   margin: 0;
   padding: 20px;
-  background-color: #f8f8f8;
-  color: #2c2c2c;
+  background-color: #f8f8f8; /* Slightly lighter background */
+  color: #2b2b2b; /* Slightly darker text for contrast */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -18,46 +21,48 @@ body {
 /* --- Content Container --- */
 #chapters {
   background-color: #fff;
-  padding: 0 15px 20px;
+  padding: 0 20px 25px; /* Adjusted padding */
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 800px;
-  margin: 20px auto;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1); /* Slightly more prominent shadow */
+  max-width: 850px; /* Increased max-width for wider content */
+  margin: 25px auto; /* Adjusted margin */
 }
 
 /* --- Headings --- */
 #chapters h2 {
-  font-family: 'Inter', sans-serif;
-  font-weight: 700;
-  font-size: 1.8em;
+  font-family: 'Inter', sans-serif; /* Changed to Inter for headings */
+  font-weight: 700; /* Bold for headings */
+  font-size: 2em; /* Increased heading size */
   line-height: 1.3;
-  color: #0056b3;
-  border-bottom: 2px solid #0056b3;
-  padding-bottom: 10px;
-  margin: 0 0 0.8em;
+  color: #004a99; /* Slightly darker blue for headings */
+  border-bottom: 2px solid #004a99;
+  padding-bottom: 12px; /* Adjusted padding */
+  margin: 0 0 1em; /* Adjusted margin */
 }
 
 /* --- Paragraphs --- */
 #chapters p {
-  line-height: 1.8;
-  margin-bottom: 1.5em;
+  line-height: 1.9; /* Increased line height for paragraphs */
+  margin-bottom: 1.6em; /* Adjusted margin */
+  font-weight: 400; /* Ensure paragraph text is not too bold */
 }
 
 /* --- Table of Contents --- */
 #toc {
-  margin-bottom: 30px;
-  background-color: #e9e9e9;
-  padding: 15px;
+  margin-bottom: 35px; /* Adjusted margin */
+  background-color: #eef2f5; /* Lighter background for TOC */
+  padding: 20px; /* Adjusted padding */
   border-radius: 8px;
 }
 
 #toc a {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
   display: block;
-  padding: 8px 10px;
+  padding: 10px 12px; /* Adjusted padding */
   text-decoration: none;
-  color: #007bff;
-  border-bottom: 1px solid #ddd;
+  color: #006bb3; /* Slightly different blue */
+  border-bottom: 1px solid #e0e0e0; /* Lighter border */
+  font-size: 1.05em; /* Slightly larger TOC links */
 }
 
 #toc a:last-child {
@@ -65,62 +70,63 @@ body {
 }
 
 #toc a:hover {
-  background-color: #dcdcdc;
-  color: #0056b3;
+  background-color: #dbe4eb; /* Lighter hover background */
+  color: #004a99;
 }
 
 /* --- Chapter Navigation --- */
 .chapter-nav-links {
   text-align: center;
-  margin: 30px 0 50px;
-  padding: 10px;
-  background-color: #f0f0f0;
-  border-radius: 5px;
+  margin: 35px 0 55px; /* Adjusted margin */
+  padding: 12px; /* Adjusted padding */
+  background-color: #f5f5f5; /* Lighter background */
+  border-radius: 6px;
   display: flex;
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px; /* Adjusted gap */
 }
 
 .chapter-nav-link {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
   display: inline-block;
-  padding: 8px 15px;
-  background-color: #007bff;
+  padding: 9px 18px; /* Adjusted padding */
+  background-color: #0073e6; /* Slightly brighter blue */
   color: white;
   text-decoration: none;
   border-radius: 5px;
-  font-size: 0.95em;
-  border: 1px solid #007bff;
+  font-size: 1em; /* Slightly larger font size */
+  border: 1px solid #0073e6;
   transition: all 0.3s ease;
+  font-weight: 500; /* Medium weight for navigation links */
 }
 
 .chapter-nav-link:hover {
-  background-color: #0056b3;
+  background-color: #005bbd; /* Darker hover state */
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2); /* Slightly more prominent shadow */
 }
 
 .chapter-nav-links > text {
-  color: #666;
-  margin: 0 5px;
+  color: #555; /* Slightly darker grey */
+  margin: 0 8px; /* Adjusted margin */
 }
 
 /* --- Chapter List Grid --- */
 .chapter-list-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  padding: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Increased min-width */
+  gap: 25px; /* Adjusted gap */
+  padding: 25px; /* Adjusted padding */
   max-width: 1200px;
-  margin: 20px auto;
+  margin: 25px auto;
 }
 
 .chapter-list-item {
-  background-color: #f9f9f9;
-  border: 1px solid #ddd;
+  background-color: #ffffff; /* White background */
+  border: 1px solid #e5e5e5; /* Lighter border */
   border-radius: 8px;
   overflow: hidden;
   text-decoration: none;
@@ -131,61 +137,63 @@ body {
 }
 
 .chapter-list-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-7px); /* More pronounced lift on hover */
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12); /* More prominent shadow */
 }
 
 .chapter-list-item img {
   width: 100%;
-  height: 180px;
+  height: 200px; /* Slightly taller images */
   object-fit: cover;
   display: block;
 }
 
 .chapter-list-item h3 {
-  font-family: 'Inter', sans-serif;
-  margin: 15px;
-  font-size: 1.2em;
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
+  margin: 18px; /* Adjusted margin */
+  font-size: 1.35em; /* Increased heading size */
   color: #0056b3;
   flex-grow: 1;
+  font-weight: 600; /* Slightly bolder chapter titles */
 }
 
 /* --- Category Navigation --- */
 #category-nav {
   text-align: center;
-  padding: 15px 0;
-  background-color: #e9ecef;
-  border-bottom: 1px solid #dee2e6;
-  margin-bottom: 20px;
+  padding: 18px 0; /* Adjusted padding */
+  background-color: #eef5fa; /* Lighter background */
+  border-bottom: 1px solid #ddeff5; /* Lighter border */
+  margin-bottom: 25px; /* Adjusted margin */
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px; /* Adjusted gap */
 }
 
 .category-button {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
   background-color: #007bff;
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 11px 22px; /* Adjusted padding */
   border-radius: 5px;
   cursor: pointer;
-  font-size: 1em;
+  font-size: 1.05em; /* Slightly larger font size */
   transition: background-color 0.3s ease, transform 0.1s ease;
   white-space: nowrap;
+  font-weight: 500; /* Medium weight for buttons */
 }
 
 .category-button:hover {
   background-color: #0056b3;
-  transform: translateY(-1px);
+  transform: translateY(-2px); /* More pronounced lift on hover */
 }
 
 .category-button.active {
-  background-color: #28a745;
+  background-color: #218838; /* Darker green for active */
   font-weight: bold;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transform: translateY(-3px); /* More pronounced lift */
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2); /* More prominent shadow */
 }
 
 /* --- Tooltip Container --- */
@@ -193,20 +201,20 @@ body {
   position: absolute;
   display: none;
   opacity: 0;
-  transform: translateY(5px);
-  font-family: 'Inter', sans-serif;
-  background-color: #f8f9fa;
+  transform: translateY(8px); /* Slightly more movement */
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
+  background-color: #fefefe; /* Lighter background */
   color: #343a40;
-  padding: 12px 18px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border: 1px solid #ced4da;
-  max-width: 300px;
+  padding: 15px 20px; /* Adjusted padding */
+  border-radius: 10px; /* More rounded corners */
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.18); /* More prominent shadow */
+  border: 1px solid #c9d8e5; /* Lighter border */
+  max-width: 320px; /* Slightly wider */
   z-index: 10000;
   pointer-events: auto;
   transition: opacity 0.3s ease-out, transform 0.3s ease-out;
   will-change: opacity, transform;
-  line-height: 1.4;
+  line-height: 1.5; /* Adjusted line height */
 }
 
 #react-tooltips.visible {
@@ -216,31 +224,31 @@ body {
 }
 
 #react-tooltips strong {
-  color: #007bff;
-  font-size: 1.1em;
+  color: #006bb3; /* Slightly darker blue */
+  font-size: 1.15em; /* Slightly larger */
   display: block;
   margin: 0;
   padding: 0;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
 #react-tooltips em {
-  color: #6c757d;
-  font-size: 0.9em;
+  color: #7b858e; /* Slightly darker grey */
+  font-size: 0.95em; /* Slightly larger */
   display: block;
   margin: 0;
   padding: 0;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
 #react-tooltips p {
   margin: 0;
   padding: 0;
-  line-height: 1.5;
+  line-height: 1.6; /* Adjusted line height */
 }
 
 #react-tooltips br {
-  line-height: 0.5;
+  line-height: 0.6; /* Adjusted line height */
 }
 
 .tooltip-definition,
@@ -256,36 +264,36 @@ body {
 .tooltip-source,
 .tooltip-last-updated,
 .tooltip-image-description-text {
-  margin-bottom: 1em;
+  margin-bottom: 1.1em; /* Adjusted margin */
 }
 
 /* === Tooltip Extended Support === */
 .tooltip-image-container {
-  margin: 10px 0;
+  margin: 12px 0; /* Adjusted margin */
   text-align: center;
 }
 
 .tooltip-image-container img {
   max-width: 100%;
   height: auto;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px; /* More rounded corners */
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15); /* Slightly more prominent shadow */
 }
 
 .tooltip-image-description-text {
-  font-size: 0.85em;
-  color: #6c757d;
-  margin-top: 5px;
+  font-size: 0.9em; /* Slightly larger */
+  color: #7b858e; /* Slightly darker grey */
+  margin-top: 8px; /* Adjusted margin */
 }
 
 .tooltip-video-link {
   display: inline-block;
-  margin-top: 10px;
+  margin-top: 12px; /* Adjusted margin */
   background-color: #dc3545;
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.85em;
+  padding: 7px 14px; /* Adjusted padding */
+  border-radius: 5px; /* More rounded corners */
+  font-size: 0.9em; /* Slightly larger */
   text-decoration: none;
   transition: background-color 0.3s ease;
 }
@@ -298,74 +306,74 @@ body {
 .tooltip-category,
 .tooltip-source,
 .tooltip-last-updated {
-  font-size: 0.8em;
-  color: #666;
-  margin-top: 6px;
+  font-size: 0.85em; /* Slightly larger */
+  color: #777; /* Slightly darker grey */
+  margin-top: 8px; /* Adjusted margin */
   font-style: italic;
 }
 
 .tooltip-synonyms,
 .tooltip-antonyms {
-  font-size: 0.9em;
+  font-size: 0.95em; /* Slightly larger */
   color: #333;
-  margin-top: 10px;
+  margin-top: 12px; /* Adjusted margin */
 }
 
 .tooltip-synonyms span,
 .tooltip-antonyms span {
-  background-color: #e9ecef;
-  padding: 2px 6px;
-  margin: 2px;
+  background-color: #eef2f5; /* Lighter background */
+  padding: 3px 8px; /* Adjusted padding */
+  margin: 3px; /* Adjusted margin */
   display: inline-block;
-  border-radius: 3px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85em;
+  border-radius: 4px; /* More rounded corners */
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
+  font-size: 0.9em; /* Slightly larger */
 }
 
 /* --- Word Tooltip Styles --- */
 .word {
   cursor: help;
-  border-bottom: 2px dotted #007bff;
+  border-bottom: 2px dotted #006bb3; /* Slightly darker blue */
   text-decoration: none;
   display: inline-block;
   vertical-align: baseline;
   font-size: inherit;
-  line-height: 1.2;
+  line-height: 1.3; /* Adjusted line height */
 }
 
 .word:hover {
-  color: #0056b3;
-  border-bottom-color: #0056b3;
+  color: #004a99; /* Darker hover color */
+  border-bottom-color: #004a99;
 }
 
 /* --- Floating Video Player --- */
 .floating-video {
   position: fixed;
-  width: 320px;
-  height: 180px;
-  bottom: 10px;
-  right: 10px;
+  width: 340px; /* Slightly wider */
+  height: 191px; /* Maintain aspect ratio */
+  bottom: 15px; /* Adjusted position */
+  right: 15px; /* Adjusted position */
   background-color: #000;
-  border: 1px solid #444;
-  border-radius: 6px;
+  border: 1px solid #555; /* Slightly darker border */
+  border-radius: 8px; /* More rounded corners */
   z-index: 9999;
   display: flex;
   flex-direction: column;
   cursor: grab;
   user-select: none;
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.4); /* More prominent shadow */
 }
 
 .video-header {
-  font-family: 'Inter', sans-serif;
-  background: #222;
+  font-family: 'Inter', sans-serif; /* Changed to Inter */
+  background: #333; /* Darker header */
   color: #fff;
-  padding: 4px 8px;
+  padding: 6px 10px; /* Adjusted padding */
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.9em;
+  font-size: 0.95em; /* Slightly larger */
   cursor: grab;
 }
 
@@ -373,14 +381,14 @@ body {
   background: none;
   border: none;
   color: #fff;
-  font-size: 20px;
+  font-size: 22px; /* Slightly larger close button */
   cursor: pointer;
-  padding: 0 5px;
+  padding: 0 6px; /* Adjusted padding */
   line-height: 1;
 }
 
 .close-btn:hover {
-  color: #f00;
+  color: #ff3333; /* Brighter red on hover */
 }
 
 /* --- Responsive Adjustments --- */
@@ -390,25 +398,24 @@ body {
   }
 
   body {
-    padding: 10px;
-    font-size: 17px;
+    padding: 15px; /* Adjusted padding */
+    font-size: 18px; /* Adjusted font size */
   }
 
   #chapters {
-    margin: 10px auto;
-    padding: 0 10px 20px;
+    margin: 15px auto; /* Adjusted margin */
+    padding: 0 15px 25px; /* Adjusted padding */
   }
 
   #chapters h2 {
-    font-size: 1.5em;
+    font-size: 1.7em; /* Adjusted heading size */
   }
 }
 
 /* === Optional: Dark Mode === */
 .dark-mode body {
-  background-color: #1e1e1e;
-  color: #f0f0f0;
-  font-family: 'Lora', serif;
+  background-color: #1a1a1a; /* Darker background */
+  color: #e0e0e0; /* Lighter text */
 }
 
 .dark-mode #chapters,
@@ -416,24 +423,24 @@ body {
 .dark-mode .chapter-list-item,
 .dark-mode .chapter-nav-links,
 .dark-mode #category-nav {
-  background-color: #2a2a2a;
-  color: #f0f0f0;
-  border-color: #444;
+  background-color: #222222; /* Darker background */
+  color: #e0e0e0;
+  border-color: #555; /* Darker border */
 }
 
 .dark-mode .word {
-  border-bottom-color: #0d6efd;
-  color: #0d6efd;
+  border-bottom-color: #4da6ff; /* Lighter blue for dark mode */
+  color: #4da6ff;
 }
 
 .dark-mode #react-tooltips {
-  background-color: #2a2a2a;
-  color: #f0f0f0;
-  border: 1px solid #555;
+  background-color: #222222; /* Darker background */
+  color: #e0e0e0;
+  border: 1px solid #666; /* Darker border */
 }
 
 .dark-mode .tooltip-image-description-text {
-  color: #aaa;
+  color: #bbb; /* Lighter grey */
 }
 
 .subtitle-segment {
@@ -442,9 +449,11 @@ body {
 }
 
 .subtitle-segment:hover {
-  background-color: #f0f0f0; /* 轻微的悬停效果 */
+  background-color: #e8e8e8; /* Subtle hover effect */
 }
 
 .highlighted-subtitle {
-  background-color: #ffc107; /* 例如，明黄色高亮 */
- 
+  background-color: #ffdb58; /* Slightly deeper yellow for highlight */
+  color: #000;
+  border-radius: 3px;
+}
