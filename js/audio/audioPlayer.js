@@ -1,10 +1,7 @@
-// js/audio/audioPlayer.js
 import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
-let audio;
-let subtitleData = [];
-let wordToSubtitleMap = new Map();
+let audio, subtitleData = [], wordToSubtitleMap = [];
 
 /**
  * 初始化音频播放器，创建音频元素并加载字幕。
@@ -13,7 +10,6 @@ let wordToSubtitleMap = new Map();
  * @param {string} options.srtSrc - SRT 字幕文件的 URL。
  */
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  // 创建音频播放器
   audio = document.createElement('audio');
   Object.assign(audio, {
     src: audioSrc,
@@ -30,7 +26,6 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   });
   document.body.appendChild(audio);
 
-  // 加载并解析 SRT 字幕
   try {
     const res = await fetch(srtSrc);
     const srtText = await res.text();
@@ -40,74 +35,61 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
     return;
   }
 
-  // 构建单词到字幕索引的映射 Map<string, Set<number>>
-  buildWordToSubtitleMap(subtitleData);
-
-  // 注册点击事件监听器
+  wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
   document.body.addEventListener('click', handleWordClick);
-
   console.log('音频播放器初始化完成。');
 }
 
-/**
- * 构建 word → Set<subtitleIndex> 的映射。
- * @param {Array<object>} subs - 字幕数据数组。
- */
 function buildWordToSubtitleMap(subs) {
-  wordToSubtitleMap = new Map();
+  const map = [];
   subs.forEach((subtitle, i) => {
     if (typeof subtitle.text === 'string') {
       const words = tokenizeText(subtitle.text);
       words.forEach(({ word }) => {
-        const lower = word.toLowerCase();
-        if (!wordToSubtitleMap.has(lower)) {
-          wordToSubtitleMap.set(lower, new Set());
-        }
-        wordToSubtitleMap.get(lower).add(i);
+        map.push({ word: word.toLowerCase(), index: i });
       });
     }
   });
+  return map;
 }
 
-/**
- * 点击单词后触发：查找对应字幕，跳转并播放音频。
- * @param {MouseEvent} e - 鼠标点击事件。
- */
 function handleWordClick(e) {
   const target = e.target;
-  if (!target || !target.classList.contains('word') || !target.textContent) return;
+  if (!target || !target.textContent) return;
 
   const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const possibleIndexes = wordToSubtitleMap.get(clickedWord);
-  if (!possibleIndexes || possibleIndexes.size === 0) return;
+  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
+  if (possibleMatches.length === 0) return;
 
-  const matches = Array.from(possibleIndexes).map(index => ({ index }));
-  const bestIndex = findBestSubtitleMatch(target, matches);
-
-  if (bestIndex !== null) {
-    const { start, text } = subtitleData[bestIndex];
+  const closestIndex = findBestSubtitleMatch(target, possibleMatches);
+  if (closestIndex !== null) {
+    const { start, text } = subtitleData[closestIndex];
     audio.currentTime = start;
     audio.play();
 
+    // 清除之前的高亮
+    document.querySelectorAll('.highlighted').forEach(el =>
+      el.classList.remove('highlighted')
+    );
+
+    // 查找字幕所在元素并高亮句子
     const subtitleElement = findVisibleTextNodeNearText(text);
     if (subtitleElement) {
-      subtitleElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightTextInElement(subtitleElement, text);
 
-      // 添加高亮类（自动移除）
-      subtitleElement.classList.add('highlighted');
-      setTimeout(() => subtitleElement.classList.remove('highlighted'), 2000);
+      // 平滑滚动（延迟到下一帧）
+      requestAnimationFrame(() => {
+        subtitleElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      });
     }
   }
 }
 
-/**
- * 在可能匹配中找到最靠近点击单词的字幕索引。
- * @param {HTMLElement} target - 点击的单词元素。
- * @param {Array<object>} matches - 匹配字幕索引数组。
- * @returns {number|null} - 最佳字幕索引。
- */
 function findBestSubtitleMatch(target, matches) {
   const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
   let closestIndex = null;
@@ -115,10 +97,10 @@ function findBestSubtitleMatch(target, matches) {
 
   matches.forEach(({ index }) => {
     const sText = subtitleData[index].text;
-    const node = findVisibleTextNodeNearText(sText);
-    if (node) {
-      const nodeOffset = node.getBoundingClientRect().top + window.scrollY;
-      const dist = Math.abs(nodeOffset - clickedOffset);
+    const foundNode = findVisibleTextNodeNearText(sText);
+    if (foundNode) {
+      const offset = foundNode.getBoundingClientRect().top + window.scrollY;
+      const dist = Math.abs(offset - clickedOffset);
       if (dist < minDistance) {
         minDistance = dist;
         closestIndex = index;
@@ -129,11 +111,6 @@ function findBestSubtitleMatch(target, matches) {
   return closestIndex;
 }
 
-/**
- * 查找 #chapters 区域中包含指定字幕文本的 DOM 元素。
- * @param {string} text - 字幕内容。
- * @returns {HTMLElement|null}
- */
 function findVisibleTextNodeNearText(text) {
   const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
   for (const node of nodes) {
@@ -142,4 +119,31 @@ function findVisibleTextNodeNearText(text) {
     }
   }
   return null;
+}
+
+/**
+ * 将目标 DOM 元素中匹配的句子部分用 <span class="highlighted"> 包裹并替换内容
+ * @param {HTMLElement} element - 要修改的 DOM 元素
+ * @param {string} targetText - 要高亮的完整句子
+ */
+function highlightTextInElement(element, targetText) {
+  const content = element.textContent;
+  const index = content.indexOf(targetText);
+  if (index === -1) return;
+
+  const before = content.slice(0, index);
+  const match = content.slice(index, index + targetText.length);
+  const after = content.slice(index + targetText.length);
+
+  element.innerHTML = `${escapeHtml(before)}<span class="highlighted">${escapeHtml(match)}</span>${escapeHtml(after)}`;
+}
+
+/**
+ * HTML 转义辅助函数（防止 innerHTML 注入问题）
+ */
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, match => {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return map[match];
+  });
 }
