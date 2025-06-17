@@ -6,11 +6,8 @@ let subtitleData = [];
 let invertedIndex = new Map();
 
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  if (document.getElementById('custom-audio-player')) return; // 避免重复插入
-
   // 初始化音频播放器
   audio = document.createElement('audio');
-  audio.id = 'custom-audio-player';
   audio.src = audioSrc;
   audio.controls = true;
   audio.style.position = 'fixed';
@@ -28,7 +25,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   subtitleData = parseSRT(srtText);
   buildInvertedIndex(subtitleData);
 
-  // 添加点击监听
+  // 添加点击监听（委托）
   document.body.addEventListener('click', handleWordClick);
 }
 
@@ -48,9 +45,9 @@ function buildInvertedIndex(subs) {
 
 function handleWordClick(e) {
   const target = e.target;
-  if (!target || !target.textContent) return;
+  if (!target || !target.classList.contains('word')) return;
 
-  const clickedWord = target.textContent.trim().toLowerCase();
+  const clickedWord = target.dataset.word?.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
   const possibleIndexes = invertedIndex.get(clickedWord);
@@ -64,7 +61,7 @@ function handleWordClick(e) {
   const bestIndex = findBestSubtitleMatch(target, matches);
   if (bestIndex !== null) {
     const { start, text } = subtitleData[bestIndex];
-    highlightAndScrollToText(text, clickedWord); // 添加 clickedWord 参数
+    highlightAndScrollToText(text, clickedWord);
     audio.currentTime = start;
     audio.play();
   }
@@ -103,31 +100,35 @@ function findVisibleTextNodeNearText(text) {
   return null;
 }
 
-function highlightAndScrollToText(text, clickedWord) {
+function highlightAndScrollToText(text, targetWord) {
   const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
 
-  // 移除所有高亮
+  // 移除现有高亮
   nodes.forEach(n => n.classList.remove('highlight'));
-  document.querySelectorAll('.word.highlight').forEach(el => el.classList.remove('highlight'));
+  document.querySelectorAll('.word').forEach(w => w.classList.remove('highlight'));
 
-  // 高亮句子文本所在节点
+  // 匹配字幕文本的段落
   for (const node of nodes) {
     if (node.innerText && node.innerText.includes(text)) {
       node.classList.add('highlight');
-      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // 高亮匹配单词
+      const wordSpans = node.querySelectorAll(`.word[data-word="${targetWord}"]`);
+      wordSpans.forEach(span => span.classList.add('highlight'));
+
+      // 滚动到第一个匹配单词
+      if (wordSpans.length > 0) {
+        wordSpans[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
       break;
     }
   }
-
-  // 高亮所有匹配的 `.word[data-word=xxx]` 元素
-  if (clickedWord) {
-    document.querySelectorAll(`.word[data-word="${clickedWord}"]`).forEach(el => {
-      el.classList.add('highlight');
-    });
-  }
 }
 
-// Levenshtein distance (简单实现)
+// Levenshtein distance
 function levenshtein(a, b) {
   const dp = Array.from({ length: a.length + 1 }, () =>
     new Array(b.length + 1).fill(0)
