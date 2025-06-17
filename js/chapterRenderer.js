@@ -54,7 +54,7 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
     if (filterCategory === 'all') {
       return true;
     }
-    return Array.isArray(ch.categories) && ch.categories.includes(filterCategory);
+    return Array.isArray(ch.categories) && ch.categories.includes(cat);
   });
 
 
@@ -96,14 +96,14 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
 
 /**
  * 渲染单个章节内容到 DOM。
- * 不再接收 subtitleData 参数，也不再执行 data-subtitle-id 标记。
  * @param {Object} chapterContent - 当前章节的完整数据。
  * @param {Object} currentChapterTooltips - 当前章节专属的 Tooltips 数据。
  * @param {Map<string, number>} wordFrequenciesMap - 词语频率的 Map。
  * @param {number} maxFreq - 词语的最高频率。
  * @param {Function} navigateToChapterCallback - 用于导航到其他章节的回调函数 (Prev/Next)。
+ * @param {Array<Object>} subtitleData - 当前章节的字幕数据。 <-- 重新添加参数
  */
-export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback) {
+export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, navigateToChapterCallback, subtitleData) {
   const chaptersContainer = document.getElementById('chapters');
   if (!chaptersContainer) {
     console.error('未找到 #chapters 容器。');
@@ -118,6 +118,9 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
   title.textContent = chapterContent.title;
   chaptersContainer.appendChild(title);
 
+  // 用一个临时的 div 来收集所有段落元素，以便统一处理
+  const tempParagraphContainer = document.createElement('div');
+
   chapterContent.paragraphs.forEach(item => {
     if (typeof item === 'string') {
       const renderedHtml = renderMarkdownWithTooltips(
@@ -131,7 +134,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
       tempDiv.innerHTML = renderedHtml;
 
       Array.from(tempDiv.children).forEach(child => {
-          chaptersContainer.appendChild(child); // 直接追加到 chaptersContainer
+          tempParagraphContainer.appendChild(child); // 追加到临时容器
       });
 
     } else if (item.video) {
@@ -161,6 +164,14 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
       chaptersContainer.appendChild(wrapper);
     }
   });
+
+  // --- 关键：后处理文本内容，添加 data-subtitle-id ---
+  processAndAddSubtitleIds(tempParagraphContainer, subtitleData);
+  // 将处理后的段落内容添加到实际的 chaptersContainer
+  Array.from(tempParagraphContainer.children).forEach(child => {
+      chaptersContainer.appendChild(child);
+  });
+  // --- 关键结束 ---
 
   const navSection = document.createElement('div');
   navSection.classList.add('chapter-nav-links');
@@ -229,6 +240,94 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
 
 
   chaptersContainer.appendChild(navSection);
+}
+
+/**
+ * 遍历已渲染的DOM元素，并根据字幕数据添加 data-subtitle-id 属性。
+ * 这将尝试在页面文本中找到与字幕文本匹配的部分，并为其添加唯一标识。
+ * @param {HTMLElement} container - 包含章节文本内容的容器元素 (tempParagraphContainer)。
+ * @param {Array<Object>} subtitleData - 当前章节的字幕数据。
+ */
+function processAndAddSubtitleIds(container, subtitleData) {
+  if (!subtitleData || subtitleData.length === 0) {
+    // console.warn('未提供字幕数据，跳过 data-subtitle-id 处理。'); // 避免过多警告
+    return;
+  }
+
+  // 为每个字幕条目在DOM中找到并包裹其对应的文本，添加 data-subtitle-id
+  // 确保一个字幕索引只被一个 DOM 元素标记，但一个 DOM 元素可以包含多个字幕
+  subtitleData.forEach((sub, subIndex) => {
+    const subtitleTextLower = sub.text.trim().toLowerCase();
+    
+    // 寻找在 container 中包含当前字幕文本的元素
+    // 遍历所有的 p, span, div，尝试找到并包裹
+    const allTextElements = container.querySelectorAll('p, span, div'); 
+
+    for (const el of allTextElements) {
+        if (el.nodeType === Node.ELEMENT_NODE && el.textContent) {
+            const elementTextLower = el.textContent.trim().toLowerCase();
+
+            // 如果当前元素包含字幕文本，尝试在其内部进行包裹
+            if (elementTextLower.includes(subtitleTextLower)) {
+                // wrapTextWithSubtitleId 负责在文本节点层面精确包裹
+                let foundAndWrapped = wrapTextWithSubtitleId(el, subtitleTextLower, subIndex);
+                if (foundAndWrapped) {
+                    // 如果成功包裹，我们认为这个字幕文本在DOM中找到了它的主要位置
+                    // 并且通过 data-subtitle-id 进行了标记。
+                    // 即使一个段落包含多个字幕，每个字幕也会尝试被包裹。
+                    // 不需要 break，因为一个字幕文本可能在不同的元素中出现（虽然不常见）。
+                }
+            }
+        }
+    }
+  });
+}
+
+/**
+ * 在一个元素内部查找并包裹指定的文本，添加 data-subtitle-id。
+ * 不再添加 'highlighted' 类，只用于标记可点击区域。
+ * @param {HTMLElement} element - 要在其内部查找和包裹文本的 DOM 元素。
+ * @param {string} targetText - 要查找和包裹的文本（小写）。
+ * @param {number} subtitleIndex - 对应的字幕索引。
+ * @returns {boolean} - 如果成功找到并包裹了文本，则返回 true。
+ */
+function wrapTextWithSubtitleId(element, targetText, subtitleIndex) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+  let currentNode;
+  let found = false;
+
+  while ((currentNode = walker.nextNode())) {
+    const textNode = currentNode;
+    const text = textNode.nodeValue;
+
+    // 避免重复包裹或嵌套包裹
+    if (textNode.parentNode && textNode.parentNode.dataset.subtitleId) {
+      continue; 
+    }
+
+    const index = text.toLowerCase().indexOf(targetText);
+    if (index !== -1) {
+      const range = document.createRange();
+      try {
+        range.setStart(textNode, index);
+        range.setEnd(textNode, index + targetText.length);
+
+        const span = document.createElement('span');
+        span.className = 'subtitle-click-segment'; // 新的类名，表示可点击的字幕部分
+        span.dataset.subtitleId = subtitleIndex; // 添加 data-subtitle-id
+
+        range.surroundContents(span);
+        found = true;
+        // 成功包裹后，当前文本节点已经变为 span 及其内部文本节点
+        // 为了避免 walker 失效，并确保每个字幕文本只被包裹一次（即使可能在多个文本节点中）
+        // 我们选择在成功包裹后退出当前文本节点的遍历，进入下一个字幕的匹配。
+        break; 
+      } catch (e) {
+        // console.warn('包裹字幕文本失败 (wrapTextWithSubtitleId):', e, '文本:', targetText, '节点:', textNode);
+      }
+    }
+  }
+  return found;
 }
 
 
