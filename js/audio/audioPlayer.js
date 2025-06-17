@@ -10,22 +10,20 @@ let audio, subtitleData = [], wordToSubtitleMap = [];
  * @param {string} options.srtSrc - SRT 字幕文件的 URL。
  */
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
+  // 创建音频播放器
   audio = document.createElement('audio');
-  Object.assign(audio, {
-    src: audioSrc,
-    controls: true,
-    style: `
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      width: 90%;
-      max-width: 600px;
-    `
-  });
+  audio.src = audioSrc;
+  audio.controls = true;
+  audio.style.position = 'fixed';
+  audio.style.bottom = '20px';
+  audio.style.left = '50%';
+  audio.style.transform = 'translateX(-50%)';
+  audio.style.zIndex = 9999;
+  audio.style.width = '90%';
+  audio.style.maxWidth = '600px';
   document.body.appendChild(audio);
 
+  // 加载并解析 SRT 字幕
   try {
     const res = await fetch(srtSrc);
     const srtText = await res.text();
@@ -35,11 +33,51 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
     return;
   }
 
+  // 建立词到字幕句子的映射
   wordToSubtitleMap = buildWordToSubtitleMap(subtitleData);
+
+  // 注册点击事件监听器
   document.body.addEventListener('click', handleWordClick);
+
+  // 播放进度更新时自动高亮当前字幕句子
+  let lastIndex = null;
+  audio.addEventListener('timeupdate', () => {
+    const currentTime = audio.currentTime;
+
+    const index = subtitleData.findIndex(
+      (sub, i) =>
+        currentTime >= sub.start &&
+        (i === subtitleData.length - 1 || currentTime < subtitleData[i + 1].start)
+    );
+
+    if (index !== -1 && index !== lastIndex) {
+      lastIndex = index;
+
+      // 清除所有旧高亮
+      document.querySelectorAll('.highlighted').forEach(el =>
+        el.classList.remove('highlighted')
+      );
+
+      const { text } = subtitleData[index];
+      const el = findVisibleTextNodeNearText(text);
+      if (el) {
+        highlightTextInElement(el, text);
+        requestAnimationFrame(() => {
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        });
+      }
+    }
+  });
+
   console.log('音频播放器初始化完成。');
 }
 
+/**
+ * 构建单词到字幕句子索引的映射表
+ */
 function buildWordToSubtitleMap(subs) {
   const map = [];
   subs.forEach((subtitle, i) => {
@@ -53,6 +91,9 @@ function buildWordToSubtitleMap(subs) {
   return map;
 }
 
+/**
+ * 处理点击单词事件，跳转并播放对应句子
+ */
 function handleWordClick(e) {
   const target = e.target;
   if (!target || !target.textContent) return;
@@ -60,7 +101,9 @@ function handleWordClick(e) {
   const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord || clickedWord.length > 30) return;
 
-  const possibleMatches = wordToSubtitleMap.filter(entry => entry.word === clickedWord);
+  const possibleMatches = wordToSubtitleMap
+    .filter(entry => entry.word === clickedWord);
+
   if (possibleMatches.length === 0) return;
 
   const closestIndex = findBestSubtitleMatch(target, possibleMatches);
@@ -69,29 +112,28 @@ function handleWordClick(e) {
     audio.currentTime = start;
     audio.play();
 
-    // 清除之前的高亮
+    // 清除所有旧高亮
     document.querySelectorAll('.highlighted').forEach(el =>
       el.classList.remove('highlighted')
     );
 
-    // 查找字幕所在元素并高亮句子
     const subtitleElement = findVisibleTextNodeNearText(text);
     if (subtitleElement) {
       highlightTextInElement(subtitleElement, text);
-
-      // 平滑滚动（延迟到下一帧）
-      requestAnimationFrame(() => {
-        subtitleElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
+      subtitleElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
       });
     }
   }
 }
 
+/**
+ * 选择与点击位置最接近的字幕句子
+ */
 function findBestSubtitleMatch(target, matches) {
   const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
+
   let closestIndex = null;
   let minDistance = Infinity;
 
@@ -111,6 +153,9 @@ function findBestSubtitleMatch(target, matches) {
   return closestIndex;
 }
 
+/**
+ * 查找页面中包含给定字幕文本的节点
+ */
 function findVisibleTextNodeNearText(text) {
   const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
   for (const node of nodes) {
@@ -122,28 +167,18 @@ function findVisibleTextNodeNearText(text) {
 }
 
 /**
- * 将目标 DOM 元素中匹配的句子部分用 <span class="highlighted"> 包裹并替换内容
- * @param {HTMLElement} element - 要修改的 DOM 元素
- * @param {string} targetText - 要高亮的完整句子
+ * 高亮指定 DOM 元素中的目标文本（只变字体颜色）
  */
-function highlightTextInElement(element, targetText) {
-  const content = element.textContent;
-  const index = content.indexOf(targetText);
-  if (index === -1) return;
+function highlightTextInElement(el, targetText) {
+  if (!el || !targetText) return;
 
-  const before = content.slice(0, index);
-  const match = content.slice(index, index + targetText.length);
-  const after = content.slice(index + targetText.length);
+  const html = el.innerHTML;
+  const escapedText = targetText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex
+  const regex = new RegExp(escapedText, 'i');
 
-  element.innerHTML = `${escapeHtml(before)}<span class="highlighted">${escapeHtml(match)}</span>${escapeHtml(after)}`;
-}
-
-/**
- * HTML 转义辅助函数（防止 innerHTML 注入问题）
- */
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, match => {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return map[match];
+  const newHTML = html.replace(regex, match => {
+    return `<span class="highlighted" style="color: #d60000; font-weight: bold;">${match}</span>`;
   });
+
+  el.innerHTML = newHTML;
 }
