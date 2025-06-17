@@ -1,4 +1,4 @@
-import { parseSRT } from './srtParser.js';
+Import { parseSRT } from './srtParser.js';
 import { tokenizeText } from './tokenizer.js';
 
 let audio, subtitleData = [], wordToSubtitleMap = [];
@@ -53,13 +53,23 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
     if (index !== -1 && index !== lastIndex) {
       lastIndex = index;
 
-      // --- 优化点1: 清除高亮逻辑 ---
-      // 在高亮前，统一清除所有旧高亮。
-      // 这个函数会找到所有高亮span，并用其内部文本替换它自身。
-      clearAllHighlights(); 
+      // 清除所有旧高亮
+      document.querySelectorAll('.highlighted').forEach(el => {
+        // 恢复原始文本内容
+        const parent = el.parentNode;
+        if (parent) {
+          // 将 span 内部的文本节点移到 span 外部
+          while (el.firstChild) {
+            parent.insertBefore(el.firstChild, el);
+          }
+          parent.removeChild(el); // 移除空的 span
+          // 清理可能因为文本节点合并产生的多余空白节点，可选
+          parent.normalize();
+        }
+      });
 
       const { text } = subtitleData[index];
-      const el = findVisibleTextNodeNearText(text); // 这个函数也会被优化
+      const el = findVisibleTextNodeNearText(text);
       if (el) {
         highlightTextInElement(el, text);
         requestAnimationFrame(() => {
@@ -82,10 +92,9 @@ function buildWordToSubtitleMap(subs) {
   const map = [];
   subs.forEach((subtitle, i) => {
     if (typeof subtitle.text === 'string') {
-      // 确保分词结果是小写，方便后续匹配
-      const words = tokenizeText(subtitle.text.toLowerCase()); 
+      const words = tokenizeText(subtitle.text);
       words.forEach(({ word }) => {
-        map.push({ word: word, index: i });
+        map.push({ word: word.toLowerCase(), index: i });
       });
     }
   });
@@ -100,24 +109,26 @@ function handleWordClick(e) {
   if (!target || !target.textContent) return;
 
   // 避免点击到高亮元素本身，或者过长的内容
-  // 如果点击的是已高亮的元素，我们应该获取其原始文本，而不是高亮span的文本
-  let clickedText = target.textContent.trim();
-  if (target.classList.contains('highlighted')) {
-      // 如果点击的是高亮span，我们需要找到它的父级来获取完整的句子文本
-      // 并在 findBestSubtitleMatch 中处理
-      // 暂时不在这里做特殊处理，让 findBestSubtitleMatch 负责找到最佳匹配
-  }
-  
-  // 对于过长的内容，我们假设它不是一个单词点击，而是段落或句子点击，可以不做处理
-  if (clickedText.length > 30) { 
-      return; 
+  if (target.classList.contains('highlighted') || target.textContent.trim().length > 30) {
+    // 如果点击的是已高亮的元素，尝试获取其父级的文本内容
+    const parentText = target.parentNode?.textContent?.trim().toLowerCase();
+    const clickedWord = target.textContent.trim().toLowerCase();
+    
+    // 如果父级文本中包含被点击的词，并且该父级不是body，则认为是有效点击
+    if (parentText && parentText.includes(clickedWord) && target.parentNode !== document.body) {
+        // 这里需要更复杂的逻辑来找到实际的字幕容器，
+        // 暂时先跳过，让它在 findBestSubtitleMatch 中处理
+        // 或者直接尝试从父级找到最近的字幕文本
+    } else {
+        return; // 否则，不处理点击
+    }
   }
 
-  const clickedWord = clickedText.toLowerCase();
+  const clickedWord = target.textContent.trim().toLowerCase();
   if (!clickedWord) return;
 
   const possibleMatches = wordToSubtitleMap
-    .filter(entry => entry.word.includes(clickedWord)); // 使用 includes 提高匹配灵活性，因为 tokenizeText 可能切割词
+    .filter(entry => entry.word === clickedWord);
 
   if (possibleMatches.length === 0) return;
 
@@ -127,9 +138,17 @@ function handleWordClick(e) {
     audio.currentTime = start;
     audio.play();
 
-    // --- 优化点2: 清除高亮逻辑 ---
-    // 在点击高亮前，统一清除所有旧高亮
-    clearAllHighlights(); 
+    // 清除所有旧高亮（调用前移到timeupdate或这里，并确保清理逻辑正确）
+    document.querySelectorAll('.highlighted').forEach(el => {
+        const parent = el.parentNode;
+        if (parent) {
+            while (el.firstChild) {
+                parent.insertBefore(el.firstChild, el);
+            }
+            parent.removeChild(el);
+            parent.normalize();
+        }
+    });
 
     const subtitleElement = findVisibleTextNodeNearText(text);
     if (subtitleElement) {
@@ -146,7 +165,6 @@ function handleWordClick(e) {
  * 选择与点击位置最接近的字幕句子
  */
 function findBestSubtitleMatch(target, matches) {
-  // 获取点击元素相对于文档顶部的Y坐标
   const clickedOffset = target.getBoundingClientRect().top + window.scrollY;
 
   let closestIndex = null;
@@ -154,8 +172,7 @@ function findBestSubtitleMatch(target, matches) {
 
   matches.forEach(({ index }) => {
     const sText = subtitleData[index].text;
-    // 查找包含当前字幕文本的可见节点
-    const foundNode = findVisibleTextNodeNearText(sText); 
+    const foundNode = findVisibleTextNodeNearText(sText);
     if (foundNode) {
       const offset = foundNode.getBoundingClientRect().top + window.scrollY;
       const dist = Math.abs(offset - clickedOffset);
@@ -170,94 +187,82 @@ function findBestSubtitleMatch(target, matches) {
 }
 
 /**
- * --- 优化点3: 统一清除所有高亮 ---
- * 移除所有 .highlighted span，并将其内容替换回其父级。
- */
-function clearAllHighlights() {
-  document.querySelectorAll('.highlighted').forEach(el => {
-    const parent = el.parentNode;
-    if (parent) {
-      // 将 span 内部的所有子节点（通常是文本节点）移到 span 的前面
-      while (el.firstChild) {
-        parent.insertBefore(el.firstChild, el);
-      }
-      parent.removeChild(el); // 移除空的 span 元素
-      parent.normalize(); // 合并相邻的文本节点，保持DOM整洁
-    }
-  });
-}
-
-/**
- * --- 优化点4: 改进查找可见文本节点 ---
- * 查找页面中包含给定字幕文本的节点。
- * 优先查找未被高亮的原始文本容器，但也能处理已经被高亮过的父级容器。
+ * 查找页面中包含给定字幕文本的节点
+ * 优化：查找时也应考虑 .highlighted 元素的父级，因为高亮会改变DOM结构
  */
 function findVisibleTextNodeNearText(text) {
-    const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
-    const targetLower = text.trim().toLowerCase();
-
-    for (const node of nodes) {
-        // 获取节点的完整文本内容，不包括高亮的<span>内部文本（因为我们清除高亮后，它就是原始文本）
-        const nodeTextContent = node.textContent; 
-
-        // 如果节点包含目标文本，且它不是一个高亮的span本身
-        // 确保我们找到的是包含字幕文本的“句子”容器
-        if (nodeTextContent && nodeTextContent.toLowerCase().includes(targetLower)) {
-            // 如果这个节点本身就是.highlighted，或者它的父级是.highlighted，我们跳过
-            // 我们希望找到的是能包裹整个字幕句子的元素
-            if (!node.classList.contains('highlighted')) {
-                return node;
-            }
-        }
+  // 首先尝试查找未被高亮的原始文本节点或其容器
+  const nodes = Array.from(document.querySelectorAll('#chapters p, #chapters span, #chapters div'));
+  for (const node of nodes) {
+    // 检查节点文本内容是否包含目标文本
+    // 排除已经高亮的span自身，我们想要找到的是包裹高亮span的父级容器
+    if (node.textContent && node.textContent.includes(text) && !node.classList.contains('highlighted')) {
+      return node;
     }
-    return null; // 如果找不到，返回null
+  }
+
+  // 如果直接查找不到，可能是因为文本已经被高亮过，高亮文本被包裹在 .highlighted span 中
+  // 此时需要找到包含这个高亮 span 的父级
+  const highlightedSpans = Array.from(document.querySelectorAll('.highlighted'));
+  for (const span of highlightedSpans) {
+    // 检查高亮 span 的父级是否包含目标文本
+    if (span.parentNode && span.parentNode.textContent && span.parentNode.textContent.includes(text)) {
+      return span.parentNode;
+    }
+  }
+
+  return null;
 }
 
 /**
- * --- 优化点5: 改进高亮逻辑 ---
- * 高亮指定 DOM 元素中的目标文本。
- * 使用 Range API 精确高亮，并处理可能的HierarchyRequestError。
+ * 高亮指定 DOM 元素中的目标文本（只变字体颜色）
+ * 使用 TreeWalker 和 Range API 增强精确性
  */
 function highlightTextInElement(el, targetText) {
-    if (!el || !targetText) return;
+  if (!el || !targetText) return;
 
-    const targetLower = targetText.trim().toLowerCase();
+  // 清理现有高亮，确保每次高亮是干净的。
+  // 注意：这个清除逻辑应该在调用 highlightTextInElement 之前进行，
+  // 否则这里清除后，下面又重新高亮，可能导致重复操作或冲突。
+  // 我已经在 timeupdate 和 handleWordClick 中加入了更全面的清除逻辑。
 
-    // TreeWalker 遍历所有文本节点
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+  const targetLower = targetText.trim().toLowerCase();
 
-    let found = false;
-    while (walker.nextNode() && !found) {
-        const textNode = walker.currentNode;
-        const text = textNode.nodeValue;
+  // 使用 TreeWalker 遍历所有文本节点
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
 
-        // 确保我们不在一个已经被高亮过的span内部再次高亮
-        if (textNode.parentNode && textNode.parentNode.classList.contains('highlighted')) {
-            continue;
-        }
-
-        // 查找字幕文本的精确位置
-        const index = text.toLowerCase().indexOf(targetLower);
-
-        if (index !== -1) {
-            const range = document.createRange();
-            try {
-                range.setStart(textNode, index);
-                range.setEnd(textNode, index + targetLower.length);
-
-                const span = document.createElement('span');
-                span.className = 'highlighted';
-                // 确保样式是通过CSS类定义，这里只是一个回退或调试
-                // span.style.color = '#d60000'; 
-                // span.style.fontWeight = 'bold';
-                
-                range.surroundContents(span);
-                found = true; // 成功高亮后停止
-            } catch (e) {
-                // 捕获 HierarchyRequestError，通常是因为 Range 跨越了非文本节点
-                console.warn('高亮文本失败 (Range API Error):', e, '文本:', targetText, '节点:', textNode);
-                // 此时，当前节点无法高亮，继续寻找下一个可能的文本节点
-            }
-        }
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const text = textNode.nodeValue;
+    // 确保我们没有尝试在高亮span内部的文本节点上再次高亮
+    if (textNode.parentNode && textNode.parentNode.classList.contains('highlighted')) {
+        continue;
     }
+
+    const index = text.toLowerCase().indexOf(targetLower);
+
+    if (index !== -1) {
+      const range = document.createRange();
+      range.setStart(textNode, index);
+      range.setEnd(textNode, index + targetLower.length);
+
+      const span = document.createElement('span');
+      span.className = 'highlighted';
+      // 样式直接在 JS 中设置，确保生效，但建议放入 CSS 文件
+      span.style.color = '#d60000';
+      span.style.fontWeight = 'bold';
+      
+      try {
+        range.surroundContents(span);
+        // 成功高亮后停止，因为我们通常只高亮字幕的一个匹配项
+        break; 
+      } catch (e) {
+        // 捕获可能的 HierarchyRequestError，例如当Range跨越非文本节点时
+        console.warn('高亮文本失败 (Range API Error):', e, '文本:', targetText, '节点:', textNode);
+        // 尝试回退到旧的innerHTML方式（如果需要，但推荐修复结构问题）
+        // 或者简单地跳过当前高亮，继续寻找下一个
+        continue; 
+      }
+    }
+  }
 }
