@@ -1,4 +1,4 @@
-// js/main.js (最终修正版 - 轻微调整)
+// js/main.js (最终修正版 - 包含 parseSRT 导入)
 import {
     loadChapterIndex,
     loadSingleChapterContent,
@@ -11,13 +11,13 @@ import {
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer } from './audio/audioPlayer.js';
+import { parseSRT } from './utils.js'; // <-- 新增：导入 parseSRT
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
     // --- 页面初始化、加载索引、计算词频等逻辑保持不变 ---
-    // (此处省略了您已有且正确的初始化代码以保持简洁)
     allChapterIndexData = await loadChapterIndex();
 
     if (allChapterIndexData.length === 0) {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         } catch (error) {
-            // silent fail
+            // silent fail for tooltip files not found
         }
     }
 
@@ -82,10 +82,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (chapterMeta) {
             handleChapterClick(chapterMeta.id, chapterMeta.file);
         } else {
-            showTocPage();
+            showTocPage(); // Hash exists but chapter not found
         }
     } else {
-        showTocPage();
+        showTocPage(); // No hash, show TOC by default
     }
 });
 
@@ -128,7 +128,7 @@ function showTocPage() {
     document.getElementById('toc').style.display = 'grid';
     document.getElementById('category-nav').style.display = 'flex';
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
-    window.location.hash = '';
+    window.location.hash = ''; // Clear hash when showing TOC
 }
 
 
@@ -163,7 +163,7 @@ async function handleChapterClick(chapterId, filePath) {
         const srtRes = await fetch(srtPath);
         if (srtRes.ok) {
             const srtText = await srtRes.text();
-            subtitleData = parseSRT(srtText);
+            subtitleData = parseSRT(srtText); // <-- 调用从 utils.js 导入的 parseSRT
         }
     } catch (err) {
         console.warn('SRT 文件加载/解析失败:', err);
@@ -192,6 +192,7 @@ async function handleChapterClick(chapterId, filePath) {
                 initialSubtitleData: subtitleData // 直接传递解析好的数据
             });
         } else {
+             // 如果没有字幕数据，确保移除可能存在的旧播放器
              const existingPlayer = document.getElementById('audio-player-container');
              if (existingPlayer) existingPlayer.remove();
         }
@@ -207,13 +208,14 @@ window.addEventListener('hashchange', async () => {
     const currentChapterH2 = document.querySelector('#chapters h2');
     const currentChapterId = currentChapterH2 ? currentChapterH2.id : null;
 
+    // Only load new content if chapterId changes or if no chapter is currently displayed and hash exists
     if (chapterId) {
         if (chapterId !== currentChapterId) {
             const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
             if (chapterMeta) {
                 await handleChapterClick(chapterMeta.id, chapterMeta.file);
             } else {
-                showTocPage();
+                showTocPage(); // Hash refers to a non-existent chapter
             }
         }
     } else {
