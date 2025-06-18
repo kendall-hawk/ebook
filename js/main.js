@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (const chapterMeta of allChapterIndexData) {
         const tooltipFilePath = `chapters/${chapterMeta.id}-tooltips.json`;
         try {
-            const res = await fetch(`data/${tooltipFilePath}`);
+            const res = await fetch(`data/chapters/${tooltipFilePath}`);
             if (res.ok) {
                 const chapterTooltips = await res.json();
                 for (const tooltipId in chapterTooltips) {
@@ -159,7 +159,7 @@ async function handleChapterClick(chapterId, filePath) {
     const chapterTooltipFilePath = `chapters/${chapterId}-tooltips.json`;
 
     try {
-        const res = await fetch(`data/${chapterTooltipFilePath}`);
+        const res = await fetch(`data/chapters/${chapterTooltipFilePath}`);
         if (res.ok) currentChapterTooltips = await res.json();
     } catch (error) {
         console.error(`加载 Tooltip 失败: ${chapterId}`, error);
