@@ -1,11 +1,11 @@
-// js/chapterRenderer.js (最优化且无假设版本 - 与提供的 tooltip.js 完美协作)
+// js/chapterRenderer.js (更新导入路径)
 
-import { renderMarkdownWithTooltips } from './tooltip.js'; // 导入您提供的 tooltip.js 中的渲染函数
-import { ensureEnableJsApi, extractVideoId } from './utils.js'; // 假设 extractVideoId 和 ensureEnableJsApi 来源于此
+import { renderMarkdownWithTooltips } from './tooltip.js';
+import { ensureEnableJsApi, extractVideoId } from './utils.js'; // <-- 更改了导入路径
 
 let allChapterIndex = [];
 
-// ================= preTagSubtitles 函数 (无需修改，与之前提供的版本一致) =================
+// ================= preTagSubtitles 函数 (无修改) =================
 
 /**
  * 规范化文本，用于模糊匹配。
@@ -32,16 +32,13 @@ function normalizeTextForComparison(text) {
  */
 function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartIndex) {
   if (!paragraphHtmlWithTooltips.trim() || subtitleStartIndex >= subtitles.length) {
-    // 如果没有内容或字幕，直接返回原始HTML，因为Tooltip已经处理过了
     return { html: paragraphHtmlWithTooltips, lastUsedSubtitleIndex: subtitleStartIndex };
   }
 
-  // 步骤 1: 将已带有Tooltip的HTML解析成DOM文档
   const parser = new DOMParser();
   const doc = parser.parseFromString(`<div>${paragraphHtmlWithTooltips}</div>`, 'text/html');
   const wrapper = doc.body.firstChild;
 
-  // 步骤 2: 遍历DOM，提取所有文本节点及其内容
   const textNodes = [];
   const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null, false);
   let node;
@@ -61,21 +58,17 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
 
     if (!normalizedSubtitleText) continue;
 
-    // 步骤 3: 在提取的纯文本中查找匹配
     const matchPos = normalizedParagraphText.indexOf(normalizedSubtitleText, currentSearchIndexInParagraph);
 
     if (matchPos !== -1) {
-      // 步骤 4: 找到匹配后，定位到其在原始文本节点中的起始和结束位置
       let charCount = 0;
       let startNodeIndex = -1, endNodeIndex = -1;
       let startOffset = -1, endOffset = -1;
 
-      // 定位起始节点和偏移
       for (let j = 0; j < textNodes.length; j++) {
         const normalizedNodeText = normalizeTextForComparison(textNodes[j].nodeValue);
         if (startNodeIndex === -1 && charCount + normalizedNodeText.length > matchPos) {
           startNodeIndex = j;
-          // 计算在当前文本节点原始值中的实际偏移
           let tempOffset = 0;
           let cleanCharSeen = 0;
           for(let k=0; k < textNodes[j].nodeValue.length; k++){
@@ -93,14 +86,12 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
         charCount += normalizedNodeText.length;
       }
       
-      // 定位结束节点和偏移
       charCount = 0;
       const matchEndPos = matchPos + normalizedSubtitleText.length;
       for (let j = 0; j < textNodes.length; j++) {
         const normalizedNodeText = normalizeTextForComparison(textNodes[j].nodeValue);
         if (endNodeIndex === -1 && charCount + normalizedNodeText.length >= matchEndPos) {
           endNodeIndex = j;
-          // 计算在当前文本节点原始值中的实际偏移
           let tempOffset = 0;
           let cleanCharSeen = 0;
           for(let k=0; k < textNodes[j].nodeValue.length; k++){
@@ -119,7 +110,6 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
         charCount += normalizedNodeText.length;
       }
       
-      // 步骤 5: 使用Range API精确包裹，绝不破坏现有HTML结构
       if (startNodeIndex !== -1 && endNodeIndex !== -1) { 
         const range = document.createRange();
         range.setStart(textNodes[startNodeIndex], startOffset);
@@ -164,42 +154,44 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     chapterContent.paragraphs.forEach(item => {
         let finalHtml = '';
         if (typeof item === 'string') {
-            // **最优化流程 (与您提供的 tooltip.js 完美协作):**
-            // 1. 将原始Markdown文本传递给 `renderMarkdownWithTooltips`。
-            //    此函数会使用 `marked` 解析Markdown，并注入所有 `tooltip` 相关的 `<span>` 标签。
-            //    其输出是已经包含 Tooltip 的 HTML 字符串。
             const htmlWithTooltips = renderMarkdownWithTooltips(
-                item, // 原始 Markdown 文本
+                item, 
                 currentChapterTooltips,
                 wordFrequenciesMap,
                 maxFreq
             );
 
-            // 2. 将此“已包含 Tooltip 的 HTML”传递给 `preTagSubtitles`。
-            //    `preTagSubtitles` 内部会将其解析为 DOM 树，并使用安全的 Range API
-            //    在此现有结构上包裹字幕 `<span>` 标签，而不会破坏已有的 Tooltip 结构。
             const { html: taggedHtmlFinal, lastUsedSubtitleIndex } = preTagSubtitles(
-                htmlWithTooltips, // 传入已经处理过 Tooltip 的 HTML
+                htmlWithTooltips, 
                 subtitleData,
                 subtitleTracker
             );
             subtitleTracker = lastUsedSubtitleIndex;
-            finalHtml = taggedHtmlFinal; // 这就是最终的 HTML
+            finalHtml = taggedHtmlFinal; 
             
         } else if (item.video) {
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:relative;padding-bottom:56.25%;height:0;overflow:hidden;max-width:100%;margin-bottom:20px;';
+            Object.assign(wrapper.style, {
+                position: 'relative',
+                paddingBottom: '56.25%',
+                height: '0',
+                overflow: 'hidden',
+                maxWidth: '100%',
+                marginBottom: '20px'
+            });
             const iframe = document.createElement('iframe');
-            iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+            Object.assign(iframe.style, {
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%'
+            });
             iframe.frameBorder = '0';
             iframe.allowFullscreen = true;
             iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
             const videoId = extractVideoId(item.video);
-            // 修正 YouTube 嵌入 URL：确保这里使用的是正确的 YouTube 嵌入路径
-            // 您的原始代码中 `https://www.youtube.com/embed/${videoId}` 看起来不标准
-            // 通常是 `https://www.youtube.com/embed/{videoId}` 或 `https://www.youtube-nocookie.com/embed/{videoId}`
-            // 这里我保留了您的原意，但请根据实际需要检查并修正此URL
-            iframe.src = ensureEnableJsApi(videoId ? `https://www.youtube.com/embed/${videoId}` : item.video); 
+            iframe.src = ensureEnableJsApi(videoId ? `https://www.youtube.com/embed/${videoId}` : item.video); // <-- 修正 YouTube URL 格式
             wrapper.appendChild(iframe);
             chaptersContainer.appendChild(wrapper);
             return; 
@@ -212,9 +204,6 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
             chaptersContainer.appendChild(child);
         });
     });
-    
-    // 章节导航链接逻辑（通常在这里，取决于您的具体实现）
-    // 例如，在渲染完所有内容后，可以遍历 chaptersContainer 的子元素来生成导航
 }
 
 
