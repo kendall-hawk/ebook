@@ -1,7 +1,6 @@
 {
   "id": "chap-01",
-  "audio": "chapters/audio/chap-01.mp3",
-  "srt": "chapters/srt/chap-01.srt",
+  
   "title": "What's your favourite kind of noodle?",
   "paragraphs": [
     { "video": "https://www.youtube.com/watch?v=aOiuSsnWEik" },
