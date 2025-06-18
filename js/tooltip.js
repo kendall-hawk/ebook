@@ -1,4 +1,7 @@
+// js/tooltip.js (更新导入路径和 YouTube URL)
+
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
+import { extractVideoId, ensureJsApi } from './utils.js'; // <-- 更改了导入路径
 
 marked.setOptions({
   gfm: true,
@@ -22,7 +25,6 @@ export function renderMarkdownWithTooltips(
     const customSpanPlaceholders = {};
     let placeholderCounter = 0;
 
-    // 处理 [[word|tooltipId]] 的自定义标记
     const customTooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
     let mdWithCustomSpans = md.replace(customTooltipPattern, (match, word, tooltipId) => {
         const lowerWord = word.toLowerCase();
@@ -37,7 +39,6 @@ export function renderMarkdownWithTooltips(
         return placeholder;
     });
 
-    // 自动高亮普通词
     const regularWordPattern = /\b([a-zA-Z0-9'-]+)\b/g;
     let finalProcessedMd = mdWithCustomSpans.replace(regularWordPattern, (match) => {
         if (customSpanPlaceholders[match]) return match;
@@ -56,7 +57,6 @@ export function renderMarkdownWithTooltips(
         return match;
     });
 
-    // 替换占位符为真实 span
     Object.keys(customSpanPlaceholders).forEach(placeholder => {
         const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
         finalProcessedMd = finalProcessedMd.replace(regex, customSpanPlaceholders[placeholder]);
@@ -171,7 +171,7 @@ export function setupTooltips() {
             } else if (field === 'videoLink') {
                 const videoId = extractVideoId(formatted);
                 if (videoId) {
-                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" frameborder="0" allowfullscreen></iframe></div>`;
+                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="${ensureJsApi(`https://www.youtube.com/embed/${videoId}`)}" frameborder="0" allowfullscreen></iframe></div>`; // <-- 修正 YouTube URL 格式
                 }
             } else if (field === 'image') {
                 htmlContent += `<img src="${formatted}" alt="Tooltip Image" class="tooltip-image">`;
@@ -200,7 +200,6 @@ export function setupTooltips() {
         tooltipDiv.style.display = 'block';
         tooltipDiv.classList.add('visible');
 
-        // 定位 tooltip
         const spanRect = clickedSpan.getBoundingClientRect();
         const scrollX = window.scrollX || window.pageXOffset;
         const scrollY = window.scrollY || window.pageYOffset;
@@ -231,12 +230,6 @@ export function setupTooltips() {
                 _currentActiveTooltipSpan = null;
             }, 300);
         }, 100);
-    }
-
-    function extractVideoId(url) {
-        const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|\?(?:v=)|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-        const match = url.match(regExp);
-        return (match && match[1]) ? match[1] : null;
     }
 }
 
