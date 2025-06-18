@@ -1,13 +1,14 @@
-// js/audio/audioPlayer.js (新版本 - 包含单词点击跳转和模糊查找)
+// js/audio/audioPlayer.js (重构版 - 修正导入路径和事件绑定策略)
 
-import { parseSRT, tokenizeText } from './utils.js'; // 假设 utils.js 在同级目录或其父级目录
+// 修正：根据文件结构，导入路径改为 '../utils.js'
+import { parseSRT, tokenizeText } from '../utils.js';
 
 let audio;
 let subtitleData = [];
-let currentHighlightedElement = null; // 用于跟踪当前高亮元素的变量
-let audioPlayerContainer = null; // 播放器容器的引用
-let boundClickHandler = null; // 用于存储 document 上的点击事件处理器，以便正确移除
-let wordToSubtitleMap = new Map(); // 新增：用于单词到字幕索引的映射
+let currentHighlightedElement = null;
+let audioPlayerContainer = null;
+let boundClickHandler = null;
+let wordToSubtitleMap = new Map();
 
 /**
  * 初始化音频播放器.
@@ -26,12 +27,10 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   audio = document.createElement('audio');
   audio.src = audioSrc;
   audio.controls = true;
-  audio.preload = 'metadata'; // 预加载元数据，以便能获取时长等信息
+  audio.preload = 'metadata';
 
-  // 假设 HTML 中有一个 id 为 'audio-player' 的 div 用于放置播放器
   audioPlayerContainer = document.getElementById('audio-player');
   if (!audioPlayerContainer) {
-    // 如果没有预设的容器，则在 body 底部创建一个（与之前版本行为保持一致，或根据需要调整）
     audioPlayerContainer = document.createElement('div');
     audioPlayerContainer.id = 'audio-player';
     Object.assign(audioPlayerContainer.style, {
@@ -47,8 +46,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
     });
     document.body.appendChild(audioPlayerContainer);
   } else {
-    // 清空现有内容，确保干净
-    audioPlayerContainer.innerHTML = '';
+    audioPlayerContainer.innerHTML = ''; // 清空现有内容，确保干净
   }
   audioPlayerContainer.appendChild(audio);
 
@@ -64,7 +62,7 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
       console.log('SRT 字幕数据加载并解析完成。');
     } catch (err) {
       console.warn('SRT 文件加载或解析失败:', err);
-      subtitleData = []; // 即使失败也清空，避免使用旧数据
+      subtitleData = [];
     }
   } else {
     console.warn("没有提供有效的 SRT 文件路径，播放器将无法同步字幕。");
@@ -80,8 +78,8 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
 
   // 4. 绑定事件监听器
   bindWordClickEvents(); // 绑定文档上的 .word 元素点击事件
-  bindSubtitleSegmentClicks(); // 绑定字幕段点击事件 (注意：这需要字幕段已经渲染到 DOM 中)
-  audio.addEventListener('timeupdate', handleTimeUpdate); // 绑定音频时间更新事件
+  bindSubtitleSegmentClicks(); // 绑定字幕段点击事件 (在 chapterRenderer 渲染后调用 initAudioPlayer，此时元素应已存在)
+  audio.addEventListener('timeupdate', handleTimeUpdate);
 
   console.log('音频播放器已初始化。');
 }
@@ -96,15 +94,13 @@ function cleanup() {
     audio = null;
   }
 
-  // 清理播放器容器
   if (audioPlayerContainer) {
-    audioPlayerContainer.innerHTML = ''; // 清空容器内容
-    // 注意：如果 audioPlayerContainer 是动态创建并附加到 body 的，
-    // 您可能需要在这里移除它，例如：
-    // if (audioPlayerContainer.parentNode) {
+    audioPlayerContainer.innerHTML = '';
+    // 如果 audioPlayerContainer 是动态添加到 body 的，在这里可以移除它
+    // if (audioPlayerContainer.parentNode && audioPlayerContainer.id === 'audio-player') {
     //   audioPlayerContainer.parentNode.removeChild(audioPlayerContainer);
     // }
-    // audioPlayerContainer = null; // 清除引用
+    // audioPlayerContainer = null;
   }
 
   // 移除 document 上的全局点击监听器
@@ -115,8 +111,7 @@ function cleanup() {
 
   currentHighlightedElement = null;
   subtitleData = [];
-  wordToSubtitleMap.clear(); // 清空映射
-  // 确保移除所有 .subtitle-segment 和 .word 元素的 active 类
+  wordToSubtitleMap.clear();
   document.querySelectorAll('.subtitle-segment.active, .word.active').forEach(el => {
     el.classList.remove('active');
   });
@@ -127,13 +122,11 @@ function cleanup() {
  * 遍历所有字幕条目，使用 tokenizeText 分词，并记录每个词出现在哪些字幕的索引中。
  */
 function buildWordToSubtitleMap() {
-  wordToSubtitleMap.clear(); // 每次构建前清空
+  wordToSubtitleMap.clear();
   subtitleData.forEach((entry, index) => {
-    // 对字幕文本进行分词，并转为小写以便匹配
     const words = tokenizeText(entry.text.toLowerCase());
     for (const { word } of words) {
-      // 排除纯标点或过短的词，或者根据需要调整过滤逻辑
-      if (word.length > 0 && /\p{L}/u.test(word)) { // 确保是包含字母的词
+      if (word.length > 0 && /\p{L}/u.test(word)) {
         if (!wordToSubtitleMap.has(word)) {
           wordToSubtitleMap.set(word, new Set());
         }
@@ -146,17 +139,16 @@ function buildWordToSubtitleMap() {
 /**
  * 给 .word 元素绑定点击事件。
  * 这是一个全局事件委托，效率更高。
+ * 绑定到 document 而非特定章节容器，确保新渲染的章节中的 .word 也能响应。
  */
 function bindWordClickEvents() {
-  // 确保只绑定一次
   if (boundClickHandler) {
     document.removeEventListener('click', boundClickHandler);
   }
   boundClickHandler = function (e) {
-    // 使用 closest() 查找最近的 .word 父元素
     const wordEl = e.target.closest('.word');
     if (wordEl) {
-      e.stopPropagation(); // 阻止事件冒泡，避免干扰其他点击事件
+      e.stopPropagation();
       const word = wordEl.textContent.trim().toLowerCase();
       const bestIndex = findBestMatchingSubtitleIndex(word);
       if (bestIndex !== -1) {
@@ -179,7 +171,6 @@ function handleTimeUpdate() {
   if (!audio || subtitleData.length === 0) return;
 
   const currentTime = audio.currentTime;
-  // 使用二分查找找到当前时间点最接近的字幕索引
   let low = 0;
   let high = subtitleData.length - 1;
   let activeSubtitleId = null;
@@ -190,17 +181,16 @@ function handleTimeUpdate() {
 
     if (currentTime >= subtitle.start && currentTime < subtitle.end) {
       activeSubtitleId = subtitle.id;
-      break; // 找到当前活动的字幕
+      break;
     } else if (currentTime < subtitle.start) {
       high = mid - 1;
-    } else { // currentTime >= subtitle.end
+    } else {
       low = mid + 1;
     }
   }
 
-  // 避免不必要的 DOM 操作，只有在高亮字幕改变时才更新
   if (currentHighlightedElement && String(activeSubtitleId) === currentHighlightedElement.dataset.subtitleId) {
-    return; // 已经是当前高亮，无需操作
+    return;
   }
 
   highlightSubtitleElement(activeSubtitleId);
@@ -218,14 +208,14 @@ function findBestMatchingSubtitleIndex(word) {
   const candidateIndexes = wordToSubtitleMap.get(word) || new Set();
 
   let bestIndex = -1;
-  let bestScore = Infinity; // 存储最小的 Levenshtein 距离
+  let bestScore = Infinity;
 
   // 优先查找完全匹配的字幕
   for (const index of candidateIndexes) {
     const subtitle = subtitleData[index];
     const wordsInSubtitle = tokenizeText(subtitle.text.toLowerCase()).map(w => w.word);
     if (wordsInSubtitle.includes(word)) {
-      return index; // 找到完全匹配，直接返回
+      return index;
     }
   }
 
@@ -244,11 +234,9 @@ function findBestMatchingSubtitleIndex(word) {
       }
     }
   }
-  
-  // 阈值：如果最佳匹配的距离过大，可能不是有效匹配
-  // 例如，如果 Levenshtein 距离超过单词长度的一半，可以认为不是有效匹配
-  if (bestIndex !== -1 && bestScore > Math.floor(word.length / 2) + 1) { 
-      return -1; // 距离太大，视为无有效匹配
+
+  if (bestIndex !== -1 && bestScore > Math.floor(word.length / 2) + 1) {
+      return -1;
   }
 
   return bestIndex;
@@ -261,68 +249,57 @@ function findBestMatchingSubtitleIndex(word) {
  * @param {number|string} subtitleId - 要高亮的字幕的 ID。
  */
 function highlightSubtitleElement(subtitleId) {
-  // 移除旧的高亮
   if (currentHighlightedElement) {
     currentHighlightedElement.classList.remove('active');
-    // 移除旧高亮字幕段内所有 .word 的高亮
     currentHighlightedElement.querySelectorAll('.word').forEach(w => w.classList.remove('active'));
   }
 
-  if (subtitleId === null) { // 如果没有需要高亮的字幕，则只清除高亮
+  if (subtitleId === null) {
       currentHighlightedElement = null;
       return;
   }
 
-  // 查找新的高亮元素
   const el = document.querySelector(`.subtitle-segment[data-subtitle-id="${subtitleId}"]`);
   if (el) {
     el.classList.add('active');
-    // 高亮新字幕段内所有 .word
     el.querySelectorAll('.word').forEach(w => w.classList.add('active'));
 
-    // 滚动到视图中心
     requestAnimationFrame(() => {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-    
-    currentHighlightedElement = el; // 更新当前高亮元素
+
+    currentHighlightedElement = el;
   } else {
-    currentHighlightedElement = null; // 如果找不到元素，确保引用为空
+    currentHighlightedElement = null;
   }
 }
 
 /**
  * 绑定字幕段的点击事件，使其点击时音频跳转到对应时间并播放。
- * 注意：这个函数需要在字幕段被渲染到 DOM 后调用。
- * 在 chapterRenderer.js 渲染章节内容后，可以调用此函数来重新绑定事件。
+ * 注意：由于 chapterRenderer 渲染时 `.subtitle-segment` 已存在，此处直接绑定。
+ * 更优解是使用事件委托在 main.js 或 app.js 中绑定到 #chapters 容器。
  */
 function bindSubtitleSegmentClicks() {
-  // 由于章节内容可能会重新渲染，所以每次需要重新绑定。
-  // 更好的做法是使用事件委托，绑定到共同的父元素上，但这里为了保持与当前结构一致，
-  // 假设在渲染新章节后会调用此函数重新绑定。
-  // 在 cleanup 中不需要显式移除这些监听器，因为它们绑定在被替换的 DOM 元素上。
   document.querySelectorAll('.subtitle-segment').forEach(el => {
-    // 避免重复绑定，确保每个元素只绑定一次
-    if (!el._hasClickListener) {
+    if (!el._hasClickListener) { // 避免重复绑定
       el.addEventListener('click', () => {
         const subtitleId = parseInt(el.dataset.subtitleId, 10);
-        const subtitle = subtitleData.find(s => s.id === subtitleId); // 线性查找，点击是偶发事件，影响不大
+        const subtitle = subtitleData.find(s => s.id === subtitleId);
         if (subtitle) {
           audio.currentTime = subtitle.start;
-          if (audio.paused) { // 如果音频暂停，点击字幕后自动播放
+          if (audio.paused) {
             audio.play();
           }
-          highlightSubtitleElement(subtitle.id); // 立即高亮点击的字幕
+          highlightSubtitleElement(subtitle.id);
         }
       });
-      el._hasClickListener = true; // 标记已绑定
+      el._hasClickListener = true;
     }
   });
 }
 
 /**
  * 计算两个字符串之间的 Levenshtein 距离。
- * 用于衡量两个序列之间的差异程度，即从一个字符串转换成另一个字符串所需的最小单字符编辑（插入、删除或替换）次数。
  * @param {string} a - 第一个字符串。
  * @param {string} b - 第二个字符串。
  * @returns {number} - Levenshtein 距离。
@@ -339,13 +316,12 @@ function levenshteinDistance(a, b) {
         dp[i][j] = dp[i - 1][j - 1];
       } else {
         dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,    // Deletion
-          dp[i][j - 1] + 1,    // Insertion
-          dp[i - 1][j - 1] + 1 // Substitution
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + 1
         );
       }
     }
   }
-
   return dp[a.length][b.length];
 }
