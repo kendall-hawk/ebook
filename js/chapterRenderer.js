@@ -1,10 +1,17 @@
 // js/chapterRenderer.js
+
 import { renderMarkdownWithTooltips } from './tooltip.js';
 import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
 let allChapterIndex = [];
+let globalWordFrequenciesMap = new Map();
+let globalMaxFreq = 1;
 
+/**
+ * 规范化文本，用于匹配
+ */
 function normalizeTextForComparison(text) {
+  if (!text) return '';
   return text
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
@@ -12,100 +19,108 @@ function normalizeTextForComparison(text) {
     .trim();
 }
 
+/**
+ * 基于 DOM 的字幕包裹函数（精确 + 不破坏结构）
+ */
 function preTagSubtitles(paragraphMarkdown, subtitles, subtitleStartIndex) {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = renderMarkdownWithTooltips(paragraphMarkdown, {}, new Map(), 1);
-
-  const textNodes = [];
-  const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null, false);
-  let node;
-  while ((node = walker.nextNode())) {
-    textNodes.push(node);
+  if (!paragraphMarkdown.trim() || subtitleStartIndex >= subtitles.length) {
+    return { html: renderMarkdownWithTooltips(paragraphMarkdown, {}, new Map(), 1), lastUsedSubtitleIndex: subtitleStartIndex };
   }
 
-  const fullText = textNodes.map(n => n.nodeValue).join('');
-  const normParagraphText = normalizeTextForComparison(fullText);
+  const parser = new DOMParser();
+  const initialHtml = renderMarkdownWithTooltips(paragraphMarkdown, {}, new Map(), 1);
+  const doc = parser.parseFromString(`<div>${initialHtml}</div>`, 'text/html');
+  const wrapper = doc.body.firstChild;
 
-  let currentSearchIndex = 0;
+  const textNodes = [];
+  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+
+  const paragraphFullText = textNodes.map(n => n.nodeValue).join('');
+  const normalizedParagraphText = normalizeTextForComparison(paragraphFullText);
+
+  let currentSearchIndexInParagraph = 0;
   let lastUsedSubtitleIndex = subtitleStartIndex;
 
   for (let i = subtitleStartIndex; i < subtitles.length; i++) {
     const subtitle = subtitles[i];
-    const normSubText = normalizeTextForComparison(subtitle.text);
-    if (!normSubText) continue;
+    const normalizedSubtitleText = normalizeTextForComparison(subtitle.text);
+    if (!normalizedSubtitleText) continue;
 
-    const matchPos = normParagraphText.indexOf(normSubText, currentSearchIndex);
+    const matchPos = normalizedParagraphText.indexOf(normalizedSubtitleText, currentSearchIndexInParagraph);
     if (matchPos === -1) break;
 
-    // 定位匹配起点与终点在 textNodes 中的位置
     let charCount = 0;
-    let startNodeIdx = -1, endNodeIdx = -1;
+    let startNodeIndex = -1, endNodeIndex = -1;
     let startOffset = -1, endOffset = -1;
 
-    const matchEnd = matchPos + normSubText.length;
-
-    // 定位起始
+    // 定位开始
     for (let j = 0; j < textNodes.length; j++) {
-      const rawText = textNodes[j].nodeValue;
-      const normText = normalizeTextForComparison(rawText);
-      if (startNodeIdx === -1 && charCount + normText.length > matchPos) {
-        startNodeIdx = j;
-        let cleanChar = 0;
-        for (let k = 0; k < rawText.length; k++) {
-          if (/\w/.test(rawText[k])) {
-            if (cleanChar === matchPos - charCount) {
+      const normalizedNodeText = normalizeTextForComparison(textNodes[j].nodeValue);
+      if (startNodeIndex === -1 && charCount + normalizedNodeText.length > matchPos) {
+        startNodeIndex = j;
+        let cleanCharSeen = 0;
+        for (let k = 0; k < textNodes[j].nodeValue.length; k++) {
+          const ch = textNodes[j].nodeValue[k];
+          if (normalizeTextForComparison(ch)) {
+            if (cleanCharSeen === matchPos - charCount) {
               startOffset = k;
               break;
             }
-            cleanChar++;
+            cleanCharSeen++;
           }
         }
       }
-      if (endNodeIdx === -1 && charCount + normText.length >= matchEnd) {
-        endNodeIdx = j;
-        let cleanChar = 0;
-        for (let k = 0; k < rawText.length; k++) {
-          if (/\w/.test(rawText[k])) {
-            if (cleanChar === matchEnd - charCount - 1) {
+      charCount += normalizedNodeText.length;
+      if (startNodeIndex !== -1) break;
+    }
+
+    // 定位结束
+    charCount = 0;
+    const matchEndPos = matchPos + normalizedSubtitleText.length;
+    for (let j = 0; j < textNodes.length; j++) {
+      const normalizedNodeText = normalizeTextForComparison(textNodes[j].nodeValue);
+      if (endNodeIndex === -1 && charCount + normalizedNodeText.length >= matchEndPos) {
+        endNodeIndex = j;
+        let cleanCharSeen = 0;
+        for (let k = 0; k < textNodes[j].nodeValue.length; k++) {
+          const ch = textNodes[j].nodeValue[k];
+          if (normalizeTextForComparison(ch)) {
+            cleanCharSeen++;
+            if (cleanCharSeen >= matchEndPos - charCount) {
               endOffset = k + 1;
               break;
             }
-            cleanChar++;
           }
         }
-        break;
       }
-      charCount += normText.length;
+      charCount += normalizedNodeText.length;
+      if (endNodeIndex !== -1) break;
     }
 
-    if (startNodeIdx !== -1 && endNodeIdx !== -1) {
+    // 包裹字幕
+    if (startNodeIndex !== -1 && endNodeIndex !== -1) {
       const range = document.createRange();
-      try {
-        range.setStart(textNodes[startNodeIdx], startOffset);
-        range.setEnd(textNodes[endNodeIdx], endOffset);
+      range.setStart(textNodes[startNodeIndex], startOffset);
+      range.setEnd(textNodes[endNodeIndex], endOffset);
 
-        const span = document.createElement('span');
-        span.className = 'subtitle-segment';
-        span.dataset.subtitleId = subtitle.id;
+      const span = document.createElement('span');
+      span.className = 'subtitle-segment';
+      span.dataset.subtitleId = subtitle.id;
+      range.surroundContents(span);
 
-        const extracted = range.extractContents();
-        span.appendChild(extracted);
-        range.insertNode(span);
-      } catch (err) {
-        console.warn('range wrap failed', err);
-      }
-      currentSearchIndex = matchEnd;
+      currentSearchIndexInParagraph = matchEndPos;
       lastUsedSubtitleIndex = i + 1;
     }
   }
 
-  return {
-    html: tempDiv.innerHTML,
-    lastUsedSubtitleIndex
-  };
+  return { html: wrapper.innerHTML, lastUsedSubtitleIndex };
 }
 
-// 主章节渲染函数
+/**
+ * 渲染单章内容（段落、视频、tooltips、字幕同步）
+ */
 export function renderSingleChapterContent(
   chapterContent,
   currentChapterTooltips,
@@ -126,20 +141,18 @@ export function renderSingleChapterContent(
   let subtitleTracker = 0;
 
   chapterContent.paragraphs.forEach(item => {
+    let finalHtml = '';
+
     if (typeof item === 'string') {
-      const { html: subtitleTaggedHtml, lastUsedSubtitleIndex } = preTagSubtitles(item, subtitleData, subtitleTracker);
+      const { html: taggedHtml, lastUsedSubtitleIndex } = preTagSubtitles(item, subtitleData, subtitleTracker);
       subtitleTracker = lastUsedSubtitleIndex;
 
-      const finalHtml = renderMarkdownWithTooltips(
-        subtitleTaggedHtml,
+      finalHtml = renderMarkdownWithTooltips(
+        taggedHtml,
         currentChapterTooltips,
         wordFrequenciesMap,
         maxFreq
       );
-
-      const container = document.createElement('div');
-      container.innerHTML = finalHtml;
-      Array.from(container.children).forEach(el => chaptersContainer.appendChild(el));
 
     } else if (item.video) {
       const wrapper = document.createElement('div');
@@ -153,12 +166,20 @@ export function renderSingleChapterContent(
       iframe.src = ensureEnableJsApi(videoId ? `https://www.youtube.com/embed/${videoId}` : item.video);
       wrapper.appendChild(iframe);
       chaptersContainer.appendChild(wrapper);
+      return;
     }
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = finalHtml;
+    Array.from(tempDiv.children).forEach(child => {
+      chaptersContainer.appendChild(child);
+    });
   });
 }
 
-// ===== 其他辅助函数保持不变 =====
-
+/**
+ * 加载章节索引数据
+ */
 export async function loadChapterIndex() {
   try {
     const res = await fetch('data/chapters.json');
@@ -172,6 +193,9 @@ export async function loadChapterIndex() {
   }
 }
 
+/**
+ * 加载单个章节内容（JSON）
+ */
 export async function loadSingleChapterContent(filePath) {
   try {
     const res = await fetch(`data/${filePath}`);
@@ -183,37 +207,48 @@ export async function loadSingleChapterContent(filePath) {
   }
 }
 
+/**
+ * 渲染目录（TOC）
+ */
 export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 'all') {
   const toc = document.getElementById('toc');
   if (!toc) return;
+
   toc.innerHTML = '';
-  const filtered = chapterIndex.filter(ch => filterCategory === 'all' || (ch.categories || []).includes(filterCategory));
-  if (filtered.length === 0) {
-    toc.innerHTML = `<p style="text-align:center;padding:50px;color:#666;">No articles found for category: "${filterCategory}"</p>`;
+  const filteredChapters = chapterIndex.filter(ch => filterCategory === 'all' || (Array.isArray(ch.categories) && ch.categories.includes(filterCategory)));
+
+  if (filteredChapters.length === 0) {
+    toc.innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">No articles found for category: "${filterCategory}".</p>`;
     return;
   }
-  filtered.forEach(ch => {
-    const link = document.createElement('a');
-    link.href = `#${ch.id}`;
-    link.classList.add('chapter-list-item');
+
+  filteredChapters.forEach(ch => {
+    const itemLink = document.createElement('a');
+    itemLink.href = `#${ch.id}`;
+    itemLink.classList.add('chapter-list-item');
+
     const img = document.createElement('img');
     img.src = ch.thumbnail || 'assets/default_thumbnail.jpg';
     img.alt = ch.title;
-    link.appendChild(img);
+    itemLink.appendChild(img);
+
     const title = document.createElement('h3');
     title.textContent = ch.title;
-    link.appendChild(title);
-    link.dataset.filePath = ch.file;
-    link.addEventListener('click', e => {
+    itemLink.appendChild(title);
+
+    itemLink.dataset.filePath = ch.file;
+    itemLink.addEventListener('click', (e) => {
       e.preventDefault();
       onChapterClick(ch.id, ch.file);
     });
-    toc.appendChild(link);
+
+    toc.appendChild(itemLink);
   });
 }
 
-let globalWordFrequenciesMap = new Map();
-let globalMaxFreq = 1;
+/**
+ * 全局词频控制
+ */
 export function getGlobalWordFrequenciesMap() { return globalWordFrequenciesMap; }
 export function getGlobalMaxFreq() { return globalMaxFreq; }
 export function setGlobalWordFrequencies(map, maxF) {
