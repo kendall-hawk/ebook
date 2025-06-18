@@ -1,7 +1,7 @@
 // js/tooltip.js (更新导入路径和 YouTube URL)
 
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
-import { extractVideoId, ensureJsApi } from './utils.js'; // <-- 更改了导入路径
+import { extractVideoId, ensureEnableJsApi } from './utils.js'; // <-- 更改了导入路径
 
 marked.setOptions({
   gfm: true,
@@ -171,7 +171,7 @@ export function setupTooltips() {
             } else if (field === 'videoLink') {
                 const videoId = extractVideoId(formatted);
                 if (videoId) {
-                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="${ensureJsApi(`https://www.youtube.com/embed/${videoId}`)}" frameborder="0" allowfullscreen></iframe></div>`; // <-- 修正 YouTube URL 格式
+                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="${ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`)}" frameborder="0" allowfullscreen></iframe></div>`; // <-- 修正 YouTube URL 格式
                 }
             } else if (field === 'image') {
                 htmlContent += `<img src="${formatted}" alt="Tooltip Image" class="tooltip-image">`;
