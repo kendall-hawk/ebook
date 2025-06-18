@@ -1,160 +1,177 @@
-// js/audio/audioPlayer.js (最终优化版本 - 提高查找效率，确保事件清理)
-
-import { extractVideoId, ensureJsApi } from './utils.js'; // <-- 更改了导入路径
+import { parseSRT, tokenizeText } from '../utils.js';
 
 let audio;
 let subtitleData = [];
-let currentHighlightedElement = null; 
-let audioPlayerContainer = null; 
+let currentHighlightedElement = null;
+let audioPlayerContainer = null;
+let boundClickHandler = null;
+let wordToSubtitleMap = new Map();
 
-let boundTimeUpdateHandler = null; 
-let boundClickHandler = null; 
+export async function initAudioPlayer({ audioSrc, srtSrc }) {
+  cleanup();
 
-function cleanupOldPlayer() {
+  // 创建音频元素
+  audio = document.createElement('audio');
+  audio.src = audioSrc;
+  audio.controls = true;
+  audio.preload = 'metadata';
+
+  audioPlayerContainer = document.getElementById('audio-player');
+  if (audioPlayerContainer) {
+    audioPlayerContainer.innerHTML = '';
+    audioPlayerContainer.appendChild(audio);
+  }
+
+  const srtText = await fetch(srtSrc).then(res => res.text());
+  subtitleData = parseSRT(srtText);
+
+  buildWordToSubtitleMap();
+  bindWordClickEvents();
+  bindSubtitleSegmentClicks();
+
+  audio.addEventListener('timeupdate', handleTimeUpdate);
+}
+
+// 🧹 清除旧状态
+function cleanup() {
   if (audio) {
     audio.pause();
-    if (boundTimeUpdateHandler) {
-      audio.removeEventListener('timeupdate', boundTimeUpdateHandler);
-      boundTimeUpdateHandler = null;
-    }
-    audio.src = ''; 
+    audio.removeEventListener('timeupdate', handleTimeUpdate);
     audio = null;
   }
+
   if (audioPlayerContainer) {
-    audioPlayerContainer.remove();
-    audioPlayerContainer = null;
+    audioPlayerContainer.innerHTML = '';
   }
+
   if (boundClickHandler) {
-    document.body.removeEventListener('click', boundClickHandler);
+    document.removeEventListener('click', boundClickHandler);
     boundClickHandler = null;
   }
+
   currentHighlightedElement = null;
-  subtitleData = []; 
+  subtitleData = [];
+  wordToSubtitleMap.clear();
 }
 
-export function initAudioPlayer({ audioSrc, initialSubtitleData }) {
-  cleanupOldPlayer(); 
-
-  if (!audioSrc || typeof audioSrc !== 'string') {
-    console.error("音频文件路径无效。播放器无法初始化。");
-    return;
-  }
-
-  if (!initialSubtitleData || !Array.isArray(initialSubtitleData) || initialSubtitleData.length === 0) {
-    console.warn("没有提供有效的字幕数据，播放器将无法同步字幕。");
-    subtitleData = []; 
-  } else {
-    subtitleData = initialSubtitleData;
-  }
-
-  audioPlayerContainer = document.createElement('div');
-  audioPlayerContainer.id = 'audio-player-container';
-  Object.assign(audioPlayerContainer.style, {
-    position: 'fixed',
-    bottom: '0',
-    left: '0',
-    width: '100%',
-    padding: '10px',
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    boxSizing: 'border-box',
-    zIndex: '10000',
-    boxShadow: '0 -2px 10px rgba(0,0,0,0.5)'
+// 🔄 构建 word → subtitle index 的倒排索引
+function buildWordToSubtitleMap() {
+  subtitleData.forEach((entry, index) => {
+    const words = tokenizeText(entry.text.toLowerCase());
+    for (const { word } of words) {
+      if (!wordToSubtitleMap.has(word)) {
+        wordToSubtitleMap.set(word, new Set());
+      }
+      wordToSubtitleMap.get(word).add(index);
+    }
   });
-
-  audio = document.createElement('audio');
-  Object.assign(audio, {
-    src: audioSrc,
-    controls: true,
-    style: 'width: 100%; display: block;',
-  });
-  
-  audioPlayerContainer.appendChild(audio);
-  document.body.appendChild(audioPlayerContainer);
-
-  boundTimeUpdateHandler = handleTimeUpdate;
-  audio.addEventListener('timeupdate', boundTimeUpdateHandler);
-  
-  boundClickHandler = (e) => handleSubtitleClick(e);
-  document.body.addEventListener('click', boundClickHandler);
-
-  console.log('音频播放器已初始化。');
 }
 
-function findSubtitleIndex(time, subtitles) {
-  let low = 0;
-  let high = subtitles.length - 1;
-  let resultIndex = -1;
+// 🔗 给 .word 元素绑定点击事件
+function bindWordClickEvents() {
+  boundClickHandler = function (e) {
+    const wordEl = e.target.closest('.word');
+    if (wordEl) {
+      const word = wordEl.textContent.trim().toLowerCase();
+      const bestIndex = findBestMatchingSubtitleIndex(word);
+      if (bestIndex !== -1) {
+        const subtitle = subtitleData[bestIndex];
+        audio.currentTime = subtitle.start;
+        audio.play();
+        highlightSubtitleElement(subtitle.id);
+      }
+    }
+  };
+  document.addEventListener('click', boundClickHandler);
+}
 
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const sub = subtitles[mid];
-
-    if (time >= sub.start) {
-      resultIndex = mid; 
-      low = mid + 1;     
-    } else {
-      high = mid - 1;    
+// ⏯ 播放过程中字幕高亮
+function handleTimeUpdate() {
+  const currentTime = audio.currentTime;
+  for (const subtitle of subtitleData) {
+    if (currentTime >= subtitle.start && currentTime < subtitle.end) {
+      highlightSubtitleElement(subtitle.id);
+      break;
     }
   }
-  return resultIndex; 
 }
 
-function handleTimeUpdate() {
-  if (!audio || subtitleData.length === 0) return; 
+// 💡 模糊查找最接近的字幕 index
+function findBestMatchingSubtitleIndex(word) {
+  const candidateIndexes = wordToSubtitleMap.get(word) || new Set();
 
-  const currentTime = audio.currentTime;
-  
-  const activeSubtitleIndex = findSubtitleIndex(currentTime, subtitleData);
-  const activeSubtitle = activeSubtitleIndex !== -1 ? subtitleData[activeSubtitleIndex] : null;
+  let bestIndex = -1;
+  let bestScore = Infinity;
 
-  const activeId = activeSubtitle ? String(activeSubtitle.id) : null;
-  const highlightedId = currentHighlightedElement ? currentHighlightedElement.dataset.subtitleId : null;
+  for (const index of candidateIndexes) {
+    const subtitle = subtitleData[index];
+    const wordsInSubtitle = tokenizeText(subtitle.text.toLowerCase()).map(w => w.word);
 
-  if (activeId !== highlightedId) {
-    clearHighlight(); 
-
-    if (activeId) {
-      const elementToHighlight = document.querySelector(`.subtitle-segment[data-subtitle-id="${activeId}"]`);
-      if (elementToHighlight) {
-        elementToHighlight.classList.add('highlighted-subtitle');
-        currentHighlightedElement = elementToHighlight;
-        
-        requestAnimationFrame(() => {
-            currentHighlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+    for (const w of wordsInSubtitle) {
+      const distance = levenshteinDistance(word, w);
+      if (distance < bestScore) {
+        bestScore = distance;
+        bestIndex = index;
+        if (distance === 0) return bestIndex; // 完全匹配直接返回
       }
     }
   }
+
+  return bestIndex;
 }
 
-function handleSubtitleClick(e) {
-  const target = e.target.closest('.subtitle-segment');
-  if (target && target.dataset.subtitleId && audio) {
-    e.preventDefault();
-    e.stopPropagation();
+// 🖍 高亮字幕段 + 同步高亮其中的 .word
+function highlightSubtitleElement(subtitleId) {
+  if (currentHighlightedElement) {
+    currentHighlightedElement.classList.remove('active');
+    currentHighlightedElement.querySelectorAll('.word').forEach(w => w.classList.remove('active'));
+  }
 
-    const subtitleId = parseInt(target.dataset.subtitleId, 10);
-    const subtitle = subtitleData.find(s => s.id === subtitleId); 
-    
-    if (subtitle) {
+  const el = document.querySelector(`.subtitle-segment[data-subtitle-id="${subtitleId}"]`);
+  if (el) {
+    el.classList.add('active');
+    el.querySelectorAll('.word').forEach(w => w.classList.add('active'));
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    currentHighlightedElement = el;
+  }
+}
+
+// 🖱 支持点击字幕段跳转音频
+function bindSubtitleSegmentClicks() {
+  document.querySelectorAll('.subtitle-segment').forEach(el => {
+    el.addEventListener('click', () => {
+      const subtitleId = parseInt(el.dataset.subtitleId, 10);
+      const subtitle = subtitleData.find(s => s.id === subtitleId);
+      if (subtitle) {
         audio.currentTime = subtitle.start;
-        if (audio.paused) {
-          audio.play();
-        }
+        audio.play();
+        highlightSubtitleElement(subtitle.id);
+      }
+    });
+  });
+}
 
-        clearHighlight();
-        target.classList.add('highlighted-subtitle');
-        currentHighlightedElement = target;
-        requestAnimationFrame(() => {
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+// 🔠 Levenshtein 距离，用于容错匹配
+function levenshteinDistance(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,    // 删除
+          dp[i][j - 1] + 1,    // 插入
+          dp[i - 1][j - 1] + 1 // 替换
+        );
+      }
     }
   }
-}
 
-function clearHighlight() {
-  if (currentHighlightedElement) {
-    currentHighlightedElement.classList.remove('highlighted-subtitle');
-    currentHighlightedElement = null;
-  }
+  return dp[a.length][b.length];
 }
