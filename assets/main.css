@@ -5,8 +5,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
 
 /* --- Global Base Styles --- */
+*, *::before, *::after {
+  box-sizing: border-box; /* 全局设置 box-sizing */
+}
+
 body {
-  font-family: 'Source Serif 4', serif, Georgia, 'Times New Roman', Times, sans-serif; /* 增加通用 sans-serif 兜底 */
+  font-family: 'Source Serif 4', serif, Georgia, 'Times New Roman', Times, sans-serif;
   font-size: 18px;
   font-weight: 400;
   line-height: 1.7;
@@ -16,37 +20,37 @@ body {
   color: #333;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  scroll-behavior: smooth; /* 增加平滑滚动 */
+  scroll-behavior: smooth;
 }
 
 /* --- Content Container for Chapters --- */
 #chapters {
   background-color: #fff;
-  padding: 20px 30px; /* 增加垂直内边距，优化顶部和底部空间 */
+  padding: 20px 30px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* 稍微增强阴影 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   max-width: 800px;
-  margin: 20px auto; /* 居中显示 */
-  min-height: 50vh; /* 确保即使内容少也有一定高度 */
+  margin: 20px auto;
+  min-height: 50vh;
 }
 
 /* --- Headings within Chapters --- */
 #chapters h2 {
   font-family: 'Open Sans', sans-serif;
   font-weight: 700;
-  font-size: 2em; /* 稍微增大标题 */
+  font-size: 2em;
   line-height: 1.3;
   color: #0056b3;
   border-bottom: 2px solid #0056b3;
-  padding-bottom: 12px; /* 增加底部内边距 */
-  margin: 0 0 1.2em; /* 增加底部外边距 */
+  padding-bottom: 12px;
+  margin: 0 0 1.2em;
 }
 
 /* --- Paragraphs within Chapters --- */
 #chapters p {
   line-height: 1.8;
   margin-bottom: 1.5em;
-  text-align: justify; /* 使文本两端对齐，更整齐 */
+  text-align: justify;
 }
 
 /* --- Table of Contents (TOC) Container --- */
@@ -55,20 +59,20 @@ body {
   background-color: #e9e9e9;
   padding: 15px;
   border-radius: 8px;
-  max-width: 800px; /* 与章节内容宽度保持一致 */
+  max-width: 800px;
   margin: 20px auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* 统一阴影风格 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* --- TOC List Items (Links) --- */
 #toc a {
   font-family: 'Open Sans', sans-serif;
   display: block;
-  padding: 10px 12px; /* 稍微增加内边距 */
+  padding: 10px 12px;
   text-decoration: none;
   color: #007bff;
   border-bottom: 1px solid #ddd;
-  transition: background-color 0.2s ease, color 0.2s ease; /* 增加过渡效果 */
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #toc a:last-child {
@@ -83,44 +87,45 @@ body {
 /* --- Chapter Navigation Links (Prev/Next) --- */
 .chapter-nav-links {
   text-align: center;
-  margin: 30px auto 50px; /* 居中 */
-  padding: 15px; /* 增加内边距 */
+  margin: 30px auto 50px;
+  padding: 15px;
   background-color: #f0f0f0;
-  border-radius: 8px; /* 统一圆角 */
+  border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
-  gap: 15px; /* 增加间距 */
-  max-width: 800px; /* 与章节内容宽度保持一致 */
+  gap: 15px;
+  max-width: 800px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
 }
 
 .chapter-nav-link {
   font-family: 'Open Sans', sans-serif;
   display: inline-block;
-  padding: 10px 20px; /* 稍微增大按钮尺寸 */
+  padding: 10px 20px;
   background-color: #007bff;
   color: white;
   text-decoration: none;
   border-radius: 5px;
-  font-size: 1em; /* 调整字号 */
+  font-size: 1em;
   border: 1px solid #007bff;
   transition: all 0.3s ease;
-  min-width: 100px; /* 确保按钮有最小宽度 */
+  min-width: 100px;
+  outline: none; /* 移除点击时的聚焦边框 */
 }
 
 .chapter-nav-link:hover {
   background-color: #0056b3;
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 调整阴影 */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.chapter-nav-links span { /* 将 text 元素改为 span 以更好地控制 */
+.chapter-nav-links span {
   color: #666;
-  margin: 0 10px; /* 调整间距 */
-  font-family: 'Inter', sans-serif; /* 可以为文本使用 Inter 字体 */
+  margin: 0 10px;
+  font-family: 'Inter', sans-serif;
   font-size: 1.1em;
   font-weight: 700;
 }
@@ -129,8 +134,8 @@ body {
 .chapter-list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px; /* 增大间距 */
-  padding: 0px; /* 移除默认 padding，让其由 #toc 容器控制 */
+  gap: 25px;
+  padding: 0; /* 修正：移除默认 padding，让其由 #toc 容器控制 */
   max-width: 1200px;
   margin: 20px auto;
 }
@@ -145,12 +150,12 @@ body {
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* 初始阴影 */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .chapter-list-item:hover {
-  transform: translateY(-8px); /* 悬停提升更多 */
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15); /* 悬停阴影更明显 */
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
 }
 
 .chapter-list-item img {
@@ -158,13 +163,13 @@ body {
   height: 180px;
   object-fit: cover;
   display: block;
-  border-bottom: 1px solid #eee; /* 分隔图片和标题 */
+  border-bottom: 1px solid #eee;
 }
 
 .chapter-list-item h3 {
   font-family: 'Open Sans', sans-serif;
   margin: 15px;
-  font-size: 1.3em; /* 稍微增大标题字号 */
+  font-size: 1.3em;
   color: #0056b3;
   flex-grow: 1;
   line-height: 1.4;
@@ -180,8 +185,8 @@ body {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 12px; /* 调整间距 */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* 添加阴影 */
+  gap: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .category-button {
@@ -189,68 +194,74 @@ body {
   background-color: #007bff;
   color: white;
   border: none;
-  padding: 12px 22px; /* 增大按钮尺寸 */
+  padding: 12px 22px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 1em;
   transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.2s ease;
   white-space: nowrap;
+  outline: none; /* 移除点击时的聚焦边框 */
 }
 
 .category-button:hover {
   background-color: #0056b3;
-  transform: translateY(-2px); /* 悬停提升更多 */
+  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .category-button.active {
-  background-color: #28a745; /* 保持绿色激活状态 */
+  background-color: #28a745;
   font-weight: bold;
   transform: translateY(-2px);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  pointer-events: none; /* 激活状态下不可点击 */
+  pointer-events: none;
 }
 
 /* --- Tooltip Container --- */
 #react-tooltips {
   position: absolute;
-  display: none; /* 初始隐藏 */
+  display: none;
   opacity: 0;
   transform: translateY(5px);
   font-family: 'Open Sans', sans-serif;
   background-color: #f8f9fa;
   color: #343a40;
-  padding: 15px 20px; /* 调整内边距 */
-  border-radius: 10px; /* 稍微增大圆角 */
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); /* 增强阴影 */
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
   border: 1px solid #ced4da;
-  max-width: 320px; /* 稍微增大最大宽度 */
+  max-width: 320px;
   z-index: 10000;
   pointer-events: auto;
   transition: opacity 0.3s ease-out, transform 0.3s ease-out;
   will-change: opacity, transform;
-  line-height: 1.5; /* 增加行高 */
+  line-height: 1.5;
 }
 
 #react-tooltips.visible {
-  display: block; /* 显示 */
+  display: block;
   opacity: 1;
   transform: translateY(0);
 }
 
-/* Tooltip 内文本样式 */
+/* Tooltip 内文本样式优化 */
 #react-tooltips p {
   margin-bottom: 0.8em; /* 调整段落间距 */
   line-height: 1.5;
 }
 
-#react-tooltips p:last-child {
-  margin-bottom: 0; /* 最后一个段落不带底部外边距 */
+#react-tooltips p:empty { /* 隐藏空的 p 标签 */
+    margin: 0;
+    display: none;
+}
+
+#react-tooltips p:last-of-type { /* 最后一个段落不带底部外边距 */
+  margin-bottom: 0;
 }
 
 #react-tooltips strong {
   color: #007bff;
-  font-size: 1.2em; /* 增大主要词汇字号 */
+  font-size: 1.2em;
   display: block;
   margin-bottom: 0.2em;
   line-height: 1.2;
@@ -258,25 +269,25 @@ body {
 
 #react-tooltips em {
   color: #6c757d;
-  font-size: 0.95em; /* 调整斜体字号 */
+  font-size: 0.95em;
   display: block;
   margin-bottom: 0.8em;
   line-height: 1.3;
 }
 
 #react-tooltips .tooltip-title {
-  margin-bottom: 0.5em; /* 标题与 POS 之间间距 */
+  margin-bottom: 0.5em;
 }
 
 #react-tooltips .tooltip-pos {
   font-style: italic;
   color: #555;
-  margin-top: -0.5em; /* 稍微上移靠近标题 */
+  margin-top: -0.5em;
   margin-bottom: 0.8em;
 }
 
 #react-tooltips .tooltip-pronunciation {
-  font-family: 'Inter', sans-serif; /* 语音使用 Inter 字体 */
+  font-family: 'Inter', sans-serif;
   font-size: 0.95em;
   color: #007bff;
   margin-bottom: 1em;
@@ -292,11 +303,11 @@ body {
 .tooltip-video-wrapper {
   position: relative;
   width: 100%;
-  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  padding-bottom: 56.25%;
   height: 0;
   overflow: hidden;
   margin: 10px 0 15px;
-  background-color: #000; /* 视频加载前的背景 */
+  background-color: #000;
   border-radius: 6px;
 }
 
@@ -307,7 +318,7 @@ body {
   width: 100%;
   height: 100%;
   border: none;
-  border-radius: 6px; /* 统一圆角 */
+  border-radius: 6px;
 }
 
 .tooltip-image {
@@ -315,28 +326,25 @@ body {
   height: auto;
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin: 10px auto 15px; /* 居中并调整间距 */
-  display: block; /* 确保 img 是块级元素以便 margin auto 居中 */
+  margin: 10px auto 15px;
+  display: block;
 }
 
 .tooltip-image-description-text {
   font-size: 0.85em;
   color: #6c757d;
   margin-top: 5px;
-  text-align: center; /* 图片描述居中 */
+  text-align: center;
   margin-bottom: 1em;
 }
-
-/* Removed .tooltip-video-link as it's replaced by iframe directly */
-
 
 .tooltip-etymology,
 .tooltip-category,
 .tooltip-source,
 .tooltip-last-updated {
   font-size: 0.8em;
-  color: #888; /* 调整颜色，使其更柔和 */
-  margin-top: 8px; /* 调整间距 */
+  color: #888;
+  margin-top: 8px;
   font-style: italic;
 }
 
@@ -344,21 +352,21 @@ body {
 .tooltip-antonyms {
   font-size: 0.9em;
   color: #333;
-  margin-top: 12px; /* 调整间距 */
-  font-weight: bold; /* 强调标题 */
+  margin-top: 12px;
+  font-weight: bold;
 }
 
 .tooltip-synonyms span,
 .tooltip-antonyms span {
   background-color: #e9ecef;
-  padding: 3px 8px; /* 调整内边距 */
-  margin: 3px; /* 调整外边距 */
+  padding: 3px 8px;
+  margin: 3px;
   display: inline-block;
-  border-radius: 4px; /* 调整圆角 */
+  border-radius: 4px;
   font-family: 'Open Sans', sans-serif;
   font-size: 0.85em;
-  font-weight: normal; /* 词语本身不加粗 */
-  white-space: nowrap; /* 防止词语内部换行 */
+  font-weight: normal;
+  white-space: nowrap;
 }
 
 /* --- Word Tooltip Trigger Styles --- */
@@ -366,11 +374,11 @@ body {
   cursor: help;
   border-bottom: 2px dotted #007bff;
   text-decoration: none;
-  display: inline-block; /* 保持行内块级 */
-  vertical-align: baseline;
-  font-size: inherit; /* 继承父元素字号 */
-  line-height: 1.3; /* 确保行高一致性 */
-  padding-bottom: 1px; /* 增加一点点底部内边距，让点状下划线不那么贴近文字 */
+  display: inline-block;
+  vertical-align: text-bottom; /* 调整为 text-bottom 尝试更好的视觉效果 */
+  font-size: inherit;
+  line-height: 1.3;
+  padding-bottom: 1px;
   transition: color 0.2s ease, border-bottom-color 0.2s ease;
 }
 
@@ -383,31 +391,30 @@ body {
 .floating-video {
   position: fixed;
   width: 320px;
-  height: 220px; /* 调整高度以容纳标题和视频 */
-  bottom: 20px; /* 距离底部和右侧稍微增加 */
+  height: 220px;
+  bottom: 20px;
   right: 20px;
-  background-color: #1a1a1a; /* 更深的背景色 */
+  background-color: #1a1a1a;
   border: 1px solid #333;
-  border-radius: 8px; /* 统一圆角 */
+  border-radius: 8px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
   cursor: grab;
   user-select: none;
   overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); /* 更强的阴影 */
-  resize: both; /* 允许用户调整大小 */
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  resize: both;
   min-width: 200px;
   min-height: 150px;
   max-width: 90vw;
   max-height: 90vh;
 }
 
-/* 内部 iframe 尺寸自适应浮动框 */
 .floating-video #float-player {
-  flex-grow: 1; /* 占据剩余空间 */
+  flex-grow: 1;
   width: 100%;
-  height: 100%; /* 确保 iframe 填充容器 */
+  height: 100%;
 }
 
 .floating-video #float-player iframe {
@@ -416,33 +423,33 @@ body {
     border: none;
 }
 
-
 .video-header {
   font-family: 'Open Sans', sans-serif;
-  background: #2a2a2a; /* 稍微调整颜色 */
+  background: #2a2a2a;
   color: #fff;
-  padding: 6px 12px; /* 调整内边距 */
+  padding: 6px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 1em; /* 调整字号 */
+  font-size: 1em;
   cursor: grab;
-  flex-shrink: 0; /* 防止被压缩 */
+  flex-shrink: 0;
 }
 
 .close-btn {
   background: none;
   border: none;
   color: #fff;
-  font-size: 24px; /* 增大关闭按钮 */
+  font-size: 24px;
   cursor: pointer;
   padding: 0 8px;
   line-height: 1;
   transition: color 0.2s ease;
+  outline: none; /* 移除点击时的聚焦边框 */
 }
 
 .close-btn:hover {
-  color: #ff4d4d; /* 鲜艳的红色 */
+  color: #ff4d4d;
 }
 
 /* --- Fixed Audio Player Container --- */
@@ -451,11 +458,11 @@ body {
   bottom: 0;
   left: 0;
   width: 100%;
-  padding: 10px 15px; /* 增加内边距 */
-  background-color: rgba(0, 0, 0, 0.9); /* 更深的背景，半透明 */
+  padding: 10px 15px;
+  background-color: rgba(0, 0, 0, 0.9);
   box-sizing: border-box;
   z-index: 10000;
-  box-shadow: 0 -3px 15px rgba(0, 0, 0, 0.5); /* 更强的顶部阴影 */
+  box-shadow: 0 -3px 15px rgba(0, 0, 0, 0.5); /* 顶部阴影 */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -463,16 +470,16 @@ body {
 
 #audio-player audio {
   width: 100%;
-  max-width: 700px; /* 限制播放器宽度 */
+  max-width: 700px;
   border-radius: 5px;
-  height: 40px; /* 统一播放器高度 */
-  outline: none; /* 移除聚焦时的边框 */
+  height: 40px;
+  outline: none;
 }
 
 /* --- Responsive Adjustments --- */
 @media (max-width: 767px) {
   .floating-video {
-    display: none !important; /* 在小屏幕上完全隐藏浮动视频 */
+    display: none !important;
   }
 
   body {
@@ -482,23 +489,23 @@ body {
 
   #chapters {
     margin: 10px auto;
-    padding: 15px 15px 20px; /* 调整内边距 */
+    padding: 15px 15px 20px;
   }
 
   #chapters h2 {
-    font-size: 1.6em; /* 适应小屏幕 */
+    font-size: 1.6em;
     margin-bottom: 1em;
   }
 
   #toc, #chapter-nav-links, #category-nav {
       margin-left: 10px;
       margin-right: 10px;
-      border-radius: 5px; /* 适应小屏幕圆角 */
+      border-radius: 5px;
   }
 
   .chapter-list-grid {
-    padding: 0; /* 在小屏幕上移除内边距 */
-    gap: 15px; /* 减小间距 */
+    padding: 0;
+    gap: 15px;
   }
 
   .chapter-list-item h3 {
@@ -507,18 +514,18 @@ body {
   }
 
   #react-tooltips {
-    max-width: 90%; /* 小屏幕最大宽度 */
-    left: 5% !important; /* 强制居中 */
-    right: 5% !important;
-    transform: none !important; /* 禁用 transform 动画，避免布局问题 */
-    top: auto !important; /* 清除顶部定位 */
+    max-width: 90%;
+    left: 50% !important; /* 强制居中 */
+    right: auto !important;
+    transform: translateX(-50%) translateY(0) !important; /* 确保正确居中并消除垂直偏移 */
+    top: auto !important;
     bottom: 20px; /* 定位到底部，避免遮挡内容 */
-    padding: 12px 15px; /* 调整内边距 */
+    padding: 12px 15px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
   }
 
   #audio-player {
-    padding: 8px 10px; /* 调整小屏幕内边距 */
+    padding: 8px 10px;
   }
 }
 
@@ -526,36 +533,35 @@ body {
 .subtitle-segment {
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease, border-radius 0.2s ease;
-  display: inline; /* 确保不破坏文本流 */
-  padding: 0 2px; /* 增加少量内边距以使高亮更自然 */
-  border-radius: 3px; /* 柔和的圆角 */
+  display: inline;
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: inherit; /* 确保不影响行高 */
 }
 
 .subtitle-segment:hover {
-  background-color: #e0f2f7; /* 轻微的悬停效果，浅蓝色 */
-  color: #0056b3; /* 悬停时文字颜色也变深 */
+  background-color: #e0f2f7;
+  color: #0056b3;
 }
 
-/* !!! 关键修正 !!! - 激活状态的字幕段 */
-.subtitle-segment.active { /* 匹配 JS 中使用的 .active 类 */
-  background-color: #ffc107; /* 例如，明黄色高亮 */
-  color: #333; /* 高亮时文字变深色，以便阅读 */
+.subtitle-segment.active {
+  background-color: #ffc107;
+  color: #333;
   border-radius: 3px;
-  font-weight: 700; /* 激活时字体加粗 */
-  box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); /* 添加一点光晕效果 */
+  font-weight: 700;
+  box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
 }
 
-/* 当 .word 元素位于激活的 .subtitle-segment 内部时 */
 .subtitle-segment.active .word {
-  color: #333; /* 保持与高亮背景协调 */
-  border-bottom-color: #000; /* 下划线也变深 */
+  color: #333;
+  border-bottom-color: #000;
 }
 
 
 /* --- Optional: Dark Mode --- */
 .dark-mode body {
-  background-color: #1a1a1a; /* 更深的背景 */
-  color: #e0e0e0; /* 更亮的文字 */
+  background-color: #1a1a1a;
+  color: #e0e0e0;
 }
 
 .dark-mode #chapters,
@@ -563,19 +569,19 @@ body {
 .dark-mode .chapter-list-item,
 .dark-mode .chapter-nav-links,
 .dark-mode #category-nav {
-  background-color: #282828; /* 暗色系背景 */
+  background-color: #282828;
   color: #e0e0e0;
-  border-color: #3a3a3a; /* 暗色系边框 */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* 暗模式下更深的阴影 */
+  border-color: #3a3a3a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .dark-mode #chapters h2 {
-    color: #66b3ff; /* 暗模式下标题颜色 */
+    color: #66b3ff;
     border-bottom-color: #66b3ff;
 }
 
 .dark-mode #toc a {
-    color: #88c0ff; /* 暗模式下链接颜色 */
+    color: #88c0ff;
     border-bottom-color: #3a3a3a;
 }
 
@@ -609,7 +615,6 @@ body {
     color: #66b3ff;
 }
 
-
 .dark-mode #category-nav {
     background-color: #282828;
     border-bottom-color: #3a3a3a;
@@ -625,13 +630,13 @@ body {
 }
 
 .dark-mode .category-button.active {
-  background-color: #218838; /* 暗模式下激活状态的绿色 */
+  background-color: #218838;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 .dark-mode .word {
-  border-bottom-color: #66b3ff; /* 暗模式下词语下划线颜色 */
-  color: #88c0ff; /* 暗模式下词语颜色 */
+  border-bottom-color: #66b3ff;
+  color: #88c0ff;
 }
 .dark-mode .word:hover {
     color: #aaddff;
@@ -639,7 +644,7 @@ body {
 }
 
 .dark-mode #react-tooltips {
-  background-color: #202020; /* 暗模式下工具提示背景 */
+  background-color: #202020;
   color: #e0e0e0;
   border: 1px solid #555;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
@@ -664,12 +669,12 @@ body {
 }
 
 .dark-mode .subtitle-segment:hover {
-  background-color: #333; /* 暗模式下悬停效果 */
+  background-color: #333;
   color: #aaffff;
 }
 .dark-mode .subtitle-segment.active {
-  background-color: #d4a700; /* 暗模式下激活字幕高亮 */
-  color: #222; /* 确保文字清晰 */
+  background-color: #d4a700;
+  color: #222;
   box-shadow: 0 0 5px rgba(212, 167, 0, 0.5);
 }
 
