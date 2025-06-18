@@ -166,8 +166,8 @@ async function handleChapterClick(chapterId, filePath) {
     }
 
     // === 音频和 SRT 逻辑 ===
-    const audioSrc = `data/audio/${chapterId}.mp3`; // 修正路径
-    const srtPath = `data/srt/${chapterId}.srt`;     // 修正路径
+    const audioSrc = `data/audio/chapters/${chapterId}.mp3`; // 修正路径
+    const srtPath = `data/srt/chapters/${chapterId}.srt`;     // 修正路径
     let subtitleDataForRenderer = []; // 为 chapterRenderer 准备字幕数据
 
     try {
