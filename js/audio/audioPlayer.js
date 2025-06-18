@@ -1,6 +1,6 @@
 // js/audio/audioPlayer.js (新版本 - 包含单词点击跳转和模糊查找)
 
-import { parseSRT, tokenizeText } from 'data/js/utils.js'; // 假设 utils.js 在同级目录或其父级目录
+import { parseSRT, tokenizeText } from 'js/utils.js'; // 假设 utils.js 在同级目录或其父级目录
 
 let audio;
 let subtitleData = [];
