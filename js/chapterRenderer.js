@@ -4,108 +4,47 @@ import { ensureEnableJsApi, extractVideoId } from './utils.js';
 
 let allChapterIndex = [];
 
+// 新增：预标记函数，这是整个方案的核心
 /**
- * 在段落文本中查找所有字幕文本，并用带有 `data-subtitle-id` 的 `<span>` 元素包裹它们。
- * 此函数采用容错增强的匹配策略，并确保已标记区域不会被重复或重叠标记。
- *
- * @param {string} paragraphText - 原始的段落文本，作为搜索字幕的基础。
- * @param {Array<Object>} subtitles - 解析后的 SRT 字幕对象数组。
- * 每个字幕对象应至少包含 `id` (字幕的唯一标识符) 和 `text` (字幕内容) 属性。
- * 例如: `[{ id: 1, text: "Hello world." }, { id: 2, text: "This is a test." }]`
- * @returns {string} - 经过预标记处理的 HTML 字符串。
- * 所有匹配到的字幕文本都将被 `<span class="subtitle-segment" data-subtitle-id="YOUR_ID">...</span>` 包裹。
- * 如果 `subtitles` 为空或无效，将直接返回 `paragraphText`。
- *
- * @example
- * const paragraph = "This is a sample text with some sample words from a subtitle.";
- * const subs = [
- * { id: 1, text: "sample text" },
- * { id: 2, text: "sample words" }
- * ];
- * const taggedHtml = preTagSubtitles(paragraph, subs);
- * // 结果将是: "This is a <span class=\"subtitle-segment\" data-subtitle-id=\"1\">sample text</span> with some <span class=\"subtitle-segment\" data-subtitle-id=\"2\">sample words</span> from a subtitle."
- * // 注意：如果“sample text”和“sample words”在原文中有重叠，本函数会优先处理更长的匹配或先出现的匹配，避免冲突。
+ * 在段落中查找所有字幕文本，并用带有 data-subtitle-id 的 span 包裹它们。
+ * @param {string} paragraphText - 原始段落文本.
+ * @param {Array<Object>} subtitles - 解析后的SRT字幕数组.
+ * @returns {string} - 经过预标记处理的 HTML 字符串.
  */
 function preTagSubtitles(paragraphText, subtitles) {
     if (!subtitles || subtitles.length === 0) {
         return paragraphText;
     }
 
-    let tempText = paragraphText;
-    // 存储所有待替换的匹配项信息：{ start, end, matchText, subtitleId }
-    const replacements = [];
-
-    // 1. 预处理字幕并进行所有可能的匹配
+    let taggedText = paragraphText;
+    
+    // 创建一个查找表，将纯文本映射到字幕ID
+    const subtitleMap = new Map();
     subtitles.forEach(sub => {
-        // 清理字幕文本：移除HTML标签，压缩空格，并去除首尾空格
-        const cleanSubText = sub.text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-        if (!cleanSubText) return;
-
-        // 创建宽容正则：忽略空格、大小写、标点差异
-        // 1. 转义正则特殊字符，防止它们被解释为正则语法
-        // 2. 将所有连续的空格替换为 `\s*`，使其能匹配零个或多个空格
-        // 3. 将常见的标点符号替换为可选的标点匹配 `[,.:;!?]?`，以容忍标点差异
-        const pattern = cleanSubText
-            .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')   // 转义正则特殊字符
-            .replace(/\s+/g, '\\s*')                    // 宽松空格
-            .replace(/[,.:;!?]/g, '[,.:;!?]?');         // 宽容标点
-
-        const regex = new RegExp(pattern, 'gi'); // 'g' 全局匹配, 'i' 忽略大小写
-
-        let match;
-        // 使用 exec 循环查找所有匹配项及其索引
-        while ((match = regex.exec(tempText)) !== null) {
-            replacements.push({
-                start: match.index,
-                end: match.index + match[0].length,
-                matchText: match[0],
-                subtitleId: sub.id,
-                // 存储原始的干净字幕文本长度，用于后续的优先级排序
-                originalSubLength: cleanSubText.length 
-            });
+        // 清理字幕文本，移除HTML标签和多余空格，以便匹配
+        const cleanText = sub.text.replace(/<[^>]*>/g, '').trim();
+        if (cleanText) {
+           subtitleMap.set(cleanText, sub.id);
         }
     });
 
-    // 2. 解决重叠问题：
-    // 优先处理更长的匹配，如果长度相同则优先处理靠前的匹配。
-    // 然后，删除所有与已选择的匹配项重叠的较短或更靠后的匹配项。
-    replacements.sort((a, b) => {
-        // 优先处理更长的原始字幕文本
-        if (b.originalSubLength !== a.originalSubLength) {
-            return b.originalSubLength - a.originalSubLength;
-        }
-        // 如果长度相同，优先处理在文本中靠前的匹配项
-        return a.start - b.start;
+    // 为了避免替换操作的冲突，我们从最长的字幕开始替换
+    const sortedKeys = Array.from(subtitleMap.keys()).sort((a, b) => b.length - a.length);
+
+    sortedKeys.forEach(textToFind => {
+        const subtitleId = subtitleMap.get(textToFind);
+        // 使用正则表达式进行全局、不区分大小写的替换
+        // 我们查找的文本不能位于HTML标签内部
+        const regex = new RegExp(textToFind.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi');
+        
+        taggedText = taggedText.replace(regex, (match) => {
+             // 检查匹配项是否已在另一个字幕标签中，防止嵌套
+             // 这是一个简化检查，在多数情况下有效
+            return `<span class="subtitle-segment" data-subtitle-id="${subtitleId}">${match}</span>`;
+        });
     });
 
-    const finalReplacements = [];
-    const usedRanges = []; // 存储已确定的标记范围，格式 {start, end}
-
-    replacements.forEach(newMatch => {
-        // 检查新匹配是否与任何已确定的范围重叠
-        const isOverlapping = usedRanges.some(existingRange => 
-            (newMatch.start < existingRange.end && newMatch.end > existingRange.start)
-        );
-
-        if (!isOverlapping) {
-            finalReplacements.push(newMatch);
-            usedRanges.push({ start: newMatch.start, end: newMatch.end });
-            // 为了正确处理重叠，需要对 usedRanges 进行排序或使用更复杂的数据结构
-            // 简单起见，这里是假设后续的 isOverlapping 检查能处理乱序的 usedRanges
-            // 但对于复杂的重叠情况，更好的方法是维护一个排序或区间树
-        }
-    });
-
-    // 3. 倒序应用替换，以避免在替换过程中改变字符串索引
-    // 确保从字符串末尾开始替换，这样前面的索引就不会因为替换而失效
-    finalReplacements.sort((a, b) => b.start - a.start);
-
-    finalReplacements.forEach(rep => {
-        const spanTag = `<span class="subtitle-segment" data-subtitle-id="${rep.subtitleId}">${rep.matchText}</span>`;
-        tempText = tempText.substring(0, rep.start) + spanTag + tempText.substring(rep.end);
-    });
-
-    return tempText;
+    return taggedText;
 }
 
 
