@@ -4,6 +4,8 @@
             "id": "chap-01",
             "title": "What's your favourite kind of noodle?",
             "file": "chapters/1.json",
+            "audio": "chapters/audio/chap-01.mp3",
+  "srt": "chapters/srt/chap-01.srt",
             "thumbnail": "https://img.youtube.com/vi/aOiuSsnWEik/maxresdefault.jpg",
             "googleDriveAudioId": "",
             "categories": [
