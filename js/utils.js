@@ -1,4 +1,4 @@
-// js/utils.js (最终整合版：包含 ensureEnableJsApi, extractVideoId, tokenizeText)
+// js/utils.js (最终整合版：包含 ensureEnableJsApi, extractVideoId, tokenizeText, parseSRT)
 
 /**
  * 确保 YouTube 视频 URL 包含 enablejsapi=1 参数，以启用 JavaScript API 控制。
@@ -10,31 +10,21 @@ export function ensureEnableJsApi(urlString) {
     if (!urlString) return '';
     try {
         const url = new URL(urlString);
-        // 检查主机名是否是 YouTube 相关的。
-        // 注意：您提供的这些主机名 'www.youtube.com' 等
-        // 看起来不像是标准的 YouTube 嵌入域名。
-        // 标准的 YouTube 嵌入域名通常是 "www.youtube.com" 或 "www.youtube-nocookie.com"。
-        // 我将在这里保留您提供的逻辑，但建议您根据实际的 YouTube 嵌入 URL 检查并修正这些域名。
-        const validYoutubeHostnames = [
-            'www.youtube.com',
-            'youtube.com',
-            'm.youtube.com',
-            'youtu.be',
-            'www.youtube-nocookie.com',
-            // 如果您确定需要，可以保留以下非标准域名，但它们看起来不寻常
-            'googleusercontent.com' // 这是一个非常宽泛的匹配，可能需要更精确
-        ];
         
-        // 简化检查，只要 URL 包含 'youtube.com' 或 'youtu.be'，就认为是 YouTube 链接
-        // 这样可以避免列举所有子域名，且更健壮
-        const isYoutubeUrl = url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be');
+        // 检查主机名是否是 YouTube 相关的。
+        const isYoutubeRelatedHost = url.hostname.includes('youtube.com') ||
+                                     url.hostname.includes('youtu.be') ||
+                                     url.hostname.includes('youtube-nocookie.com') ||
+                                     // Add specific googleusercontent.com subdomains if they are strictly used
+                                     url.hostname.includes('youtube.com') ||
+                                     url.hostname.includes('youtu.be');
 
-        if (!isYoutubeUrl) {
-            // 如果不是 YouTube 域名，直接返回原URL
+        if (!isYoutubeRelatedHost) {
+            // If not a YouTube domain, return the original URL as is.
             return urlString;
         }
 
-        const params = new new URLSearchParams(url.search);
+        const params = new URLSearchParams(url.search);
         if (!params.has('enablejsapi')) {
             params.set('enablejsapi', '1');
             url.search = params.toString();
@@ -42,7 +32,7 @@ export function ensureEnableJsApi(urlString) {
         return url.toString();
     } catch (e) {
         console.error('ensureEnableJsApi: 无效的视频URL或处理出错:', urlString, e);
-        return urlString; // 返回原始URL以防出错
+        return urlString; // Return original URL on error
     }
 }
 
@@ -53,18 +43,17 @@ export function ensureEnableJsApi(urlString) {
  */
 export function extractVideoId(url) {
     if (!url) return null;
-    // 这是一个更全面和健壮的正则表达式，可以匹配多种 YouTube URL 格式
-    // 包括标准链接、短链接、嵌入链接、移动版链接、YouTube Music 链接等
+    // A comprehensive regex to match various YouTube URL formats
     const regex = /(?:youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=)|youtu\.be\/|m\.youtube\.com\/watch\?v=|music\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/;
     const m = url.match(regex);
 
-    // 确保返回的ID是干净的，没有额外的查询参数或哈希
+    // Ensure the returned ID is clean, without extra query parameters or hashes
     if (m && m[1]) {
         let videoId = m[1];
-        // YouTube 视频 ID固定为11个字符，通常不会包含 '?' 或 '#'
-        // 但以防万一，还是保留移除逻辑。
-        // 例如：https://www.youtube.com/watch?v=dQw4w9WgXcQ&feature=share -> dQw4w9WgXcQ
-        // 或 https://youtu.be/dQw4w9WgXcQ?t=10 -> dQw4w9WgXcQ
+        // YouTube video IDs are fixed at 11 characters.
+        // The regex is designed to capture only the 11-character ID.
+        // The extra removal logic below is mostly for defensive programming,
+        // as the regex should prevent it.
         const queryParamIndex = videoId.indexOf('?');
         if (queryParamIndex !== -1) {
             videoId = videoId.substring(0, queryParamIndex);
@@ -73,11 +62,10 @@ export function extractVideoId(url) {
         if (hashIndex !== -1) {
             videoId = videoId.substring(0, hashIndex);
         }
-        return videoId.length === 11 ? videoId : null; // 额外验证ID长度
+        return videoId.length === 11 ? videoId : null; // Validate ID length
     }
-    return null; // 如果没有匹配到，返回 null
+    return null; // Return null if no match
 }
-
 
 /**
  * 将句子分词为 { word, indexInText, length } 的数组
@@ -101,7 +89,7 @@ export function tokenizeText(sentence) {
   const regex = /\s+|[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)?|[\p{Script=Han}]|[.,!?;:"“”‘’…—\-]/gu;
   let match;
 
-  if (!sentence) return tokens; // 处理空字符串输入
+  if (!sentence) return tokens; // Handle empty string input
 
   while ((match = regex.exec(sentence)) !== null) {
     // Only push if it's not an empty match (regex should prevent this, but good defensive programming)
@@ -115,4 +103,42 @@ export function tokenizeText(sentence) {
   }
 
   return tokens;
+}
+
+/**
+ * 解析 SRT 字幕文本为 JavaScript 对象数组。
+ * @param {string} srtText - SRT 格式的字幕文本。
+ * @returns {Array<Object>} - 包含 id, start, end, text 属性的字幕对象数组。
+ */
+export function parseSRT(srtText) {
+    const subtitles = [];
+    // Split by two or more newlines to separate subtitle blocks
+    const blocks = srtText.trim().split(/\r?\n\s*\r?\n/);
+
+    blocks.forEach(block => {
+        const lines = block.split(/\r?\n/);
+        if (lines.length >= 3) {
+            const id = parseInt(lines[0].trim(), 10);
+            const timecodes = lines[1].trim();
+            const text = lines.slice(2).join(' ').trim();
+
+            const [startStr, endStr] = timecodes.split(' --> ');
+
+            const parseTime = (timeStr) => {
+                const parts = timeStr.split(':');
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+                const [seconds, milliseconds] = parts[2].split(',').map(Number);
+                return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+            };
+
+            subtitles.push({
+                id: id,
+                start: parseTime(startStr),
+                end: parseTime(endStr),
+                text: text
+            });
+        }
+    });
+    return subtitles;
 }
