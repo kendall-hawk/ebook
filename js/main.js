@@ -11,7 +11,6 @@ import {
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer } from './audio/audioPlayer.js';
-import { parseSRT } from './audio/srtParser.js';
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
