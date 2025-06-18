@@ -1,7 +1,8 @@
-// js/tooltip.js (更新导入路径和 YouTube URL)
+// js/tooltip.js (重构版 - 更新导入路径和 YouTube URL)
 
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
-import { extractVideoId, ensureEnableJsApi } from './utils.js'; // <-- 更改了导入路径
+// 导入 youtube.js 中的 YouTube 工具函数
+import { extractVideoId, getYouTubeEmbedUrl } from './youtube.js';
 
 marked.setOptions({
   gfm: true,
@@ -169,9 +170,10 @@ export function setupTooltips() {
             } else if (field === 'exampleSentence') {
                 htmlContent += `<p class="tooltip-example"><strong>example:</strong> ${formatted}</p>`;
             } else if (field === 'videoLink') {
-                const videoId = extractVideoId(formatted);
+                const videoId = extractVideoId(formatted); // 使用 youtube.js 的 extractVideoId
                 if (videoId) {
-                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="${ensureEnableJsApi(`https://www.youtube.com/embed/${videoId}`)}" frameborder="0" allowfullscreen></iframe></div>`; // <-- 修正 YouTube URL 格式
+                    // 修正：使用 youtube.js 的 getYouTubeEmbedUrl
+                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="${getYouTubeEmbedUrl(videoId, true)}" frameborder="0" allowfullscreen></iframe></div>`;
                 }
             } else if (field === 'image') {
                 htmlContent += `<img src="${formatted}" alt="Tooltip Image" class="tooltip-image">`;
