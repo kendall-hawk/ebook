@@ -1,4 +1,5 @@
-// js/main.js (更新以适应新的 audioPlayer.js)
+// js/main.js (重构版 - 更新以适应所有重构文件)
+
 import {
     loadChapterIndex,
     loadSingleChapterContent,
@@ -11,13 +12,20 @@ import {
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer } from './audio/audioPlayer.js';
-// import { parseSRT } from './utils.js'; // <-- 移除：parseSRT 不再直接在 main.js 中使用
+// 重新导入 parseSRT，因为 main.js 现在需要它来为 chapterRenderer 提供字幕数据
+import { parseSRT } from './utils.js';
+// 导入 youtube 模块的 setup 函数
+import { setupFloatingYouTube, setupVideoAutoPause } from './youtube.js';
+
 
 let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- 页面初始化、加载索引、计算词频等逻辑保持不变 ---
+    // 初始化 YouTube 视频功能（自动暂停和浮动视频）
+    setupVideoAutoPause();
+    setupFloatingYouTube();
+
     allChapterIndexData = await loadChapterIndex();
 
     if (allChapterIndexData.length === 0) {
@@ -74,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderCategoryNavigation(Array.from(categories));
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 
-    setupTooltips();
+    setupTooltips(); // 确保在章节内容渲染前，工具提示的事件监听器已准备好
 
     const initialChapterId = window.location.hash.substring(1);
     if (initialChapterId) {
@@ -124,21 +132,15 @@ function renderCategoryNavigation(categories) {
 
 function showTocPage() {
     document.getElementById('chapters').style.display = 'none';
-    // 确保清理播放器，而不是直接移除容器，因为新版 audioPlayer 会管理容器
-    // 这里调用 cleanup 可能会导致问题，因为 cleanup 在 audioPlayer.js 内部，
-    // 应该通过 initAudioPlayer 的内部 cleanup 来处理，或者单独导出一个 cleanup 函数
-    // For now, let's just make sure the audio is paused and container is hidden/cleared if it exists.
     const playerContainer = document.getElementById('audio-player');
     if (playerContainer) {
-        // 如果 audioPlayer.js 的 cleanup 负责移除容器，这里就不用 remove()
-        // 否则，可以在这里隐藏或清空
         playerContainer.innerHTML = ''; // 清空内容
-        // playerContainer.style.display = 'none'; // 或者隐藏它
+        // playerContainer.style.display = 'none'; // 或者根据需要隐藏
     }
     document.getElementById('toc').style.display = 'grid';
     document.getElementById('category-nav').style.display = 'flex';
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
-    window.location.hash = ''; // Clear hash when showing TOC
+    window.location.hash = '';
 }
 
 
@@ -164,61 +166,41 @@ async function handleChapterClick(chapterId, filePath) {
     }
 
     // === 音频和 SRT 逻辑 ===
-    const audioSrc = `data/chapters/audio/${chapterId}.mp3`;
-    const srtPath = `data/chapters/srt/${chapterId}.srt`;
-    // let subtitleData = []; // <-- 移除：subtitleData 不再在这里加载和解析
+    const audioSrc = `data/audio/${chapterId}.mp3`; // 修正路径
+    const srtPath = `data/srt/${chapterId}.srt`;     // 修正路径
+    let subtitleDataForRenderer = []; // 为 chapterRenderer 准备字幕数据
 
-    // try {
-    //     const srtRes = await fetch(srtPath);
-    //     if (srtRes.ok) {
-    //         const srtText = await srtRes.text();
-    //         subtitleData = parseSRT(srtText); // <-- 移除：由 audioPlayer.js 内部处理
-    //     }
-    // } catch (err) {
-    //     console.warn('SRT 文件加载/解析失败:', err);
-    // }
+    try {
+        const srtRes = await fetch(srtPath);
+        if (srtRes.ok) {
+            const srtText = await srtRes.text();
+            subtitleDataForRenderer = parseSRT(srtText); // 使用从 utils.js 导入的 parseSRT
+        }
+    } catch (err) {
+        console.warn('SRT 文件加载/解析失败，但音频播放器仍将尝试加载:', err);
+    }
 
     if (chapterContent) {
         updateActiveChapterTooltips(currentChapterTooltips);
 
         // 核心步骤：将解析好的字幕数据传递给渲染函数
-        // 注意：subtitleData 不再从这里直接传递，renderSingleChapterContent 需要渲染字幕段的 HTML
-        // 而字幕数据本身在 audioPlayer.js 中被管理
         renderSingleChapterContent(
             chapterContent,
             currentChapterTooltips,
             getGlobalWordFrequenciesMap(),
             getGlobalMaxFreq(),
-            handleChapterClick
-            // subtitleData // <-- 移除：不再直接传递 subtitleData
+            handleChapterClick,
+            subtitleDataForRenderer // 传递字幕数据给 chapterRenderer
         );
 
         window.location.hash = chapterId;
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
         // 调用新的 initAudioPlayer 方式
-        // 无论 SRT 是否加载成功，都尝试初始化播放器，但只有当 audioSrc 和 srtPath 有效时才传递
-        // audioPlayer.js 内部会处理 srtPath 是否有效
         initAudioPlayer({
             audioSrc: audioSrc,
-            srtSrc: srtPath // <-- 新增：传递 SRT 路径
+            srtSrc: srtPath
         });
-
-        // 确保渲染完成后，重新绑定字幕段点击事件
-        // 这一步非常重要，因为 `bindSubtitleSegmentClicks()` 在 `audioPlayer.js` 中
-        // 需要等待 `chapterRenderer.js` 渲染出 `.subtitle-segment` 元素后才能绑定
-        // 可以考虑在 renderSingleChapterContent 内部或其回调中触发
-        // 或者简单地在 initAudioPlayer 内部 `bindSubtitleSegmentClicks` 之后，
-        // 再调用一个函数，确保DOM元素存在，这里先简单调用一下，如果依然有问题，需要更精细的时序控制
-        // 例如，一个延迟或监听chapters容器DOM变化
-        // 目前 audioPlayer.js 里的 bindSubtitleSegmentClicks 会查询 DOM，
-        // 如果DOM未更新，可能无法绑定到新渲染的元素。
-        // 一个简单的办法是在 renderSingleChapterContent 渲染完成之后，
-        // 在 main.js 中调用 audioPlayer.js 导出的某个函数来触发重新绑定
-        // 考虑到您提供的 audioPlayer.js 代码，它会在 initAudioPlayer 内部调用 bindSubtitleSegmentClicks。
-        // 但如果 chapterRenderer.js 是异步渲染的，那么 bindSubtitleSegmentClicks 可能会在元素出现之前运行。
-        // 更安全的做法是：让 chapterRenderer.js 渲染完成并通知，或者让 audioPlayer 延迟绑定。
-        // 暂时先假定 renderSingleChapterContent 是同步的，或者其异步部分不会影响 bindSubtitleSegmentClicks 的元素查找。
 
     } else {
         alert('无法加载章节内容！');
@@ -231,18 +213,17 @@ window.addEventListener('hashchange', async () => {
     const currentChapterH2 = document.querySelector('#chapters h2');
     const currentChapterId = currentChapterH2 ? currentChapterH2.id : null;
 
-    // Only load new content if chapterId changes or if no chapter is currently displayed and hash exists
     if (chapterId) {
         if (chapterId !== currentChapterId) {
             const chapterMeta = allChapterIndexData.find(ch => ch.id === chapterId);
             if (chapterMeta) {
                 await handleChapterClick(chapterMeta.id, chapterMeta.file);
             } else {
-                showTocPage(); // Hash refers to a non-existent chapter
+                showTocPage();
             }
         }
     } else {
-        if (currentChapterId) { // only hide if a chapter is currently shown
+        if (currentChapterId) {
             showTocPage();
         }
     }
