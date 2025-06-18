@@ -1,20 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"> <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chapter Reader</title>
-    <link rel="stylesheet" href="assets/main.css">
-</head>
+    <title>Chapter Reader</title> <link rel="stylesheet" href="main.css"> </head>
 <body>
 
-<div id="toc"></div>
-<div id="category-nav"></div>
-<div id="chapters"></div>
-<div id="react-tooltips" class="tooltip-container"></div>
-<div id="audio-player"></div>
- 
- 
-script type="module" src="js/main.js"></script>
+    <div id="toc"></div>
+
+    <div id="category-nav"></div>
+
+    <div id="chapters"></div>
+
+    <div id="react-tooltips" class="tooltip-container"></div>
+    
+    <div id="audio-player"></div>
+
+    <div class="floating-video" style="display: none;">
+        <div class="video-header">
+            <span>YouTube Video</span> <button class="close-btn">×</button>
+        </div>
+        <div id="float-player"></div> </div>
+
+    <script type="module" src="js/main.js"></script>
+    <script async src="https://www.youtube.com/iframe_api"></script>
+
 </body>
 </html>
