@@ -1,7 +1,7 @@
 // js/audio/audioPlayer.js (重构版 - 修正导入路径和事件绑定策略)
 
 // 修正：根据文件结构，导入路径改为 '../utils.js'
-import { parseSRT, tokenizeText } from '../utils.js';
+import { parseSRT, tokenizeText } from './utils.js';
 
 let audio;
 let subtitleData = [];
