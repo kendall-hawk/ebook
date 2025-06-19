@@ -1,379 +1,146 @@
 /**
- * js/youtube.js
- * 负责 YouTube 视频的嵌入、浮动播放和自动暂停。
+ * js/youtube.js (YouTube 视频处理)
+ * 负责嵌入 YouTube 视频并实现浮动播放器功能。
  */
 
-let floatBox = null;
-let floatPlayer = null;
-let currentFloatVideoId = null; // 跟踪当前浮动视频的 ID
-let isDragging = false;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
-
-// 定义一个阈值，小于此宽度被认为是移动设备，不显示浮动视频
-const MOBILE_WIDTH_THRESHOLD = 768;
-
-// --- 工具函数 ---
+const floatingPlayer = document.getElementById('floating-youtube-player');
+let currentEmbeddedPlayer = null; // 用于存储当前的 iframe 元素
 
 /**
- * 从各种 YouTube URL 格式中提取视频 ID。
- * @param {string} url - YouTube 视频的 URL。
- * @returns {string|null} - 提取到的视频 ID，如果没有找到则返回 null。
+ * 设置浮动 YouTube 播放器功能。
+ * 遍历所有章节内容中的 YouTube 视频，当视频滚动出视口时，
+ * 将其移动到浮动播放器中。
  */
-export function extractVideoId(url) {
-    if (!url || typeof url !== 'string') return null;
-    const regex = /(?:youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=)|youtu\.be\/|m\.youtube\.com\/watch\?v=|music\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/;
-    const m = url.match(regex);
-    return m && m[1] ? m[1] : null;
-}
-
-/**
- * 统一生成 YouTube 嵌入 iframe 的 src URL。
- * @param {string} videoId - YouTube 视频的 ID。
- * @param {boolean} [enableJsApi=false] - 是否启用 JavaScript API。
- * @returns {string} - 生成的 YouTube 嵌入 URL。
- */
-export function getYouTubeEmbedUrl(videoId, enableJsApi = false) {
-    if (!videoId || typeof videoId !== 'string') return '';
-    // 使用标准的 YouTube 嵌入域名
-    // 注意：实际嵌入地址通常是 'https://www.youtube.com/embed/' 或 'https://www.youtube-nocookie.com/embed/'
-    // 在这里假设您提供的 'https://www.youtube.com/embed/' 是一个有效的替代或代理
-    const baseUrl = 'https://www.youtube.com/embed/'; // 更正为常用且安全的 HTTPS 嵌入域名
-
-    const params = new URLSearchParams();
-    if (enableJsApi) {
-        params.set('enablejsapi', '1');
+export function setupFloatingYouTube() {
+    // 清理之前的浮动播放器内容
+    if (currentEmbeddedPlayer) {
+        currentEmbeddedPlayer.remove();
+        currentEmbeddedPlayer = null;
     }
-    params.set('rel', '0'); // 不显示相关视频
-    params.set('controls', '1'); // 显示播放器控件
-    params.set('modestbranding', '1'); // 隐藏 YouTube 标志
-
-    return `${baseUrl}${videoId}?${params.toString()}`;
-}
-
-// --- 浮动播放器和 API 加载逻辑 ---
-
-/**
- * 加载 YouTube iframe API。
- * @returns {Promise<void>}
- */
-function loadYouTubeAPI() {
-  return new Promise(resolve => {
-    if (window.YT && window.YT.Player) {
-      resolve();
-      return;
+    if (floatingPlayer) {
+        floatingPlayer.style.display = 'none';
+        floatingPlayer.innerHTML = '';
     }
 
-    // 确保只添加一次 API 脚本
-    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) { // 修正脚本 src 判断
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api'; // 修正为正确的 API URL
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    // 确保只选择当前章节内容内的 iframe
+    const chapterContentBody = document.getElementById('chapter-content-body');
+    if (!chapterContentBody) {
+        console.warn("Chapter content body not found for YouTube setup.");
+        return;
     }
+    // 寻找 chapter-content-body 内部的 YouTube iframe
+    const videoContainers = chapterContentBody.querySelectorAll('.video-container iframe[src*="youtube.com/embed/"]');
 
-    // 当 YouTube API 准备好时，会调用这个全局函数
-    window.onYouTubeIframeAPIReady = () => resolve();
-  });
-}
+    videoContainers.forEach(iframe => {
+        // 为每个 iframe 绑定一个滚动监听器
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) {
+                    // 视频滚动出视口
+                    if (entry.target.isConnected) { // 确保元素仍在DOM中
+                        makeVideoFloating(entry.target);
+                    }
+                } else {
+                    // 视频进入视口
+                    if (entry.target.dataset.floating === 'true') {
+                        // 如果视频正在浮动且回到其原始位置，则取消浮动
+                        stopFloating(entry.target);
+                    }
+                }
+            });
+        }, { threshold: 0 }); // 0 表示只要有一个像素离开视口就触发
 
-/**
- * 创建浮动视频框。
- * @param {string} videoUrl - 视频的原始 URL (用于提取ID)。
- */
-function createFloatBox(videoUrl) {
-  if (window.innerWidth < MOBILE_WIDTH_THRESHOLD) {
-    return;
-  }
+        observer.observe(iframe);
 
-  const videoId = extractVideoId(videoUrl);
-  if (!videoId) {
-      console.error('无法从 URL 提取 YouTube 视频 ID:', videoUrl);
-      return;
-  }
-
-  // 如果已经存在浮动框，并且是同一个视频，则直接返回
-  if (floatBox && currentFloatVideoId === videoId) {
-    return;
-  }
-  // 如果存在但不是同一个视频，则先移除旧的
-  if (floatBox) {
-      removeFloatBox();
-  }
-
-  floatBox = document.createElement('div');
-  floatBox.classList.add('floating-video');
-  // 初始定位在右下角
-  Object.assign(floatBox.style, {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    width: '320px', // 固定宽度
-    height: '220px', // 高度 = 180 (视频) + 40 (头部)
-    backgroundColor: '#000',
-    boxShadow: '0 4px 8px rgba(0,0,0,0.5)',
-    zIndex: '9999',
-    display: 'flex',
-    flexDirection: 'column',
-    resize: 'both', // 允许用户调整大小
-    overflow: 'hidden', // 隐藏溢出内容
-    userSelect: 'none'
-  });
-
-  floatBox.innerHTML = `
-    <div class="video-header" style="cursor: grab; display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background-color: #333; color: #fff;">
-      <span style="font-size: 14px;">Floating Video</span>
-      <button class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; padding: 0 5px;">×</button>
-    </div>
-    <div id="float-player" style="flex-grow:1; width:100%; height:100%;"></div>
-  `;
-
-  document.body.appendChild(floatBox);
-
-  const header = floatBox.querySelector('.video-header');
-  header.addEventListener('mousedown', e => {
-    isDragging = true;
-    dragOffsetX = e.clientX - floatBox.getBoundingClientRect().left;
-    dragOffsetY = e.clientY - floatBox.getBoundingClientRect().top;
-    header.style.cursor = 'grabbing';
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    let left = e.clientX - dragOffsetX;
-    let top = e.clientY - dragOffsetY;
-
-    // 限制在视口内
-    left = Math.min(Math.max(0, left), window.innerWidth - floatBox.offsetWidth);
-    top = Math.min(Math.max(0, top), window.innerHeight - floatBox.offsetHeight);
-
-    floatBox.style.left = left + 'px';
-    floatBox.style.top = top + 'px';
-    floatBox.style.bottom = 'auto'; // 取消 bottom/right 定位
-    floatBox.style.right = 'auto';
-  });
-
-  document.addEventListener('mouseup', () => {
-    isDragging = false;
-    if (header) header.style.cursor = 'grab';
-  });
-
-  floatBox.querySelector('.close-btn').addEventListener('click', () => {
-    removeFloatBox();
-  });
-
-  // 使用提取的 videoId 初始化 YT.Player
-  loadYouTubeAPI().then(() => {
-    floatPlayer = new YT.Player('float-player', {
-      height: '100%', // 占满父容器
-      width: '100%',  // 占满父容器
-      videoId: videoId,
-      playerVars: {
-          autoplay: 1,
-          controls: 1,
-          enablejsapi: 1
-      },
-      events: {
-        onReady: event => {
-            event.target.playVideo();
-        },
-        onError: (e) => {
-            console.error('浮动播放器错误:', e);
-            removeFloatBox(); // 发生错误时移除浮动框
-        }
-      }
+        // 如果用户点击视频内部，且播放器不是浮动的，我们可能不想立即浮动
+        iframe.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡到文档
+            // 如果视频不是浮动的，并且正在播放，可以考虑不立即浮动
+            // 这需要 YouTube IFrame Player API 来获取播放状态，这里简化处理
+        });
     });
-  }).catch(error => {
-      console.error("加载 YouTube API 失败:", error);
-      removeFloatBox();
-  });
-
-  currentFloatVideoId = videoId;
 }
 
 /**
- * 移除浮动视频框。
+ * 将视频移动到浮动播放器。
+ * @param {HTMLIFrameElement} iframe - 原始视频的 iframe 元素。
  */
-function removeFloatBox() {
-  if (floatPlayer) {
-    floatPlayer.destroy(); // 销毁播放器实例
-    floatPlayer = null;
-  }
-  if (floatBox) {
-    // 移除事件监听器（更稳健的方式是保留引用并精确移除，但这里移除元素本身也能清理）
-    const header = floatBox.querySelector('.video-header');
-    if (header) { // 检查元素是否存在，避免错误
-        header.onmousedown = null; // 简单移除，如果事件监听是通过 addEventListener 添加的，需要精确移除
+function makeVideoFloating(iframe) {
+    if (!floatingPlayer || iframe.dataset.floating === 'true') {
+        return; // 已经浮动了，或者没有浮动播放器
     }
-    const closeBtn = floatBox.querySelector('.close-btn');
-    if (closeBtn) {
-        closeBtn.onclick = null;
-    }
-    // 移除全局mousemove和mouseup监听器，仅当它们是为拖动逻辑临时添加时
-    // 但此处的实现是永久绑定到document，所以不在此处移除，而是依赖其他逻辑。
-    // 如果希望只在浮动框存在时监听拖动，则需要更精细的绑定/解绑
-    
-    floatBox.remove();
-    floatBox = null;
-    currentFloatVideoId = null;
-  }
+
+    // 克隆 iframe 防止 DOM 移动问题
+    const clonedIframe = iframe.cloneNode(true);
+    clonedIframe.dataset.floating = 'true'; // 标记为浮动状态
+
+    // 隐藏原始 iframe
+    iframe.style.visibility = 'hidden';
+    iframe.dataset.originalParentId = iframe.parentNode.id || ''; // 存储原始父级的ID，如果需要恢复
+
+    // 清理浮动播放器中可能已有的内容
+    floatingPlayer.innerHTML = '';
+    floatingPlayer.appendChild(clonedIframe);
+    floatingPlayer.style.display = 'block';
+
+    currentEmbeddedPlayer = clonedIframe; // 记录当前浮动的播放器
+    console.log('Video is now floating.');
 }
 
 /**
- * 判断 iframe 是否完全超出视口。
- * @param {HTMLIFrameElement} iframe - 要检查的 iframe 元素。
- * @returns {boolean} - 如果 iframe 完全超出视口则返回 true。
+ * 停止浮动播放，将视频移回原始位置。
+ * @param {HTMLIFrameElement} iframe - 浮动中的 iframe 元素。
  */
-function isIframeOutOfView(iframe) {
-  if (!iframe) return false;
-  const rect = iframe.getBoundingClientRect();
-  // 考虑滚动条，判断是否完全在顶部或底部之外
-  return rect.bottom <= 0 || rect.top >= window.innerHeight;
+function stopFloating(iframe) {
+    if (!floatingPlayer || iframe.dataset.floating !== 'true') {
+        return; // 不在浮动状态
+    }
+
+    floatingPlayer.innerHTML = '';
+    floatingPlayer.style.display = 'none';
+
+    // 找到原始 iframe 并显示它
+    // 注意：通过 src 查找可能不唯一，更好的方式是存储一个唯一 ID
+    const originalIframe = document.querySelector(`iframe[src="${iframe.src}"]:not([data-floating="true"])`);
+    if (originalIframe) {
+        originalIframe.style.visibility = 'visible';
+    }
+
+    iframe.dataset.floating = 'false'; // 移除浮动标记
+    currentEmbeddedPlayer = null; // 清空当前浮动播放器引用
+    console.log('Video stopped floating.');
 }
 
 /**
  * 设置 YouTube 视频的自动暂停功能。
- * 当一个视频开始播放时，暂停其他所有视频。
- * 此功能依赖于 YouTube Iframe Player API 的 postMessage 机制。
+ * 当页面上的任何 YouTube 视频在用户滚动时被隐藏，自动暂停播放。
+ * （注意：这需要 YouTube IFrame Player API 来实现精确控制，这里是简化版）
  */
 export function setupVideoAutoPause() {
-  // 确保只添加一次消息监听器
-  if (window._hasYouTubeMessageListener) {
-      return;
-  }
-  window._hasYouTubeMessageListener = true; // 标记已添加监听器
-
-  window.addEventListener('message', (e) => {
-    // 过滤掉非 YouTube 来源的消息
-    if (!e.origin.includes('youtube.com') && !e.origin.includes('youtube-nocookie.com')) { // 修正判断条件
-      return;
-    }
-
-    try {
-      const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-      // 检查是否是播放器状态改变消息，并且状态是“播放中”
-      if (data.event === 'infoDelivery' && data.info && data.info.playerState === 1) { // playerState 1 是播放中
-        const playingIframe = e.source; // 正在播放视频的 iframe 的 window 对象
-
-        document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube-nocookie.com/embed/"]') // 修正选择器
-          .forEach(iframe => {
-            // 如果不是当前播放的 iframe，则发送暂停命令
-            if (iframe.contentWindow !== playingIframe) {
-              iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+    // 监听所有 iframe 元素的滚动状态
+    // 这是一个简化版本，理想情况需要 YouTube IFrame Player API
+    // 来监听播放状态并调用 player.pauseVideo()
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const iframe = entry.target;
+            // 确保是 YouTube 嵌入视频
+            if (iframe.tagName === 'IFRAME' && iframe.src.includes('youtube.com/embed/')) {
+                if (!entry.isIntersecting && !iframe.dataset.floating) {
+                    // 如果视频不在视口内且不是浮动的，尝试暂停它
+                    // 仅通过重新加载 src 来暂停是粗暴的方法，会导致播放器重置
+                    // 理想情况应使用 YouTube IFrame Player API: player.pauseVideo();
+                    // 这里只是发送一个通用的 postMessage，不保证所有浏览器和 API 版本都支持
+                    iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    console.log('Attempting to pause YouTube video:', iframe.src);
+                }
             }
-          });
-      }
-    } catch (error) {
-      // 忽略非 JSON 格式的消息或解析错误
-      // console.warn("非 YouTube API 消息或解析错误:", error, e.data);
-    }
-  });
-}
+        });
+    }, { threshold: 0 });
 
-/**
- * 设置浮动 YouTube 视频功能。
- * 监听页面滚动和视频播放状态，当主视频滚动出视口时，在桌面端显示浮动视频。
- */
-export async function setupFloatingYouTube() {
-  // 确保 API 已经加载
-  await loadYouTubeAPI();
-
-  if (window.innerWidth < MOBILE_WIDTH_THRESHOLD) {
-      console.log("检测到移动设备，不启用浮动视频功能。");
-      return;
-  }
-
-  // 收集所有嵌入的 YouTube iframe 元素
-  const chapterIframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube-nocookie.com/embed/"]')); // 修正选择器
-
-  // 创建 YT.Player 实例并存储状态
-  // Map<HTMLIFrameElement, YT.Player>
-  const playerInstances = new Map();
-
-  chapterIframes.forEach(iframe => {
-    const videoId = extractVideoId(iframe.src);
-    if (!videoId) {
-        console.warn('无法为 iframe 提取视频 ID:', iframe);
-        return;
-    }
-    // 确保 iframe 的 src 包含 enablejsapi=1，统一处理
-    iframe.src = getYouTubeEmbedUrl(videoId, true);
-
-    const player = new YT.Player(iframe, {
-      events: {
-        onStateChange: (event) => {
-            // 当播放状态改变时，更新浮动框状态
-            updateFloatBoxVisibility(event.target.getIframe());
-        },
-        onError: (e) => {
-            console.error('章节视频播放器错误:', e);
-        }
-      }
+    // 初始时观察所有存在的 iframe (在 chapterRenderer 渲染内容后，需要重新调用 setupFloatingYouTube 来观察新的 iframe)
+    // 这里我们只观察最初加载的 iframe。在加载新章节时，setupFloatingYouTube 会重新设置观察器。
+    // 所以这段代码在 initial setup 时可能不会找到任何 iframe，会在章节加载后生效。
+    document.querySelectorAll('iframe[src*="youtube.com/embed/"]').forEach(iframe => {
+        observer.observe(iframe);
     });
-    playerInstances.set(iframe, player);
-  });
-
-  // 根据 iframe 的播放状态和视口位置更新浮动框
-  function updateFloatBoxVisibility(targetIframe) {
-    if (window.innerWidth < MOBILE_WIDTH_THRESHOLD) {
-        removeFloatBox();
-        return;
-    }
-
-    const player = playerInstances.get(targetIframe);
-    if (!player) return;
-
-    // YT.Player 的 PlayerState 枚举: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
-    const state = player.getPlayerState();
-    const videoId = extractVideoId(targetIframe.src);
-
-    // 如果视频正在播放 (state === 1) 且当前 iframe 滚出了视口
-    if (state === 1 && isIframeOutOfView(targetIframe)) {
-      // 只有当前没有浮动框，或者浮动框是不同视频时才创建新的
-      if (!floatBox || currentFloatVideoId !== videoId) {
-        createFloatBox(targetIframe.src); // 传递原始 src 以提取 ID
-      }
-    } else {
-      // 如果视频停止播放 (state !== 1) 或重新进入视口
-      // 且当前浮动框就是这个视频的，则移除浮动框
-      if (floatBox && currentFloatVideoId === videoId) {
-        removeFloatBox();
-      }
-    }
-  }
-
-  // 监听窗口滚动事件，更新所有视频的浮动状态
-  // 确保监听器只添加一次
-  if (!window._hasYouTubeScrollListener) {
-    window.addEventListener('scroll', () => {
-      playerInstances.forEach((player, iframe) => {
-        updateFloatBoxVisibility(iframe);
-      });
-    }, { passive: true }); // 使用被动事件监听器提高滚动性能
-    window._hasYouTubeScrollListener = true;
-  }
-
-
-  // 监听窗口大小变化，在移动设备宽度下移除浮动框
-  // 确保监听器只添加一次
-  if (!window._hasYouTubeResizeListener) {
-    window.addEventListener('resize', () => {
-      if (window.innerWidth < MOBILE_WIDTH_THRESHOLD) {
-        removeFloatBox();
-      } else {
-        // 确保浮动框在调整大小后仍在视口内
-        if (floatBox) {
-          const left = parseFloat(floatBox.style.left || '0');
-          const top = parseFloat(floatBox.style.top || '0');
-          floatBox.style.left = Math.min(left, window.innerWidth - floatBox.offsetWidth) + 'px';
-          floatBox.style.top = Math.min(top, window.innerHeight - floatBox.offsetHeight) + 'px';
-        }
-      }
-    });
-    window._hasYouTubeResizeListener = true;
-  }
-
-  // 初始加载时也检查一下所有视频的状态
-  chapterIframes.forEach(iframe => updateFloatBoxVisibility(iframe));
 }
