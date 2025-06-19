@@ -98,10 +98,11 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
   const chaptersContainer = document.getElementById('chapters');
   if (chaptersContainer) {
     eventListeners.chapterClickDelegate = (e) => {
-        const wordEl = e.target.closest('.word');
+        const wordEl = e.target.closest('.word'); // 可能有 data-tooltip-id 或无
         const subtitleSegmentEl = e.target.closest('.subtitle-segment');
 
-        if (wordEl) {
+        if (wordEl && !e.target.closest('.subtitle-segment')) { // 避免双重处理，优先字幕段点击
+            // 如果是普通的 .word 且不在 .subtitle-segment 内部，或者仅是 .word 
             e.stopPropagation();
             handleWordClick(wordEl);
         } else if (subtitleSegmentEl) {
@@ -109,7 +110,11 @@ export async function initAudioPlayer({ audioSrc, srtSrc }) {
             handleSubtitleSegmentClick(subtitleSegmentEl);
         }
     };
-    chaptersContainer.addEventListener('click', eventListeners.chapterClickDelegate);
+    // 确保只添加一次事件监听器
+    if (!chaptersContainer._hasAudioClickListener) {
+        chaptersContainer.addEventListener('click', eventListeners.chapterClickDelegate);
+        chaptersContainer._hasAudioClickListener = true;
+    }
   } else {
       console.warn("Chapters container #chapters not found, word/subtitle segment clicks will not be enabled.");
   }
@@ -126,6 +131,7 @@ export function cleanupAudioPlayer() {
     audio.pause();
     if (eventListeners.timeupdate) {
       audio.removeEventListener('timeupdate', eventListeners.timeupdate);
+      delete eventListeners.timeupdate;
     }
     audio = null;
   }
@@ -133,7 +139,6 @@ export function cleanupAudioPlayer() {
   if (audioPlayerContainer) {
       // 检查是否是动态创建的，如果是则移除，否则只清空内容
       if (audioPlayerContainer.parentNode && audioPlayerContainer.id === 'audio-player') {
-          // 如果它仍然是文档的一部分，并且是我们的容器，则清空
           audioPlayerContainer.innerHTML = '';
           audioPlayerContainer.style.display = 'none'; // 隐藏播放器
       }
@@ -142,6 +147,8 @@ export function cleanupAudioPlayer() {
   const chaptersContainer = document.getElementById('chapters');
   if (chaptersContainer && eventListeners.chapterClickDelegate) {
     chaptersContainer.removeEventListener('click', eventListeners.chapterClickDelegate);
+    delete eventListeners.chapterClickDelegate;
+    chaptersContainer._hasAudioClickListener = false; // 重置标记
   }
 
   // 清理所有引用和高亮状态
@@ -254,18 +261,53 @@ function handleTimeUpdate() {
  * @returns {number} - 最佳匹配的字幕索引，如果没有找到则返回 -1。
  */
 function findBestMatchingSubtitleIndex(word) {
-  if (!wordToSubtitleMap.has(word)) {
-    // 如果Map中没有这个词，尝试更灵活的匹配
+  const candidateIndexes = wordToSubtitleMap.get(word);
+
+  if (candidateIndexes) {
+    // 优先查找完全匹配的字幕 (精确包含整个单词)
+    for (const index of candidateIndexes) {
+      const subtitle = subtitleData[index];
+      // 使用更可靠的方式检查整个单词是否存在于字幕的 tokenize 结果中
+      const subtitleWords = tokenizeText(subtitle.text.toLowerCase()).map(t => t.word);
+      if (subtitleWords.includes(word)) {
+        return index;
+      }
+    }
+
+    // 如果没有完全匹配，进行模糊匹配
     let bestIndex = -1;
     let minDistance = Infinity;
 
-    // 遍历所有字幕条目，对每个字幕的单词进行模糊匹配
+    for (const index of candidateIndexes) {
+      const subtitle = subtitleData[index];
+      const wordsInSubtitle = tokenizeText(subtitle.text.toLowerCase()).map(t => t.word);
+
+      for (const subWord of wordsInSubtitle) {
+        const distance = levenshteinDistance(word, subWord);
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestIndex = index;
+        }
+      }
+    }
+
+    // 设定一个合理的模糊匹配阈值，避免匹配不相关的词
+    // 例如，距离不应超过单词长度的一半，且至少为1（避免零距离匹配已处理）
+    if (bestIndex !== -1 && minDistance > Math.floor(word.length * 0.3) + 1) { // 阈值调整
+        return -1;
+    }
+    return bestIndex;
+
+  } else {
+    // 如果Map中没有这个词，进行更广泛的模糊搜索（效率较低，作为回退）
+    let bestIndex = -1;
+    let minDistance = Infinity;
+
     subtitleData.forEach((entry, index) => {
       const wordsInSubtitle = tokenizeText(entry.text.toLowerCase()).map(t => t.word);
       for (const subWord of wordsInSubtitle) {
         const distance = levenshteinDistance(word, subWord);
-        // 如果距离很小，或者比当前最小距离更小
-        if (distance < minDistance && distance <= Math.floor(word.length * 0.3) + 1) { // 阈值调整
+        if (distance < minDistance && distance <= Math.floor(word.length * 0.3) + 1) {
           minDistance = distance;
           bestIndex = index;
         }
@@ -273,42 +315,6 @@ function findBestMatchingSubtitleIndex(word) {
     });
     return bestIndex;
   }
-
-  const candidateIndexes = Array.from(wordToSubtitleMap.get(word));
-
-  // 优先查找完全匹配的字幕
-  for (const index of candidateIndexes) {
-    const subtitle = subtitleData[index];
-    // 确保字幕文本中确实包含这个完整的词 (考虑标点符号等)
-    const normalizedSubtitleText = subtitle.text.toLowerCase().replace(/[^a-z0-9]/g, ' '); // 简化
-    if (normalizedSubtitleText.includes(word)) {
-      return index;
-    }
-  }
-
-  // 如果没有完全匹配，进行模糊匹配
-  let bestIndex = -1;
-  let minDistance = Infinity;
-
-  for (const index of candidateIndexes) {
-    const subtitle = subtitleData[index];
-    const wordsInSubtitle = tokenizeText(subtitle.text.toLowerCase()).map(t => t.word);
-
-    for (const subWord of wordsInSubtitle) {
-      const distance = levenshteinDistance(word, subWord);
-      if (distance < minDistance) {
-        minDistance = distance;
-        bestIndex = index;
-      }
-    }
-  }
-
-  // 设定一个合理的模糊匹配阈值，避免匹配不相关的词
-  if (bestIndex !== -1 && minDistance > Math.floor(word.length * 0.3) + 1) {
-      return -1;
-  }
-
-  return bestIndex;
 }
 
 
@@ -375,11 +381,9 @@ function levenshteinDistance(a, b) {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          Math.min(
-            matrix[i][j - 1] + 1, // insertion
-            matrix[i - 1][j] + 1  // deletion
-          )
+          matrix[i - 1][j] + 1, // deletion
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j - 1] + 1 // substitution
         );
       }
     }
