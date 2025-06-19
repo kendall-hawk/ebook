@@ -1,28 +1,38 @@
 <!DOCTYPE html>
-<html lang="en"> <head>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chapter Reader</title> <link rel="stylesheet" href="assets/main.css"> </head>
+    <title>Chapter Reader</title>
+    <link rel="stylesheet" href="assets/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-highlight/lib/index.umd.js"></script>
+    </head>
 <body>
+    <header>
+        <h1>Chapter Reader</h1>
+        <nav id="category-nav"></nav>
+    </header>
 
-    <div id="toc"></div>
+    <main>
+        <section id="toc" class="chapter-grid"></section>
+        <section id="chapters" style="display:none;">
+            <div id="audio-player-container">
+                <audio controls id="main-audio-player"></audio>
+                <button id="playback-speed-btn">1x</button>
+            </div>
+            <div id="chapter-content">
+                </div>
+            <button id="back-to-toc">Back to All Articles</button>
+        </section>
+    </main>
 
-    <div id="category-nav"></div>
-
-    <div id="chapters"></div>
-
-    <div id="react-tooltips" class="tooltip-container"></div>
-    
-    <div id="audio-player"></div>
-
-    <div class="floating-video" style="display: none;">
-        <div class="video-header">
-            <span>YouTube Video</span> <button class="close-btn">×</button>
-        </div>
-        <div id="float-player"></div> </div>
+    <div id="tooltip-container" class="tooltip-container"></div>
+    <div id="floating-youtube-player" class="floating-youtube-player"></div>
 
     <script type="module" src="js/main.js"></script>
-    <script async src="https://www.youtube.com/iframe_api"></script>
-
 </body>
 </html>
