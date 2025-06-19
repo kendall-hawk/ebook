@@ -1,422 +1,149 @@
 /**
- * js/audio/audioPlayer.js
- * 负责音频播放、字幕同步高亮和点击跳转。
+ * js/audio/audioPlayer.js (音频播放器)
+ * 负责音频播放、时间同步、字幕高亮。
  */
 
-import { parseSRT, tokenizeText } from '../utils.js'; // 修正导入路径
+import { parseSRT } from '../utils.js'; // 确保正确导入 parseSRT
 
-let audio;
-let subtitleData = [];
-let currentHighlightedElement = null; // 当前高亮的字幕段
-let audioPlayerContainer = null;
-let wordToSubtitleMap = new Map(); // 存储单词到字幕索引的映射
+const audioPlayerContainer = document.getElementById('audio-player-container');
+const mainAudioPlayer = document.getElementById('main-audio-player');
+const playbackSpeedBtn = document.getElementById('playback-speed-btn');
 
-// 用于清理事件监听器的引用
-const eventListeners = {};
+let currentSrtData = [];
+let currentSubtitleIndex = -1;
+let currentPlaybackSpeedIndex = 0;
+const playbackSpeeds = [1.0, 1.25, 1.5, 1.75, 2.0]; // 播放速度选项
 
 /**
- * 初始化音频播放器。
- * 每次调用都会清理旧实例并重新绑定。
- * @param {Object} options - 配置对象。
+ * 初始化音频播放器并加载 SRT。
+ * @param {Object} options - 配置选项。
  * @param {string} options.audioSrc - 音频文件路径。
- * @param {string} options.srtSrc - SRT 字幕文件路径。
+ * @param {string} options.srtSrc - SRT 文件路径。
  */
 export async function initAudioPlayer({ audioSrc, srtSrc }) {
-  cleanupAudioPlayer(); // 每次初始化时，先彻底清理旧实例
+    if (!mainAudioPlayer || !audioPlayerContainer) {
+        console.error("Audio player elements not found.");
+        return;
+    }
 
-  if (!audioSrc || typeof audioSrc !== 'string') {
-    console.error("音频文件路径无效。播放器无法初始化。");
-    return;
-  }
+    // 显示播放器
+    audioPlayerContainer.style.display = 'flex'; // 或者 'block'，取决于你的CSS
 
-  // 1. 设置或创建音频播放器容器
-  audioPlayerContainer = document.getElementById('audio-player');
-  if (!audioPlayerContainer) {
-    audioPlayerContainer = document.createElement('div');
-    audioPlayerContainer.id = 'audio-player';
-    // 基础样式，确保其显示在页面底部
-    Object.assign(audioPlayerContainer.style, {
-      position: 'fixed',
-      bottom: '0',
-      left: '0',
-      width: '100%',
-      padding: '10px',
-      backgroundColor: 'rgba(0, 0, 0, 0.85)',
-      boxSizing: 'border-box',
-      zIndex: '10000',
-      boxShadow: '0 -2px 10px rgba(0,0,0,0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center'
-    });
-    document.body.appendChild(audioPlayerContainer);
-  } else {
-    audioPlayerContainer.innerHTML = ''; // 清空现有内容
-    audioPlayerContainer.style.display = 'flex'; // 确保显示
-  }
+    // 移除之前的事件监听器以避免重复绑定
+    mainAudioPlayer.removeEventListener('timeupdate', handleTimeUpdate);
+    playbackSpeedBtn.removeEventListener('click', togglePlaybackSpeed);
 
-  // 2. 创建并添加音频元素
-  audio = document.createElement('audio');
-  audio.src = audioSrc;
-  audio.controls = true; // 显示浏览器默认控件
-  audio.preload = 'metadata'; // 预加载元数据，以便获取时长
-  audio.style.width = '80%'; // 让音频控件宽度适中
-  audioPlayerContainer.appendChild(audio);
+    // 重置播放器状态
+    mainAudioPlayer.src = audioSrc;
+    mainAudioPlayer.currentTime = 0;
+    mainAudioPlayer.playbackRate = playbackSpeeds[currentPlaybackSpeedIndex];
+    playbackSpeedBtn.textContent = `${playbackSpeeds[currentPlaybackSpeedIndex]}x`;
+    currentSubtitleIndex = -1;
+    highlightSubtitle(-1); // 清除所有高亮
 
-  // 3. 获取并解析 SRT 字幕数据
-  if (srtSrc && typeof srtSrc === 'string') {
     try {
-      const srtRes = await fetch(srtSrc);
-      if (!srtRes.ok) {
-        throw new Error(`Failed to load SRT file: ${srtRes.statusText}`);
-      }
-      const srtText = await srtRes.text();
-      subtitleData = parseSRT(srtText);
-      console.log('SRT 字幕数据加载并解析完成。');
-    } catch (err) {
-      console.warn('SRT 文件加载或解析失败，播放器将无法同步字幕:', err);
-      subtitleData = [];
-    }
-  } else {
-    console.warn("没有提供有效的 SRT 文件路径，播放器将无法同步字幕。");
-    subtitleData = [];
-  }
-
-  // 4. 构建单词到字幕的映射
-  if (subtitleData.length > 0) {
-    buildWordToSubtitleMap();
-  } else {
-    wordToSubtitleMap.clear();
-  }
-
-  // 5. 绑定事件监听器
-  // 使用具名函数引用，方便清理
-  eventListeners.timeupdate = () => handleTimeUpdate();
-  audio.addEventListener('timeupdate', eventListeners.timeupdate);
-
-  // 在 #chapters 容器上使用事件委托，处理 .word 和 .subtitle-segment 点击
-  const chaptersContainer = document.getElementById('chapters');
-  if (chaptersContainer) {
-    eventListeners.chapterClickDelegate = (e) => {
-        const wordEl = e.target.closest('.word'); // 可能有 data-tooltip-id 或无
-        const subtitleSegmentEl = e.target.closest('.subtitle-segment');
-
-        // 优化：优先级判断更明确
-        if (subtitleSegmentEl) { // 优先处理字幕段点击，因为其 data-subtitle-id 更准确
-            e.stopPropagation();
-            handleSubtitleSegmentClick(subtitleSegmentEl);
-        } else if (wordEl) { // 如果不是字幕段，但点击了 .word 元素
-            e.stopPropagation();
-            handleWordClick(wordEl);
+        const srtResponse = await fetch(srtSrc);
+        if (!srtResponse.ok) {
+            throw new Error(`Failed to load SRT: ${srtResponse.statusText}`);
         }
-    };
-    // 确保只添加一次事件监听器
-    if (!chaptersContainer._hasAudioClickListener) {
-        chaptersContainer.addEventListener('click', eventListeners.chapterClickDelegate);
-        chaptersContainer._hasAudioClickListener = true;
+        const srtText = await srtResponse.text();
+        currentSrtData = parseSRT(srtText);
+        console.log("SRT loaded and parsed:", currentSrtData);
+    } catch (error) {
+        console.error("Error loading or parsing SRT:", error);
+        currentSrtData = []; // 清空数据，避免后续错误
     }
-  } else {
-      console.warn("Chapters container #chapters not found, word/subtitle segment clicks will not be enabled.");
-  }
 
-
-  console.log('音频播放器已初始化。');
+    // 绑定事件监听器
+    mainAudioPlayer.addEventListener('timeupdate', handleTimeUpdate);
+    playbackSpeedBtn.addEventListener('click', togglePlaybackSpeed);
 }
 
 /**
- * 彻底清理旧的播放器实例和事件监听器。
+ * 清理音频播放器并隐藏。
  */
 export function cleanupAudioPlayer() {
-  if (audio) {
-    audio.pause();
-    if (eventListeners.timeupdate) {
-      audio.removeEventListener('timeupdate', eventListeners.timeupdate);
-      delete eventListeners.timeupdate;
+    if (mainAudioPlayer) {
+        mainAudioPlayer.pause();
+        mainAudioPlayer.src = ''; // 清空 src
+        mainAudioPlayer.load(); // 强制加载，释放资源
+        mainAudioPlayer.removeEventListener('timeupdate', handleTimeUpdate);
     }
-    audio = null;
-  }
-
-  if (audioPlayerContainer) {
-      // 检查是否是动态创建的，如果是则移除，否则只清空内容
-      // 优化：如果容器是动态创建并添加到body的，则彻底移除；否则只清空内容并隐藏
-      if (audioPlayerContainer.parentNode && audioPlayerContainer.id === 'audio-player' && audioPlayerContainer.dataset.dynamic === 'true') {
-          audioPlayerContainer.remove();
-      } else if (audioPlayerContainer.parentNode && audioPlayerContainer.id === 'audio-player') {
-          audioPlayerContainer.innerHTML = '';
-          audioPlayerContainer.style.display = 'none'; // 隐藏播放器
-      }
-      audioPlayerContainer = null; // 清空引用
-  }
-
-  const chaptersContainer = document.getElementById('chapters');
-  if (chaptersContainer && eventListeners.chapterClickDelegate) {
-    chaptersContainer.removeEventListener('click', eventListeners.chapterClickDelegate);
-    delete eventListeners.chapterClickDelegate;
-    chaptersContainer._hasAudioClickListener = false; // 重置标记
-  }
-
-  // 清理所有引用和高亮状态
-  currentHighlightedElement = null;
-  subtitleData = [];
-  wordToSubtitleMap.clear();
-  document.querySelectorAll('.subtitle-segment.active, .word.active').forEach(el => {
-    el.classList.remove('active');
-  });
+    if (playbackSpeedBtn) {
+        playbackSpeedBtn.removeEventListener('click', togglePlaybackSpeed);
+    }
+    if (audioPlayerContainer) {
+        audioPlayerContainer.style.display = 'none'; // 隐藏播放器
+    }
+    currentSrtData = [];
+    currentSubtitleIndex = -1;
+    highlightSubtitle(-1); // 确保所有高亮被清除
 }
 
 /**
- * 处理 .word 元素的点击事件。
- * @param {HTMLElement} wordEl - 被点击的 .word 元素。
- */
-function handleWordClick(wordEl) {
-  const word = wordEl.textContent.trim().toLowerCase();
-  const bestIndex = findBestMatchingSubtitleIndex(word);
-  if (bestIndex !== -1) {
-    const subtitle = subtitleData[bestIndex];
-    if (audio) {
-      audio.currentTime = subtitle.start;
-      audio.play();
-    }
-    highlightSubtitleElement(subtitle.id);
-  } else {
-      console.log(`没有找到与单词 "${word}" 匹配的字幕。`);
-  }
-}
-
-/**
- * 处理 .subtitle-segment 元素的点击事件。
- * @param {HTMLElement} subtitleSegmentEl - 被点击的 .subtitle-segment 元素。
- */
-function handleSubtitleSegmentClick(subtitleSegmentEl) {
-  const subtitleId = parseInt(subtitleSegmentEl.dataset.subtitleId, 10);
-  const subtitle = subtitleData.find(s => s.id === subtitleId);
-  if (subtitle && audio) {
-    audio.currentTime = subtitle.start;
-    if (audio.paused) {
-      audio.play();
-    }
-    highlightSubtitleElement(subtitle.id);
-  }
-}
-
-
-/**
- * 构建 word → subtitle index 的倒排索引。
- * 遍历所有字幕条目，使用 tokenizeText 分词，并记录每个词出现在哪些字幕的索引中。
- */
-function buildWordToSubtitleMap() {
-  wordToSubtitleMap.clear();
-  subtitleData.forEach((entry, index) => {
-    // 对字幕文本进行分词，并转换为小写
-    const words = tokenizeText(entry.text.toLowerCase());
-    for (const { word } of words) {
-      // 仅存储有实际内容的字母/数字词
-      if (word.length > 0 && (/\p{L}/u.test(word) || /\p{N}/u.test(word))) {
-        if (!wordToSubtitleMap.has(word)) {
-          wordToSubtitleMap.set(word, new Set());
-        }
-        wordToSubtitleMap.get(word).add(index);
-      }
-    }
-  });
-}
-
-
-/**
- * 播放过程中，根据音频时间更新字幕高亮。
- * 使用二分查找提高效率。
+ * 处理音频时间更新事件。
  */
 function handleTimeUpdate() {
-  if (!audio || subtitleData.length === 0) return;
+    const currentTime = mainAudioPlayer.currentTime;
+    //console.log("Current Time:", currentTime);
 
-  const currentTime = audio.currentTime;
-  let activeSubtitleId = null;
-
-  // 使用二分查找找到当前时间对应的字幕
-  let low = 0;
-  let high = subtitleData.length - 1;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const subtitle = subtitleData[mid];
-
-    if (currentTime >= subtitle.start && currentTime < subtitle.end) {
-      activeSubtitleId = subtitle.id;
-      break;
-    } else if (currentTime < subtitle.start) {
-      high = mid - 1;
-    } else {
-      low = mid + 1;
-    }
-  }
-
-  // 只有当高亮状态改变时才更新 DOM
-  if (currentHighlightedElement && String(activeSubtitleId) === currentHighlightedElement.dataset.subtitleId) {
-    return;
-  }
-  highlightSubtitleElement(activeSubtitleId);
-}
-
-/**
- * 模糊查找给定单词最匹配的字幕索引。
- * 优先查找完全匹配的，如果找到则直接返回。
- * 如果没有完全匹配的，则基于 Levenshtein 距离找到最佳（最小距离）匹配。
- * @param {string} word - 要查找的单词。
- * @returns {number} - 最佳匹配的字幕索引，如果没有找到则返回 -1。
- */
-function findBestMatchingSubtitleIndex(word) {
-  const candidateIndexes = wordToSubtitleMap.get(word);
-
-  // 优化：对于短词，精确匹配的优先级更高，模糊匹配的阈值更严格
-  const wordLength = word.length;
-  // 宽松阈值：允许的最小距离
-  const looseThreshold = Math.max(1, Math.floor(wordLength * 0.2)); // 允许20%的误差，至少1个字符
-  // 严格阈值：对于短词（<=3），不允许误差；对于中长词，允许1个字符误差
-  const strictThreshold = wordLength <= 3 ? 0 : 1; 
-
-  let bestIndex = -1;
-  let minDistance = Infinity;
-  let foundExactMatch = false;
-
-  // 优先精确匹配
-  if (candidateIndexes) {
-    for (const index of candidateIndexes) {
-      const subtitle = subtitleData[index];
-      const subtitleWords = tokenizeText(subtitle.text.toLowerCase()).map(t => t.word);
-      if (subtitleWords.includes(word)) {
-        bestIndex = index;
-        minDistance = 0; // 0距离表示精确匹配
-        foundExactMatch = true;
-        break; // 找到精确匹配，立即返回
-      }
-    }
-  }
-
-  // 如果没有精确匹配，则进行模糊匹配
-  if (!foundExactMatch) {
-    const searchScope = candidateIndexes || new Set(Array.from({length: subtitleData.length}, (_, i) => i)); // 如果没有候选，则遍历所有
-    
-    for (const index of searchScope) {
-      const subtitle = subtitleData[index];
-      const wordsInSubtitle = tokenizeText(subtitle.text.toLowerCase()).map(t => t.word);
-
-      for (const subWord of wordsInSubtitle) {
-        const distance = levenshteinDistance(word, subWord);
-        
-        // 优化：增加更精细的距离判断，优先匹配距离更小的
-        if (distance < minDistance) {
-            minDistance = distance;
-            bestIndex = index;
-        }
-      }
-    }
-
-    // 优化：应用匹配阈值，避免匹配不相关的词
-    // 如果最佳距离超过了基于单词长度的容忍度，则认为没有有效匹配
-    // 这里的 minDistance 已经包含了所有候选词的最佳距离，所以只需要判断这个 minDistance
-    if (minDistance > looseThreshold && wordLength > 2) { // 短词（1-2字符）不进行严格的模糊匹配过滤
-        return -1; // 最佳距离过大，认为不匹配
-    }
-    // 额外检查：如果单词很短（例如1或2个字符），且距离不为0，可能是不准确的匹配
-    if (wordLength <= 2 && minDistance > 0) {
-        return -1;
-    }
-    // 对于稍长的词，如果距离大于1，也可能是误匹配，可以再加一层判断
-    if (wordLength > 2 && minDistance > strictThreshold && minDistance > 0) { // 大于0避免覆盖精确匹配
-        // 如果最佳距离是1，且单词较长，通常是可接受的。
-        // 如果是2，且单词较长，可能是误匹配，可以考虑再次拒绝。
-        // 这里可以根据实际效果调整，例如：如果距离为2，单词长度小于5，则拒绝
-        if (minDistance === 2 && wordLength < 5) {
-            return -1;
+    // 查找当前应该高亮的字幕
+    let newSubtitleIndex = -1;
+    for (let i = 0; i < currentSrtData.length; i++) {
+        const subtitle = currentSrtData[i];
+        if (currentTime >= subtitle.start && currentTime < subtitle.end) {
+            newSubtitleIndex = i;
+            break;
         }
     }
-  }
-  
-  return bestIndex;
-}
 
-
-/**
- * 高亮指定 ID 的字幕段，并移除旧的高亮。
- * 同时高亮字幕段内的所有 `.word` 元素。
- * @param {number|string|null} subtitleId - 要高亮的字幕的 ID (或 null/undefined 表示清除高亮)。
- */
-function highlightSubtitleElement(subtitleId) {
-  // 清除之前的高亮
-  if (currentHighlightedElement) {
-    currentHighlightedElement.classList.remove('active');
-    // 优化：仅移除当前高亮元素下的 .word 元素的 active 类
-    currentHighlightedElement.querySelectorAll('.word').forEach(w => w.classList.remove('active'));
-  } else {
-    // 优化：如果 currentHighlightedElement 为空，但页面上可能有残留的 active 类，则进行全局清理
-    document.querySelectorAll('.subtitle-segment.active, .word.active').forEach(el => {
-        el.classList.remove('active');
-    });
-  }
-
-  if (subtitleId === null || subtitleId === undefined) {
-      currentHighlightedElement = null;
-      return;
-  }
-
-  const el = document.querySelector(`.subtitle-segment[data-subtitle-id="${subtitleId}"]`);
-  if (el) {
-    el.classList.add('active');
-    // 高亮字幕段内的所有 .word 元素
-    el.querySelectorAll('.word').forEach(w => w.classList.add('active'));
-
-    // 确保高亮元素在可视区域内
-    requestAnimationFrame(() => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-
-    currentHighlightedElement = el;
-  } else {
-    currentHighlightedElement = null;
-  }
-}
-
-/**
- * 计算两个字符串之间的 Levenshtein 距离。
- * @param {string} a - 第一个字符串。
- * @param {string} b - 第二个字符串。
- * @returns {number} - Levenshtein 距离。
- */
-function levenshteinDistance(a, b) {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-
-  // 优化：如果长度差距过大，直接返回一个较大的距离，快速排除
-  if (Math.abs(a.length - b.length) > Math.max(a.length, b.length) * 0.5) { // 长度相差超过一半，则不太可能是匹配的
-      return Math.max(a.length, b.length);
-  }
-
-  const matrix = [];
-
-  // increment along the first column of each row
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-
-  // increment each column in the first row
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  // Fill in the rest of the matrix
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1, // deletion
-          matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j - 1] + 1 // substitution
-        );
-      }
+    if (newSubtitleIndex !== currentSubtitleIndex) {
+        currentSubtitleIndex = newSubtitleIndex;
+        highlightSubtitle(currentSubtitleIndex);
     }
-  }
+}
 
-  return matrix[b.length][a.length];
+/**
+ * 高亮当前字幕。
+ * @param {number} index - 当前字幕在 `currentSrtData` 数组中的索引。
+ */
+function highlightSubtitle(index) {
+    // 移除所有现有高亮
+    document.querySelectorAll('.subtitle-segment.active-subtitle').forEach(el => {
+        el.classList.remove('active-subtitle');
+    });
+
+    if (index === -1 || !currentSrtData[index]) {
+        return; // 没有需要高亮的字幕
+    }
+
+    const subtitleIdToHighlight = currentSrtData[index].id;
+    // 使用 querySelector 查找所有 chapter-content 内部的字幕片段
+    const chapterContentBody = document.getElementById('chapter-content-body');
+    const targetElement = chapterContentBody ? chapterContentBody.querySelector(`.subtitle-segment[data-subtitle-id="${subtitleIdToHighlight}"]`) : null;
+
+
+    if (targetElement) {
+        targetElement.classList.add('active-subtitle');
+
+        // 滚动到视图，确保高亮字幕可见
+        // 只有当元素不在当前视口内时才滚动
+        const rect = targetElement.getBoundingClientRect();
+        if (rect.top < 0 || rect.bottom > window.innerHeight || rect.left < 0 || rect.right > window.innerWidth) {
+            // 使用 behavior: 'smooth' 可能会导致字幕快速切换时闪烁，
+            // 对于实时高亮，'auto' 更合适，或者只在必要时才平滑滚动。
+            targetElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+        }
+    }
+}
+
+/**
+ * 切换播放速度。
+ */
+function togglePlaybackSpeed() {
+    currentPlaybackSpeedIndex = (currentPlaybackSpeedIndex + 1) % playbackSpeeds.length;
+    const newSpeed = playbackSpeeds[currentPlaybackSpeedIndex];
+    mainAudioPlayer.playbackRate = newSpeed;
+    playbackSpeedBtn.textContent = `${newSpeed}x`;
+    console.log(`Playback speed set to: ${newSpeed}x`);
 }
