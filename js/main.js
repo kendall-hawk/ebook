@@ -12,7 +12,7 @@ import {
     getGlobalWordFrequenciesMap,
     getGlobalMaxFreq
 } from './chapterRenderer.js';
-import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
+//import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer, cleanupAudioPlayer } from './audio/audioPlayer.js'; // 导入清理函数
 import { setupFloatingYouTube, setupVideoAutoPause } from './youtube.js';
