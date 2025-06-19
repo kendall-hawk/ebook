@@ -1,9 +1,9 @@
 {
   "id": "chap-01",
-  
   "title": "What's your favourite kind of noodle?",
+  "audio": "chap-01.mp3",  // 假设您的音频文件名为 chap-01.mp3，并放在 data/chapters/audio/ 目录下
   "paragraphs": [
-    { "video": "https://www.youtube.com/watch?v=aOiuSsnWEik" },
+    { "video": "https://www.youtube.com/watch?v=sI91-G_w-D8" },  
     "## Introduction",
     "Have you heard the story that Marco Polo brought noodles back to Italy, leading to the [[invention|invention-noun]] of pasta? Do you think it's true? Neil and Beth discuss this and teach you some new vocabulary.",
     "## This week's question",
