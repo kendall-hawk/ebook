@@ -219,8 +219,8 @@ async function handleChapterClick(chapterId, filePath) {
     }
 
     // 准备音频和 SRT 数据
-    const audioSrc = `data/audio/chapters/${chapterId}.mp3`;
-    const srtPath = `data/srt/chapters/${chapterId}.srt`;
+    const audioSrc = `data/chapters/audio/${chapterId}.mp3`;
+    const srtPath = `data/chapters/srt/${chapterId}.srt`;
     let subtitleDataForRenderer = []; // 用于渲染器注入字幕段
 
     try {
