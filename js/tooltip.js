@@ -6,12 +6,17 @@
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
 import { extractVideoId, getYouTubeEmbedUrl } from './youtube.js';
 
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-  sanitize: false, // 允许HTML通过，我们自己会处理
-  // sanitizer: (html) => html, // 不再需要，因为sanitize:false
-});
+// 确保 Marked.js 配置只执行一次，且在解析前生效
+if (!marked._isConfigured) {
+  marked.setOptions({
+    gfm: true,
+    breaks: true,
+    sanitize: false, // 核心：不转义用户提供的HTML，允许span标签通过
+  });
+  marked._isConfigured = true; // 标记已配置
+  console.log("Marked.js initialized with sanitize: false.");
+}
+
 
 let _currentHideTimeout = null;
 let _currentActiveTooltipSpan = null;
@@ -51,8 +56,7 @@ export function renderMarkdownWithTooltips(
             const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
             fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
         }
-        // 使用一个独特的占位符，避免被后续的普通单词正则匹配到
-        // 这里的占位符直接是 HTML 结构，因为它们不会被 Marked.js 再次解析
+        // 直接返回 HTML 字符串。由于 sanitize: false，Marked.js 会保留这些标签
         return `<span data-tooltip-id="${tooltipId}" class="word" style="${fontSizeStyle}">${word}</span>`;
     });
 
@@ -60,10 +64,12 @@ export function renderMarkdownWithTooltips(
     // 匹配常规单词：连续的字母、数字、连字符或撇号 (Unicode支持)
     const regularWordPattern = /([\p{L}\p{N}]+(?:['\-\u2010-\u2015][\p{L}\p{N}]+)*)/gu;
     let finalProcessedMd = tempMd.replace(regularWordPattern, (match, word) => {
-        // 如果这个 match 已经是之前处理过的自定义 span 的一部分，则跳过
-        // 这是一个简单的检查，因为我们自定义 span 是完整的 HTML 标签，不会被这个正则再次匹配
-        if (match.startsWith('<span data-tooltip-id=')) {
-            return match;
+        // 检查这个 match 是否已经被自定义工具提示处理过 (即它已经是 <span ...> 标签的一部分)
+        // 这里的判断是基于 match 是否是完整的 HTML 标签，Marked.js 不会再处理它
+        // 由于我们自定义的span标签不会被 `regularWordPattern` 再次匹配，此步骤是安全的。
+        // 所以这里只需要处理不是HTML标签的普通文本单词
+        if (match.startsWith('<') && match.endsWith('>')) {
+            return match; // 如果已经是 HTML 标签，则跳过
         }
 
         const lowerWord = word.toLowerCase();
@@ -85,7 +91,9 @@ export function renderMarkdownWithTooltips(
     });
 
     // 步骤 3: 使用 Marked.js 解析最终的 Markdown 文本
-    return marked.parse(finalProcessedMd);
+    const renderedHtml = marked.parse(finalProcessedMd);
+    // console.log("Marked.js 渲染后的 HTML (tooltip.js):", renderedHtml); // 用于调试，确认输出
+    return renderedHtml;
 }
 
 /**
@@ -105,29 +113,37 @@ export function setupTooltips() {
     }
 
     // 清理旧的事件监听器，避免重复绑定
+    // 使用命名函数引用方便移除
     if (tooltipDiv._listeners) {
         tooltipDiv.removeEventListener('mouseleave', tooltipDiv._listeners.mouseleave);
         tooltipDiv.removeEventListener('mouseenter', tooltipDiv._listeners.mouseenter);
         chaptersContainer.removeEventListener('click', tooltipDiv._listeners.chapterClick);
         document.removeEventListener('click', tooltipDiv._listeners.docClick);
         document.removeEventListener('scroll', tooltipDiv._listeners.docScroll);
+        // 清理当前活动的高亮
+        if (_currentActiveTooltipSpan) {
+            _currentActiveTooltipSpan.classList.remove('active-tooltip-word'); // 移除可能的点击高亮
+            _currentActiveTooltipSpan = null;
+        }
+        hideTooltip(); // 隐藏任何可能显示的旧tooltip
     }
 
     const listeners = {
         mouseleave: () => { _currentHideTimeout = setTimeout(hideTooltip, 100); },
         mouseenter: () => { clearTimeout(_currentHideTimeout); },
         chapterClick: (e) => {
-            const targetSpan = e.target.closest('.word');
+            const targetSpan = e.target.closest('.word[data-tooltip-id]'); // 只监听带有 data-tooltip-id 的 .word
             if (targetSpan) {
                 showTooltip(e, targetSpan);
             } else if (tooltipDiv.classList.contains('visible') && !e.target.closest('#react-tooltips')) {
-                hideTooltip(); // 点击章节内容空白处，且不是工具提示本身
+                // 点击章节内容空白处，且不是工具提示本身，则隐藏
+                hideTooltip();
             }
         },
         docClick: (e) => {
             // 如果点击发生在工具提示外部且不是 .word 元素
             if (tooltipDiv.classList.contains('visible') &&
-                !e.target.closest('.word') &&
+                !e.target.closest('.word[data-tooltip-id]') && // 确保不是带 tooltip 的词
                 !e.target.closest('#react-tooltips')) {
                 hideTooltip();
             }
@@ -162,14 +178,21 @@ async function showTooltip(e, clickedSpan) {
     clearTimeout(_currentHideTimeout);
     e.stopPropagation(); // 阻止事件冒泡
 
+    // 移除旧的高亮
+    if (_currentActiveTooltipSpan && _currentActiveTooltipSpan !== clickedSpan) {
+        _currentActiveTooltipSpan.classList.remove('active-tooltip-word');
+    }
+
     // 如果重复点击同一个 span，则隐藏工具提示
-    if (_currentActiveTooltipSpan === clickedSpan) {
+    if (_currentActiveTooltipSpan === clickedSpan && tooltipDiv.classList.contains('visible')) {
         hideTooltip();
         _currentActiveTooltipSpan = null;
         return;
     }
 
     _currentActiveTooltipSpan = clickedSpan;
+    _currentActiveTooltipSpan.classList.add('active-tooltip-word'); // 添加点击高亮样式
+
     const tooltipId = clickedSpan.dataset.tooltipId;
     const data = _activeChapterTooltipsData[tooltipId];
 
@@ -296,6 +319,9 @@ function hideTooltip() {
             // 动画完成后再彻底隐藏
             setTimeout(() => {
                 tooltipDiv.style.display = 'none';
+                if (_currentActiveTooltipSpan) {
+                    _currentActiveTooltipSpan.classList.remove('active-tooltip-word'); // 移除点击高亮
+                }
                 _currentActiveTooltipSpan = null;
             }, 300); // 应该与CSS动画时长匹配
         }
