@@ -16,9 +16,11 @@ import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
 import { initAudioPlayer, cleanupAudioPlayer } from './audio/audioPlayer.js';
 import { setupFloatingYouTube, setupVideoAutoPause } from './youtube.js';
-
+import { parseSRT } from './utils.js'; // 导入 parseSRT，因为 main.js 也会直接加载和解析 SRT
 
 let allChapterIndexData = [];
+let allChapterTooltipsData = {}; // 全局存储所有章节的工具提示数据
+let allChapterSrtData = {};      // 全局存储所有章节的 SRT 数据
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -35,13 +37,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // 3. 计算全局词频 (在所有章节内容加载后再计算，以确保准确性)
+    // 3. 预加载所有章节的 Tooltip 和 SRT 数据，并收集 protectedWords
+    // 这样做可以确保在渲染任何章节时，所有相关数据都是可用的，避免重复 fetch。
     const allParagraphTexts = [];
     const protectedWordsForFrequency = new Set(); // 从所有 tooltip 文件中收集保护词
 
-    for (const chMeta of allChapterIndexData) {
+    const dataLoadingPromises = allChapterIndexData.map(async (chMeta) => {
+        // 加载章节内容以获取段落（用于词频计算）
         try {
-            // 加载章节内容以获取段落
             const chapterData = await loadSingleChapterContent(chMeta.file);
             if (chapterData?.paragraphs) {
                 chapterData.paragraphs.forEach(p => {
@@ -50,33 +53,56 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
             }
+        } catch (error) {
+            console.warn(`加载章节内容失败 (${chMeta.file}):`, error);
+        }
 
-            // 加载并解析对应的 tooltip 文件，收集 protectedWords
-            const tooltipFilePath = `chapters/${chMeta.id}-tooltips.json`;
+        // 加载并解析对应的 tooltip 文件
+        const tooltipFilePath = `chapters/${chMeta.id}-tooltips.json`;
+        try {
             const res = await fetch(`data/${tooltipFilePath}`);
             if (res.ok) {
                 const chapterTooltips = await res.json();
+                allChapterTooltipsData[chMeta.id] = chapterTooltips;
+                // 收集 protectedWords
                 for (const tooltipId in chapterTooltips) {
                     const tooltipEntry = chapterTooltips[tooltipId];
-                    // 确保 tooltipEntry 和 tooltipEntry.word 存在
                     if (tooltipEntry && tooltipEntry.word && typeof tooltipEntry.word === 'string') {
                         protectedWordsForFrequency.add(tooltipEntry.word.toLowerCase());
                     }
                 }
+            } else {
+                console.warn(`加载 Tooltip 文件失败 (${tooltipFilePath}): ${res.statusText}`);
             }
         } catch (error) {
-            // 静默处理加载章节内容或 tooltip 文件失败，不中断主流程
-            // console.warn(`加载或处理章节/tooltip文件失败 (${chMeta.file} / data/${tooltipFilePath}):`, error);
+            console.warn(`解析 Tooltip 文件失败 (${tooltipFilePath}):`, error);
         }
-    }
 
-    // 实际计算词频
+        // 加载并解析对应的 SRT 文件
+        // 这里的路径需要与 audioPlayer.js 和 chapterRenderer.js 中的约定保持一致
+        const srtFilePath = `chapters/srt/${chMeta.id}.srt`; // 修正后的路径
+        try {
+            const srtRes = await fetch(`data/${srtFilePath}`);
+            if (srtRes.ok) {
+                const srtText = await srtRes.text();
+                allChapterSrtData[chMeta.id] = parseSRT(srtText);
+            } else {
+                console.warn(`加载 SRT 文件失败 (${srtFilePath}): ${srtRes.statusText}`);
+            }
+        } catch (error) {
+            console.warn(`解析 SRT 文件失败 (${srtFilePath}):`, error);
+        }
+    });
+
+    await Promise.all(dataLoadingPromises); // 等待所有数据加载完成
+    console.log("All Tooltip and SRT data pre-loaded.");
+
+    // 4. 计算全局词频 (在所有章节内容加载后再计算，以确保准确性)
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphTexts, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
     console.log("Global word frequencies calculated. Max Freq:", maxFreq);
 
-
-    // 4. 渲染分类导航
+    // 5. 渲染分类导航
     const categories = new Set();
     allChapterIndexData.forEach(ch => {
         if (Array.isArray(ch.categories)) {
@@ -85,12 +111,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     renderCategoryNavigation(Array.from(categories));
 
-    // 5. 初始化工具提示模块 (绑定全局事件监听器和 Marked.js 配置)
+    // 6. 初始化工具提示模块 (绑定全局事件监听器和 Marked.js 配置)
     // 确保 Marked.js 的 sanitize: false 配置在此处生效
     setupTooltips();
 
-
-    // 6. 处理初始路由/URL哈希
+    // 7. 处理初始路由/URL哈希
     const initialChapterId = window.location.hash.substring(1);
     if (initialChapterId) {
         const chapterMeta = allChapterIndexData.find(ch => ch.id === initialChapterId);
@@ -107,7 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showTocPage();
     }
 
-    // 7. 监听 URL 哈希变化
+    // 8. 监听 URL 哈希变化
     window.addEventListener('hashchange', async () => {
         console.log('Hashchange detected. New hash:', window.location.hash);
         const newChapterId = window.location.hash.substring(1);
@@ -132,13 +157,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         // else: 哈希没变，或者哈希为空且本来就在目录页，不做任何操作
     });
-
-    // 确保在所有内容加载和渲染完毕后，再初始化浮动YouTube视频功能
-    // setupFloatingYouTube 会查找页面上的 YouTube iframe，所以需要在它们存在后调用
-    // 每次章节加载后会重新调用，确保新加载的章节视频也被处理
-    // 第一次调用在 DOMContentLoaded 结束时，后续在 handleChapterClick 中
-    // console.log("Initial setup of Floating YouTube.");
-    // setupFloatingYouTube(); // 这一行应该被移除，因为它会在 handleChapterClick 中被调用
 });
 
 
@@ -175,7 +193,7 @@ function renderCategoryNavigation(categories) {
         categoryNav.appendChild(button);
     });
 
-    // 绑定点击事件 (使用事件委托更好，但这里直接绑定也行)
+    // 绑定点击事件
     categoryNav.querySelectorAll('.category-button').forEach(button => {
         button.addEventListener('click', () => {
             currentFilterCategory = button.dataset.category;
@@ -204,7 +222,8 @@ function showTocPage() {
     // 清空 URL hash，表示当前在目录页
     // 只有当hash存在时才pushState，避免不必要的history entry
     if (window.location.hash !== '') {
-        history.pushState(null, '', window.location.pathname + window.location.search);
+        // 使用 replaceState 避免在返回时创建新的历史记录条目，因为我们只是“清除”哈希。
+        history.replaceState(null, '', window.location.pathname + window.location.search);
     }
 }
 
@@ -227,70 +246,51 @@ async function handleChapterClick(chapterId, filePath) {
     document.getElementById('chapters').style.display = 'block';
 
     const chapterContent = await loadSingleChapterContent(filePath);
-    let currentChapterTooltips = {};
-    const chapterTooltipFilePath = `chapters/${chapterId}-tooltips.json`;
-
-    try {
-        const res = await fetch(`data/${chapterTooltipFilePath}`);
-        if (res.ok) {
-            currentChapterTooltips = await res.json();
-            console.log(`Loaded Tooltip data for chapter: ${chapterId}`);
-        }
-    } catch (error) {
-        console.warn(`Failed to load Tooltip data for chapter: ${chapterId}. Error:`, error);
-    }
-
-    // 准备音频和 SRT 数据 (修正路径)
-    const audioSrc = `data/chapters/audio/${chapterId}.mp3`; // 修正后的路径
-    const srtPath = `data/chapters/srt/${chapterId}.srt`;     // 修正后的路径
-    let subtitleDataForRenderer = []; // 用于渲染器注入字幕段
-
-    try {
-        const srtRes = await fetch(srtPath);
-        if (srtRes.ok) {
-            const srtText = await srtRes.text();
-            subtitleDataForRenderer = parseSRT(srtText);
-            console.log(`Loaded SRT data for chapter: ${chapterId}`);
-        } else {
-            console.warn(`SRT file not found or failed to load: ${srtPath}. Status: ${srtRes.status}`);
-        }
-    } catch (err) {
-        console.warn('SRT 文件加载/解析失败，但音频播放器仍将尝试加载:', err);
-    }
-
-    if (chapterContent) {
-        // 更新 tooltip 模块的当前章节数据
-        updateActiveChapterTooltips(currentChapterTooltips);
-
-        // 渲染章节内容 (包含工具提示、词频样式和字幕段落)
-        renderSingleChapterContent(
-            chapterContent,
-            currentChapterTooltips,
-            getGlobalWordFrequenciesMap(),
-            getGlobalMaxFreq(),
-            subtitleDataForRenderer // 传递字幕数据给 chapterRenderer
-        );
-
-        // 更新 URL hash
-        // 只有当hash不等于当前章节ID时才更新，避免不必要的历史记录
-        if (window.location.hash.substring(1) !== chapterId) {
-             window.location.hash = chapterId;
-        }
-
-        // 滚动到章节顶部
-        document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
-
-        // 初始化音频播放器
-        initAudioPlayer({
-            audioSrc: audioSrc,
-            srtSrc: srtPath
-        });
-
-        // 每次加载章节后重新设置浮动 YouTube 播放器，以处理新加载的视频
-        setupFloatingYouTube();
-
-    } else {
+    if (!chapterContent) {
         alert('无法加载章节内容！请检查章节文件是否存在和格式是否正确。');
         showTocPage(); // 加载失败则返回目录页
+        return;
     }
+
+    // 从预加载的全局数据中获取当前章节的 Tooltip 和 SRT 数据
+    const currentChapterTooltips = allChapterTooltipsData[chapterId] || {};
+    const subtitleDataForRenderer = allChapterSrtData[chapterId] || [];
+
+    // 准备音频文件路径
+    const audioSrc = chapterContent.audio ? `data/chapters/audio/${chapterContent.audio}` : null;
+
+    // 更新 tooltip 模块的当前章节数据
+    updateActiveChapterTooltips(currentChapterTooltips);
+
+    // 渲染章节内容 (包含工具提示、词频样式和字幕段落)
+    renderSingleChapterContent(
+        chapterContent,
+        currentChapterTooltips,
+        getGlobalWordFrequenciesMap(),
+        getGlobalMaxFreq(),
+        subtitleDataForRenderer // 传递字幕数据给 chapterRenderer
+    );
+
+    // 更新 URL hash
+    // 只有当hash不等于当前章节ID时才更新，避免不必要的历史记录
+    if (window.location.hash.substring(1) !== chapterId) {
+         window.location.hash = chapterId;
+    }
+
+    // 滚动到章节顶部
+    document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
+
+    // 初始化音频播放器
+    if (audioSrc) { // 只有当有音频文件时才初始化播放器
+        initAudioPlayer({
+            audioSrc: audioSrc,
+            srtSrc: `data/chapters/srt/${chapterId}.srt` // SRT 路径总是根据 chapterId 构造
+        });
+    } else {
+        cleanupAudioPlayer(); // 如果没有音频，确保播放器被清理和隐藏
+        console.warn(`Chapter ${chapterId} does not have an associated audio file.`);
+    }
+
+    // 每次加载章节后重新设置浮动 YouTube 播放器，以处理新加载的视频
+    setupFloatingYouTube();
 }
