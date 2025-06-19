@@ -1,20 +1,35 @@
-// js/tooltip.js (重构版 - 更新导入路径和 YouTube URL)
+/**
+ * js/tooltip.js
+ * 负责渲染带有工具提示和词频样式的文本，并管理工具提示的显示/隐藏逻辑。
+ */
 
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js';
-// 导入 youtube.js 中的 YouTube 工具函数
 import { extractVideoId, getYouTubeEmbedUrl } from './youtube.js';
 
 marked.setOptions({
   gfm: true,
   breaks: true,
-  sanitize: false,
-  sanitizer: (html) => html,
+  sanitize: false, // 允许HTML通过，我们自己会处理
+  // sanitizer: (html) => html, // 不再需要，因为sanitize:false
 });
 
 let _currentHideTimeout = null;
 let _currentActiveTooltipSpan = null;
-let _activeChapterTooltipsData = {};
+let _activeChapterTooltipsData = {}; // 存储当前章节的工具提示数据
 
+// 全局的 tooltip 容器引用
+let tooltipDiv = null;
+
+/**
+ * 渲染 Markdown 文本，并注入工具提示和词频样式。
+ * @param {string} md - 原始 Markdown 文本。
+ * @param {Object} currentChapterTooltips - 当前章节的工具提示数据。
+ * @param {Map<string, number>} wordFrequenciesMap - 全局词频 Map。
+ * @param {number} maxFreq - 全局最大词频。
+ * @param {number} [baseFontSize=16] - 基础字体大小 (px)。
+ * @param {number} [maxFontSizeIncrease=12] - 最大字体增大值 (px)。
+ * @returns {string} 渲染后的 HTML 字符串。
+ */
 export function renderMarkdownWithTooltips(
     md,
     currentChapterTooltips,
@@ -23,11 +38,12 @@ export function renderMarkdownWithTooltips(
     baseFontSize = 16,
     maxFontSizeIncrease = 12
 ) {
-    const customSpanPlaceholders = {};
-    let placeholderCounter = 0;
+    if (!md || typeof md !== 'string') return '';
 
-    const customTooltipPattern = /\[\[([a-zA-Z0-9'-]+)\|([a-zA-Z0-9_-]+)\]\]/g;
-    let mdWithCustomSpans = md.replace(customTooltipPattern, (match, word, tooltipId) => {
+    // 步骤 1: 处理自定义工具提示语法 [[word|tooltipId]]
+    // 这是一个更健壮的正则，确保只匹配自定义的 [[...]] 格式
+    const customTooltipPattern = /\[\[([\p{L}\p{N}'-]+)\|([a-zA-Z0-9_-]+)\]\]/gu; // 支持Unicode字母和数字
+    let tempMd = md.replace(customTooltipPattern, (match, word, tooltipId) => {
         const lowerWord = word.toLowerCase();
         const freq = wordFrequenciesMap.get(lowerWord) || 0;
         let fontSizeStyle = '';
@@ -35,207 +51,262 @@ export function renderMarkdownWithTooltips(
             const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
             fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
         }
-        const placeholder = `__CUSTOM_SPAN_PLACEHOLDER_${placeholderCounter++}__`;
-        customSpanPlaceholders[placeholder] = `<span data-tooltip-id="${tooltipId}" class="word" style="${fontSizeStyle}">${word}</span>`;
-        return placeholder;
+        // 使用一个独特的占位符，避免被后续的普通单词正则匹配到
+        // 这里的占位符直接是 HTML 结构，因为它们不会被 Marked.js 再次解析
+        return `<span data-tooltip-id="${tooltipId}" class="word" style="${fontSizeStyle}">${word}</span>`;
     });
 
-    const regularWordPattern = /\b([a-zA-Z0-9'-]+)\b/g;
-    let finalProcessedMd = mdWithCustomSpans.replace(regularWordPattern, (match) => {
-        if (customSpanPlaceholders[match]) return match;
-        const lowerMatch = match.toLowerCase();
-        const freq = wordFrequenciesMap.get(lowerMatch) || 0;
+    // 步骤 2: 处理普通单词的词频和工具提示
+    // 匹配常规单词：连续的字母、数字、连字符或撇号 (Unicode支持)
+    const regularWordPattern = /([\p{L}\p{N}]+(?:['\-\u2010-\u2015][\p{L}\p{N}]+)*)/gu;
+    let finalProcessedMd = tempMd.replace(regularWordPattern, (match, word) => {
+        // 如果这个 match 已经是之前处理过的自定义 span 的一部分，则跳过
+        // 这是一个简单的检查，因为我们自定义 span 是完整的 HTML 标签，不会被这个正则再次匹配
+        if (match.startsWith('<span data-tooltip-id=')) {
+            return match;
+        }
+
+        const lowerWord = word.toLowerCase();
+        const freq = wordFrequenciesMap.get(lowerWord) || 0;
         let fontSizeStyle = '';
         if (freq > 0 && maxFreq > 0) {
             const calculatedFontSize = baseFontSize + (freq / maxFreq) * maxFontSizeIncrease;
             fontSizeStyle = `font-size: ${calculatedFontSize.toFixed(1)}px;`;
         }
-        if (currentChapterTooltips.hasOwnProperty(lowerMatch)) {
-            return `<span data-tooltip-id="${lowerMatch}" class="word" style="${fontSizeStyle}">${match}</span>`;
+
+        if (currentChapterTooltips.hasOwnProperty(lowerWord)) {
+            // 如果有对应的工具提示，则添加 data-tooltip-id
+            return `<span data-tooltip-id="${lowerWord}" class="word" style="${fontSizeStyle}">${word}</span>`;
         } else if (fontSizeStyle) {
-            return `<span style="${fontSizeStyle}">${match}</span>`;
+            // 如果没有工具提示，但有词频样式，也应用 span
+            return `<span style="${fontSizeStyle}">${word}</span>`;
         }
-        return match;
+        return match; // 不处理，原样返回
     });
 
-    Object.keys(customSpanPlaceholders).forEach(placeholder => {
-        const regex = new RegExp(placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
-        finalProcessedMd = finalProcessedMd.replace(regex, customSpanPlaceholders[placeholder]);
-    });
-
+    // 步骤 3: 使用 Marked.js 解析最终的 Markdown 文本
     return marked.parse(finalProcessedMd);
 }
 
+/**
+ * 初始化并设置工具提示的事件监听器。
+ */
 export function setupTooltips() {
-    const tooltipDiv = document.getElementById('react-tooltips');
-    const contentContainer = document.getElementById('chapters') || document.body;
+    tooltipDiv = document.getElementById('react-tooltips');
+    const chaptersContainer = document.getElementById('chapters');
 
     if (!tooltipDiv) {
-        console.warn('Tooltip container #react-tooltips not found.');
+        console.error('Tooltip container #react-tooltips not found. Tooltips will not function.');
+        return;
+    }
+    if (!chaptersContainer) {
+        console.error('Chapters container #chapters not found. Tooltips will not function on chapter content.');
         return;
     }
 
-    if (window._tooltipGlobalClickListener) {
-        document.removeEventListener('click', window._tooltipGlobalClickListener);
-    }
-    if (window._tooltipScrollListener) {
-        document.removeEventListener('scroll', window._tooltipScrollListener);
-    }
-    if (tooltipDiv._mouseLeaveListener) {
-        tooltipDiv.removeEventListener('mouseleave', tooltipDiv._mouseLeaveListener);
-    }
-    if (tooltipDiv._mouseEnterListener) {
-        tooltipDiv.removeEventListener('mouseenter', tooltipDiv._mouseEnterListener);
+    // 清理旧的事件监听器，避免重复绑定
+    if (tooltipDiv._listeners) {
+        tooltipDiv.removeEventListener('mouseleave', tooltipDiv._listeners.mouseleave);
+        tooltipDiv.removeEventListener('mouseenter', tooltipDiv._listeners.mouseenter);
+        chaptersContainer.removeEventListener('click', tooltipDiv._listeners.chapterClick);
+        document.removeEventListener('click', tooltipDiv._listeners.docClick);
+        document.removeEventListener('scroll', tooltipDiv._listeners.docScroll);
     }
 
-    contentContainer.addEventListener('click', function (e) {
-        const targetSpan = e.target.closest('.word');
-        if (targetSpan) {
-            showTooltip(e, targetSpan);
-        } else if (tooltipDiv.classList.contains('visible') &&
-            !e.target.closest('#react-tooltips')) {
-            hideTooltip();
+    const listeners = {
+        mouseleave: () => { _currentHideTimeout = setTimeout(hideTooltip, 100); },
+        mouseenter: () => { clearTimeout(_currentHideTimeout); },
+        chapterClick: (e) => {
+            const targetSpan = e.target.closest('.word');
+            if (targetSpan) {
+                showTooltip(e, targetSpan);
+            } else if (tooltipDiv.classList.contains('visible') && !e.target.closest('#react-tooltips')) {
+                hideTooltip(); // 点击章节内容空白处，且不是工具提示本身
+            }
+        },
+        docClick: (e) => {
+            // 如果点击发生在工具提示外部且不是 .word 元素
+            if (tooltipDiv.classList.contains('visible') &&
+                !e.target.closest('.word') &&
+                !e.target.closest('#react-tooltips')) {
+                hideTooltip();
+            }
+        },
+        docScroll: () => {
+            if (tooltipDiv.classList.contains('visible')) {
+                hideTooltip();
+            }
+        }
+    };
+
+    tooltipDiv.addEventListener('mouseleave', listeners.mouseleave);
+    tooltipDiv.addEventListener('mouseenter', listeners.mouseenter);
+    chaptersContainer.addEventListener('click', listeners.chapterClick); // 使用事件委托
+    document.addEventListener('click', listeners.docClick); // 全局点击监听
+    document.addEventListener('scroll', listeners.docScroll, { passive: true }); // 滚动监听
+
+    tooltipDiv._listeners = listeners; // 保存监听器引用以便清理
+
+    // 初始化时隐藏 tooltip
+    tooltipDiv.style.display = 'none';
+    tooltipDiv.classList.remove('visible');
+    console.log('Tooltip 模块已初始化。');
+}
+
+/**
+ * 显示工具提示。
+ * @param {Event} e - 点击事件对象。
+ * @param {HTMLElement} clickedSpan - 被点击的 .word span 元素。
+ */
+async function showTooltip(e, clickedSpan) {
+    clearTimeout(_currentHideTimeout);
+    e.stopPropagation(); // 阻止事件冒泡
+
+    // 如果重复点击同一个 span，则隐藏工具提示
+    if (_currentActiveTooltipSpan === clickedSpan) {
+        hideTooltip();
+        _currentActiveTooltipSpan = null;
+        return;
+    }
+
+    _currentActiveTooltipSpan = clickedSpan;
+    const tooltipId = clickedSpan.dataset.tooltipId;
+    const data = _activeChapterTooltipsData[tooltipId];
+
+    if (!data) {
+        console.warn(`Tooltip data not found for ID: ${tooltipId}`);
+        hideTooltip();
+        return;
+    }
+
+    // 定义字段显示顺序和格式
+    const fieldsOrder = [
+        'word', 'title', 'partOfSpeech', 'pronunciation', 'definition',
+        'contextualMeaning', 'exampleSentence', 'videoLink',
+        'image', 'imageDescription',
+        'synonyms', 'antonyms', 'etymology',
+        'category', 'source', 'lastUpdated'
+    ];
+
+    let htmlContent = '';
+    fieldsOrder.forEach(field => {
+        const value = data[field];
+        if (value === undefined || value === null || value === '') return;
+
+        const formatted = Array.isArray(value) ? value.join(', ') : String(value);
+
+        switch (field) {
+            case 'word':
+            case 'title':
+                htmlContent += `<p class="tooltip-title"><strong>${formatted}</strong></p>`;
+                break;
+            case 'partOfSpeech':
+                htmlContent += `<p class="tooltip-pos">(${formatted})</p>`;
+                break;
+            case 'pronunciation':
+                htmlContent += `<p class="tooltip-pronunciation">/${formatted}/</p>`;
+                break;
+            case 'definition':
+                htmlContent += `<p class="tooltip-definition">${formatted}</p>`;
+                break;
+            case 'contextualMeaning':
+                htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formatted}</em></p>`;
+                break;
+            case 'exampleSentence':
+                htmlContent += `<p class="tooltip-example"><strong>example:</strong> ${formatted}</p>`;
+                break;
+            case 'videoLink':
+                const videoId = extractVideoId(formatted);
+                if (videoId) {
+                    htmlContent += `<div class="tooltip-video-wrapper" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin-bottom:10px;">
+                                      <iframe src="${getYouTubeEmbedUrl(videoId, false)}" frameborder="0" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+                                    </div>`;
+                }
+                break;
+            case 'image':
+                htmlContent += `<img src="${formatted}" alt="Tooltip Image" class="tooltip-image" style="max-width:100%;height:auto;margin-top:10px;">`;
+                break;
+            case 'imageDescription':
+                htmlContent += `<p class="tooltip-image-description-text"><strong>ImageDescription:</strong> ${formatted}</p>`;
+                break;
+            case 'synonyms':
+                htmlContent += `<p class="tooltip-synonyms"><strong>synonyms:</strong> ${formatted}</p>`;
+                break;
+            case 'antonyms':
+                htmlContent += `<p class="tooltip-antonyms"><strong>antonyms:</strong> ${formatted}</p>`;
+                break;
+            case 'etymology':
+                htmlContent += `<p class="tooltip-etymology">Etymology: ${formatted}</p>`;
+                break;
+            case 'category':
+                htmlContent += `<p class="tooltip-category">Category: ${formatted}</p>`;
+                break;
+            case 'source':
+                htmlContent += `<p class="tooltip-source">Source: ${formatted}</p>`;
+                break;
+            case 'lastUpdated':
+                htmlContent += `<p class="tooltip-last-updated">Updated: ${formatted}</p>`;
+                break;
         }
     });
 
-    window._tooltipGlobalClickListener = (e) => {
-        if (tooltipDiv.classList.contains('visible') &&
-            !e.target.closest('.word') &&
-            !e.target.closest('#react-tooltips')) {
-            hideTooltip();
-        }
-    };
-    document.addEventListener('click', window._tooltipGlobalClickListener);
-
-    tooltipDiv._mouseLeaveListener = hideTooltip;
-    tooltipDiv.addEventListener('mouseleave', tooltipDiv._mouseLeaveListener);
-
-    tooltipDiv._mouseEnterListener = () => {
-        clearTimeout(_currentHideTimeout);
-    };
-    tooltipDiv.addEventListener('mouseenter', tooltipDiv._mouseEnterListener);
-
-    window._tooltipScrollListener = () => {
-        if (tooltipDiv.classList.contains('visible')) {
-            hideTooltip();
-        }
-    };
-    document.addEventListener('scroll', window._tooltipScrollListener, { passive: true });
-
-    async function showTooltip(e, clickedSpan) {
-        clearTimeout(_currentHideTimeout);
-        e.stopPropagation();
-
-        if (_currentActiveTooltipSpan === clickedSpan) {
-            hideTooltip();
-            _currentActiveTooltipSpan = null;
-            return;
-        }
-
-        _currentActiveTooltipSpan = clickedSpan;
-        const tooltipId = clickedSpan.dataset.tooltipId;
-        const data = _activeChapterTooltipsData[tooltipId];
-
-        if (!data) {
-            console.warn(`Tooltip data not found for ID: ${tooltipId}`);
-            hideTooltip();
-            return;
-        }
-
-        const fieldsOrder = [
-            'word', 'title', 'partOfSpeech', 'pronunciation', 'definition',
-            'contextualMeaning', 'exampleSentence', 'videoLink',
-            'image', 'imageDescription',
-            'synonyms', 'antonyms', 'etymology',
-            'category', 'source', 'lastUpdated'
-        ];
-
-        let htmlContent = '';
-        fieldsOrder.forEach(field => {
-            const value = data[field];
-            if (!value) return;
-
-            const formatted = Array.isArray(value) ? value.join(', ') : value;
-
-            if (field === 'word' || field === 'title') {
-                htmlContent += `<p class="tooltip-title"><strong>${formatted}</strong></p>`;
-            } else if (field === 'partOfSpeech') {
-                htmlContent += `<p class="tooltip-pos">(${formatted})</p>`;
-            } else if (field === 'pronunciation') {
-                htmlContent += `<p class="tooltip-pronunciation">/${formatted}/</p>`;
-            } else if (field === 'definition') {
-                htmlContent += `<p class="tooltip-definition">${formatted}</p>`;
-            } else if (field === 'contextualMeaning') {
-                htmlContent += `<p class="tooltip-contextual-meaning">💡 Visual Sense: <em>${formatted}</em></p>`;
-            } else if (field === 'exampleSentence') {
-                htmlContent += `<p class="tooltip-example"><strong>example:</strong> ${formatted}</p>`;
-            } else if (field === 'videoLink') {
-                const videoId = extractVideoId(formatted); // 使用 youtube.js 的 extractVideoId
-                if (videoId) {
-                    // 修正：使用 youtube.js 的 getYouTubeEmbedUrl
-                    htmlContent += `<div class="tooltip-video-wrapper"><iframe src="${getYouTubeEmbedUrl(videoId, true)}" frameborder="0" allowfullscreen></iframe></div>`;
-                }
-            } else if (field === 'image') {
-                htmlContent += `<img src="${formatted}" alt="Tooltip Image" class="tooltip-image">`;
-            } else if (field === 'imageDescription') {
-                htmlContent += `<p class="tooltip-image-description-text"><strong>ImageDescription:</strong> ${formatted}</p>`;
-            } else if (field === 'synonyms') {
-                htmlContent += `<p class="tooltip-synonyms"><strong>synonyms:</strong> ${formatted}</p>`;
-            } else if (field === 'antonyms') {
-                htmlContent += `<p class="tooltip-antonyms"><strong>antonyms:</strong> ${formatted}</p>`;
-            } else if (field === 'etymology') {
-                htmlContent += `<p class="tooltip-etymology">Etymology: ${formatted}</p>`;
-            } else if (field === 'category') {
-                htmlContent += `<p class="tooltip-category">Category: ${formatted}</p>`;
-            } else if (field === 'source') {
-                htmlContent += `<p class="tooltip-source">Source: ${formatted}</p>`;
-            } else if (field === 'lastUpdated') {
-                htmlContent += `<p class="tooltip-last-updated">Updated: ${formatted}</p>`;
-            }
-        });
-
-        if (!htmlContent) {
-            htmlContent = `<p>No detailed information available for "${tooltipId}".</p>`;
-        }
-
-        tooltipDiv.innerHTML = htmlContent;
-        tooltipDiv.style.display = 'block';
-        tooltipDiv.classList.add('visible');
-
-        const spanRect = clickedSpan.getBoundingClientRect();
-        const scrollX = window.scrollX || window.pageXOffset;
-        const scrollY = window.scrollY || window.pageYOffset;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        let left = spanRect.left + scrollX + (spanRect.width / 2) - (tooltipDiv.offsetWidth / 2);
-        let top = spanRect.top + scrollY - tooltipDiv.offsetHeight - 10;
-
-        if (left < scrollX + 10) left = scrollX + 10;
-        if (left + tooltipDiv.offsetWidth > scrollX + viewportWidth - 10) {
-            left = scrollX + viewportWidth - tooltipDiv.offsetWidth - 10;
-        }
-        if (top < scrollY + 10) {
-            top = spanRect.bottom + scrollY + 10;
-        }
-
-        tooltipDiv.style.left = `${left}px`;
-        tooltipDiv.style.top = `${top}px`;
+    if (!htmlContent) {
+        htmlContent = `<p>No detailed information available for "${tooltipId}".</p>`;
     }
 
-    function hideTooltip() {
-        clearTimeout(_currentHideTimeout);
-        _currentHideTimeout = setTimeout(() => {
+    tooltipDiv.innerHTML = htmlContent;
+    tooltipDiv.style.display = 'block'; // 先显示以便获取尺寸
+    tooltipDiv.classList.add('visible'); // 添加动画类
+
+    // 定位逻辑
+    const spanRect = clickedSpan.getBoundingClientRect();
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let left = spanRect.left + scrollX + (spanRect.width / 2) - (tooltipDiv.offsetWidth / 2);
+    let top = spanRect.top + scrollY - tooltipDiv.offsetHeight - 10; // 默认显示在上方
+
+    // 确保不超出左边界
+    if (left < scrollX + 10) {
+        left = scrollX + 10;
+    }
+    // 确保不超出右边界
+    if (left + tooltipDiv.offsetWidth > scrollX + viewportWidth - 10) {
+        left = scrollX + viewportWidth - tooltipDiv.offsetWidth - 10;
+    }
+    // 如果上方空间不足，则显示在下方
+    if (top < scrollY + 10) {
+        top = spanRect.bottom + scrollY + 10;
+    }
+
+    tooltipDiv.style.left = `${left}px`;
+    tooltipDiv.style.top = `${top}px`;
+}
+
+/**
+ * 隐藏工具提示。
+ */
+function hideTooltip() {
+    clearTimeout(_currentHideTimeout);
+    _currentHideTimeout = setTimeout(() => {
+        if (tooltipDiv) {
             tooltipDiv.classList.remove('visible');
+            // 动画完成后再彻底隐藏
             setTimeout(() => {
                 tooltipDiv.style.display = 'none';
                 _currentActiveTooltipSpan = null;
-            }, 300);
-        }, 100);
-    }
+            }, 300); // 应该与CSS动画时长匹配
+        }
+    }, 100); // 短暂延迟，允许鼠标从span移动到tooltip
 }
 
+/**
+ * 更新当前章节的工具提示数据。
+ * @param {Object} tooltipsData - 新的工具提示数据。
+ */
 export function updateActiveChapterTooltips(tooltipsData) {
     _activeChapterTooltipsData = tooltipsData || {};
-    console.log("Tooltip module: Active tooltip data updated.", _activeChapterTooltipsData);
+    // console.log("Tooltip module: Active tooltip data updated.", _activeChapterTooltipsData);
 }
