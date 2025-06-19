@@ -14,7 +14,7 @@ import {
 } from './chapterRenderer.js';
 import { setupTooltips, updateActiveChapterTooltips } from './tooltip.js';
 import { getWordFrequencies } from './wordFrequency.js';
-import { initAudioPlayer, cleanupAudioPlayer } from './audio/audioPlayer.js'; // 导入清理函数
+import { initAudioPlayer, cleanupAudioPlayer } from './audio/audioPlayer.js';
 import { setupFloatingYouTube, setupVideoAutoPause } from './youtube.js';
 
 
@@ -22,13 +22,13 @@ let allChapterIndexData = [];
 let currentFilterCategory = 'all';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. 初始化 YouTube 视频功能
+    console.log('DOMContentLoaded fired.');
+
+    // 1. 初始化 YouTube 视频自动暂停功能 (只设置一次全局监听器)
     setupVideoAutoPause();
-    // setupFloatingYouTube() 将在加载章节内容后被调用，因为需要等待 iframe 存在
 
     // 2. 加载章节索引
     allChapterIndexData = await loadChapterIndex();
-
     if (allChapterIndexData.length === 0) {
         console.error('章节索引为空，无法渲染。');
         document.getElementById('toc').innerHTML = '<p style="text-align: center; padding: 50px; color: #666;">No articles found.</p>';
@@ -58,20 +58,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const chapterTooltips = await res.json();
                 for (const tooltipId in chapterTooltips) {
                     const tooltipEntry = chapterTooltips[tooltipId];
-                    if (tooltipEntry && tooltipEntry.word) {
+                    // 确保 tooltipEntry 和 tooltipEntry.word 存在
+                    if (tooltipEntry && tooltipEntry.word && typeof tooltipEntry.word === 'string') {
                         protectedWordsForFrequency.add(tooltipEntry.word.toLowerCase());
                     }
                 }
             }
         } catch (error) {
             // 静默处理加载章节内容或 tooltip 文件失败，不中断主流程
-            // console.warn(`加载或处理章节/tooltip文件失败 (${chMeta.file} / ${chMeta.id}-tooltips.json):`, error);
+            // console.warn(`加载或处理章节/tooltip文件失败 (${chMeta.file} / data/${tooltipFilePath}):`, error);
         }
     }
 
     // 实际计算词频
     const { wordFrequenciesMap, maxFreq } = getWordFrequencies(allParagraphTexts, undefined, protectedWordsForFrequency);
     setGlobalWordFrequencies(wordFrequenciesMap, maxFreq);
+    console.log("Global word frequencies calculated. Max Freq:", maxFreq);
+
 
     // 4. 渲染分类导航
     const categories = new Set();
@@ -82,8 +85,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     renderCategoryNavigation(Array.from(categories));
 
-    // 5. 初始化工具提示模块 (绑定全局事件监听器)
+    // 5. 初始化工具提示模块 (绑定全局事件监听器和 Marked.js 配置)
+    // 确保 Marked.js 的 sanitize: false 配置在此处生效
     setupTooltips();
+
 
     // 6. 处理初始路由/URL哈希
     const initialChapterId = window.location.hash.substring(1);
@@ -93,15 +98,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             await handleChapterClick(chapterMeta.id, chapterMeta.file);
         } else {
             // 如果哈希存在但章节未找到，显示目录页
+            console.warn(`URL hash "${initialChapterId}" does not correspond to a valid chapter. Showing TOC.`);
             showTocPage();
         }
     } else {
         // 没有哈希，默认显示目录页
+        console.log('No initial hash, showing TOC.');
         showTocPage();
     }
 
     // 7. 监听 URL 哈希变化
     window.addEventListener('hashchange', async () => {
+        console.log('Hashchange detected. New hash:', window.location.hash);
         const newChapterId = window.location.hash.substring(1);
         // 获取当前章节的ID（如果有的话）
         const currentChapterH2 = document.querySelector('#chapters h2');
@@ -114,10 +122,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await handleChapterClick(chapterMeta.id, chapterMeta.file);
             } else {
                 // 如果哈希对应的章节不存在，回到目录页
+                console.warn(`Hashchange to unknown chapter "${newChapterId}". Showing TOC.`);
                 showTocPage();
             }
         } else if (!newChapterId && currentDisplayedChapterId) {
             // 如果哈希被清空，且当前有章节显示，则回到目录页
+            console.log('Hash cleared. Showing TOC.');
             showTocPage();
         }
         // else: 哈希没变，或者哈希为空且本来就在目录页，不做任何操作
@@ -125,7 +135,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 确保在所有内容加载和渲染完毕后，再初始化浮动YouTube视频功能
     // setupFloatingYouTube 会查找页面上的 YouTube iframe，所以需要在它们存在后调用
-    setupFloatingYouTube();
+    // 每次章节加载后会重新调用，确保新加载的章节视频也被处理
+    // 第一次调用在 DOMContentLoaded 结束时，后续在 handleChapterClick 中
+    // console.log("Initial setup of Floating YouTube.");
+    // setupFloatingYouTube(); // 这一行应该被移除，因为它会在 handleChapterClick 中被调用
 });
 
 
@@ -144,7 +157,10 @@ function renderCategoryNavigation(categories) {
     allButton.classList.add('category-button');
     allButton.dataset.category = 'all';
     allButton.textContent = 'All Articles';
-    allButton.classList.add('active'); // 默认激活
+    // 确保当前活跃类别正确高亮
+    if (currentFilterCategory === 'all') {
+        allButton.classList.add('active');
+    }
     categoryNav.appendChild(allButton);
 
     // 添加其他分类按钮
@@ -153,6 +169,9 @@ function renderCategoryNavigation(categories) {
         button.classList.add('category-button');
         button.dataset.category = category;
         button.textContent = category;
+        if (currentFilterCategory === category) {
+            button.classList.add('active');
+        }
         categoryNav.appendChild(button);
     });
 
@@ -172,6 +191,7 @@ function renderCategoryNavigation(categories) {
  * 显示章节目录页面，隐藏章节内容和音频播放器。
  */
 function showTocPage() {
+    console.log('Showing TOC page.');
     document.getElementById('chapters').style.display = 'none';
     cleanupAudioPlayer(); // 隐藏目录页时，清理并隐藏音频播放器
 
@@ -182,6 +202,7 @@ function showTocPage() {
     renderChapterToc(allChapterIndexData, handleChapterClick, currentFilterCategory);
 
     // 清空 URL hash，表示当前在目录页
+    // 只有当hash存在时才pushState，避免不必要的history entry
     if (window.location.hash !== '') {
         history.pushState(null, '', window.location.pathname + window.location.search);
     }
@@ -198,6 +219,7 @@ async function handleChapterClick(chapterId, filePath) {
         showTocPage();
         return;
     }
+    console.log(`Loading chapter: ${chapterId} from ${filePath}`);
 
     // 隐藏目录和分类导航，显示章节内容容器
     document.getElementById('toc').style.display = 'none';
@@ -212,15 +234,15 @@ async function handleChapterClick(chapterId, filePath) {
         const res = await fetch(`data/${chapterTooltipFilePath}`);
         if (res.ok) {
             currentChapterTooltips = await res.json();
-            // console.log(`加载 Tooltip 成功: ${chapterId}`);
+            console.log(`Loaded Tooltip data for chapter: ${chapterId}`);
         }
     } catch (error) {
-        console.warn(`加载 Tooltip 失败: ${chapterId}`, error);
+        console.warn(`Failed to load Tooltip data for chapter: ${chapterId}. Error:`, error);
     }
 
-    // 准备音频和 SRT 数据
-    const audioSrc = `data/chapters/audio/${chapterId}.mp3`;
-    const srtPath = `data/chapters/srt/${chapterId}.srt`;
+    // 准备音频和 SRT 数据 (修正路径)
+    const audioSrc = `data/chapters/audio/${chapterId}.mp3`; // 修正后的路径
+    const srtPath = `data/chapters/srt/${chapterId}.srt`;     // 修正后的路径
     let subtitleDataForRenderer = []; // 用于渲染器注入字幕段
 
     try {
@@ -228,6 +250,9 @@ async function handleChapterClick(chapterId, filePath) {
         if (srtRes.ok) {
             const srtText = await srtRes.text();
             subtitleDataForRenderer = parseSRT(srtText);
+            console.log(`Loaded SRT data for chapter: ${chapterId}`);
+        } else {
+            console.warn(`SRT file not found or failed to load: ${srtPath}. Status: ${srtRes.status}`);
         }
     } catch (err) {
         console.warn('SRT 文件加载/解析失败，但音频播放器仍将尝试加载:', err);
@@ -247,7 +272,11 @@ async function handleChapterClick(chapterId, filePath) {
         );
 
         // 更新 URL hash
-        window.location.hash = chapterId;
+        // 只有当hash不等于当前章节ID时才更新，避免不必要的历史记录
+        if (window.location.hash.substring(1) !== chapterId) {
+             window.location.hash = chapterId;
+        }
+
         // 滚动到章节顶部
         document.getElementById('chapters').scrollIntoView({ behavior: 'smooth' });
 
@@ -256,6 +285,9 @@ async function handleChapterClick(chapterId, filePath) {
             audioSrc: audioSrc,
             srtSrc: srtPath
         });
+
+        // 每次加载章节后重新设置浮动 YouTube 播放器，以处理新加载的视频
+        setupFloatingYouTube();
 
     } else {
         alert('无法加载章节内容！请检查章节文件是否存在和格式是否正确。');
