@@ -9,13 +9,13 @@ import { extractVideoId, getYouTubeEmbedUrl } from './youtube.js';
 // 确保 Marked.js 配置只执行一次，且在解析前生效
 if (!marked._isConfigured) {
   marked.setOptions({
-    gfm: true, // 启用 GitHub Flavored Markdown
+    gfm: true, // 启用 GitHub Flavored Markdown (包含表格、任务列表、删除线等)
     breaks: true, // 启用自动换行，将单个换行符解释为 <br>
     sanitize: false, // 核心设置：不转义用户提供的HTML。
                       // 这允许 renderMarkdownWithTooltips 插入的 <span> 标签和 preTagSubtitles 插入的 <span> 标签得以保留。
   });
   marked._isConfigured = true; // 标记已配置
-  console.log("Marked.js initialized with sanitize: false.");
+  console.log("Marked.js initialized with GFM support and sanitize: false.");
 }
 
 let _currentHideTimeout = null;
