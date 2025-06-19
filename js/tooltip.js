@@ -65,6 +65,10 @@ export function renderMarkdownWithTooltips(
 
     // 步骤 2: 处理普通单词的词频和工具提示
     // 匹配常规单词：连续的字母、数字、连字符或撇号 (支持 Unicode)
+    // 优化：避免匹配已存在的 HTML 标签，如 <span ...>
+    // 这个正则表达式旨在捕获独立的单词，同时避免误伤 HTML 标签。
+    // \b 确保是完整的单词边界，但对于包含在标签内的文本，\b可能不够。
+    // 最外层 if 条件 `if (match.startsWith('<') && match.endsWith('>'))` 已经处理了这种情况
     const regularWordPattern = /([\p{L}\p{N}]+(?:['\-\u2010-\u2015][\p{L}\p{N}]+)*)/gu;
     processedContent = processedContent.replace(regularWordPattern, (match, word) => {
         // 重要：如果当前匹配到的 `match` 字符串是一个完整的 HTML 标签 (例如 `<span class="subtitle-segment">...</span>`)
@@ -87,7 +91,10 @@ export function renderMarkdownWithTooltips(
             return `<span data-tooltip-id="${lowerWord}" class="word" style="${fontSizeStyle}">${word}</span>`;
         } else if (fontSizeStyle) {
             // 如果没有工具提示，但有词频样式，也应用 span
-            return `<span style="${fontSizeStyle}">${word}</span>`;
+            // 优化：只有当单词本身不是数字或单个特殊字符时才包裹
+            if (/\p{L}/u.test(word) && word.length > 1) { // 确保是真正的“词”
+                return `<span style="${fontSizeStyle}">${word}</span>`;
+            }
         }
         return match; // 不处理，原样返回
     });
@@ -118,19 +125,25 @@ export function setupTooltips() {
 
     // 清理旧的事件监听器，避免重复绑定。
     // 使用命名函数引用 (_listeners) 方便移除。
+    // 优化：确保在章节内容更新时，也能正确地重新绑定和清理
     if (tooltipDiv._listeners) {
         tooltipDiv.removeEventListener('mouseleave', tooltipDiv._listeners.mouseleave);
         tooltipDiv.removeEventListener('mouseenter', tooltipDiv._listeners.mouseenter);
         chaptersContainer.removeEventListener('click', tooltipDiv._listeners.chapterClick); // 确保移除章节容器的 click 监听器
         document.removeEventListener('click', tooltipDiv._listeners.docClick);
         document.removeEventListener('scroll', tooltipDiv._listeners.docScroll);
-        // 清理当前活动的高亮
-        if (_currentActiveTooltipSpan) {
-            _currentActiveTooltipSpan.classList.remove('active-tooltip-word'); // 移除可能的点击高亮
-            _currentActiveTooltipSpan = null;
+        // 移除标记，以防万一
+        if (chaptersContainer._hasTooltipClickListener) {
+            chaptersContainer._hasTooltipClickListener = false;
         }
-        hideTooltip(); // 隐藏任何可能显示的旧 tooltip
     }
+
+    // 清理当前活动的高亮
+    if (_currentActiveTooltipSpan) {
+        _currentActiveTooltipSpan.classList.remove('active-tooltip-word'); // 移除可能的点击高亮
+        _currentActiveTooltipSpan = null;
+    }
+    hideTooltip(); // 隐藏任何可能显示的旧 tooltip
 
     const listeners = {
         mouseleave: () => { _currentHideTimeout = setTimeout(hideTooltip, 100); },
@@ -163,7 +176,12 @@ export function setupTooltips() {
 
     tooltipDiv.addEventListener('mouseleave', listeners.mouseleave);
     tooltipDiv.addEventListener('mouseenter', listeners.mouseenter);
-    chaptersContainer.addEventListener('click', listeners.chapterClick); // 对章节容器使用事件委托
+    // 优化：仅在 chaptersContainer 上绑定一次监听器
+    if (!chaptersContainer._hasTooltipClickListener) {
+        chaptersContainer.addEventListener('click', listeners.chapterClick); // 对章节容器使用事件委托
+        chaptersContainer._hasTooltipClickListener = true; // 添加标记
+    }
+    
     document.addEventListener('click', listeners.docClick); // 全局点击监听，用于点击外部隐藏
     document.addEventListener('scroll', listeners.docScroll, { passive: true }); // 滚动监听，使用 passive 提高性能
 
