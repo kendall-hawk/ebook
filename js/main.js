@@ -10,14 +10,13 @@ import { setupFloatingYouTube, setupVideoAutoPause } from './youtube.js';
 import { tokenizeText } from './utils.js';
 
 // 定义一个基础URL，用于在不同部署环境下调整资源路径
-// 重要：请根据您的 GitHub Pages 部署情况修改 BASE_URL
+// 重要：这里已根据您的 GitHub Pages URL 'https://kendall-hawk.github.io/ebook/' 进行设置。
 // 如果您的 GitHub Pages 部署在 'username.github.io/your-repo-name/' 这样的子目录下，
 // 则将 '/your-repo-name' 替换为您的实际仓库名称。
 // 如果您的 GitHub Pages 部署在根域名 'username.github.io/' (用户或组织页面) 下，
 // 则 BASE_URL 应该留空字符串 '' 或设置为 '/'。
-// 例如：如果您的仓库是 `my-reader`，则可能是 `/my-reader`
-const BASE_URL = window.location.hostname.includes('github.io') && window.location.pathname.startsWith('/your-repo-name/')
-    ? '/your-repo-name' // 替换为你的实际仓库名称，例如 '/my-reader'
+const BASE_URL = window.location.hostname.includes('github.io') && window.location.pathname.startsWith('/ebook/')
+    ? '/ebook' // ✨ 已设置为您的仓库名 '/ebook'
     : ''; // 在本地开发环境或根域名部署时，通常为空
 
 // DOM 元素
@@ -68,7 +67,7 @@ async function preloadAllTooltipsAndSRT() {
         // 加载工具提示
         const tooltipFilePath = `chapters/${chMeta.id}-tooltips.json`;
         tooltipPromises.push(
-            fetch(`${BASE_URL}/data/${tooltipFilePath}`)
+            fetch(`${BASE_URL}/data/${tooltipFilePath}`) // 使用 BASE_URL
                 .then(res => {
                     if (!res.ok) {
                         // console.warn(`Tooltips for ${chMeta.id} not found or failed to load.`, res.statusText);
@@ -88,7 +87,7 @@ async function preloadAllTooltipsAndSRT() {
         // 加载 SRT 数据
         const srtFilePath = `chapters/srt/${chMeta.id}.srt`;
         srtPromises.push(
-            fetch(`${BASE_URL}/data/${srtFilePath}`)
+            fetch(`${BASE_URL}/data/${srtFilePath}`) // 使用 BASE_URL
                 .then(res => {
                     if (!res.ok) {
                         // console.warn(`SRT for ${chMeta.id} not found or failed to load.`, res.statusText);
@@ -201,6 +200,7 @@ function setActiveCategoryButton(activeButton) {
  */
 async function handleChapterClick(chapterId, chapterFile) {
     console.log(`Loading chapter: ${chapterId}`);
+    // loadSingleChapterContent 内部已经使用了 BASE_URL
     const chapterContent = await loadSingleChapterContent(chapterFile);
 
     if (chapterContent) {
@@ -222,8 +222,8 @@ async function handleChapterClick(chapterId, chapterFile) {
 
         // 初始化音频播放器
         if (chapterContent.audio) {
-            const audioPath = `${BASE_URL}/data/chapters/audio/${chapterContent.audio}`;
-            const srtPath = `${BASE_URL}/data/chapters/srt/${chapterId}.srt`;
+            const audioPath = `${BASE_URL}/data/chapters/audio/${chapterContent.audio}`; // 使用 BASE_URL
+            const srtPath = `${BASE_URL}/data/chapters/srt/${chapterId}.srt`; // 使用 BASE_URL
             console.log(`Initializing audio player with: Audio - ${audioPath}, SRT - ${srtPath}`);
             await initAudioPlayer({ audioSrc: audioPath, srtSrc: srtPath });
         } else {
@@ -257,4 +257,3 @@ function showChapters() {
     chaptersSection.style.display = 'block'; // Chapters 是 block
     chaptersSection.scrollTop = 0; // 滚动到顶部
 }
-
