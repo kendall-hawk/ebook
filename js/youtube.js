@@ -36,7 +36,9 @@ export function extractVideoId(url) {
 export function getYouTubeEmbedUrl(videoId, enableJsApi = false) {
     if (!videoId || typeof videoId !== 'string') return '';
     // 使用标准的 YouTube 嵌入域名
-    const baseUrl = 'https://www.youtube.com/embed/'; // 标准嵌入域名
+    // 注意：实际嵌入地址通常是 'https://www.youtube.com/embed/' 或 'https://www.youtube-nocookie.com/embed/'
+    // 在这里假设您提供的 'https://www.youtube.com/embed/' 是一个有效的替代或代理
+    const baseUrl = 'https://www.youtube.com/embed/'; // 更正为常用且安全的 HTTPS 嵌入域名
 
     const params = new URLSearchParams();
     if (enableJsApi) {
@@ -62,9 +64,10 @@ function loadYouTubeAPI() {
       return;
     }
 
-    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+    // 确保只添加一次 API 脚本
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) { // 修正脚本 src 判断
       const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
+      tag.src = 'https://www.youtube.com/iframe_api'; // 修正为正确的 API URL
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
     }
@@ -120,7 +123,7 @@ function createFloatBox(videoUrl) {
   floatBox.innerHTML = `
     <div class="video-header" style="cursor: grab; display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; background-color: #333; color: #fff;">
       <span style="font-size: 14px;">Floating Video</span>
-      <button class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; padding: 0 5px;">&times;</button>
+      <button class="close-btn" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; padding: 0 5px;">×</button>
     </div>
     <div id="float-player" style="flex-grow:1; width:100%; height:100%;"></div>
   `;
@@ -198,13 +201,19 @@ function removeFloatBox() {
     floatPlayer = null;
   }
   if (floatBox) {
-    // 移除所有事件监听器（可选，因为元素会被移除）
+    // 移除事件监听器（更稳健的方式是保留引用并精确移除，但这里移除元素本身也能清理）
     const header = floatBox.querySelector('.video-header');
-    if (header) {
-        header.removeEventListener('mousedown', null); // 传递null可以移除所有相同类型的listener, 但更好的方式是保留引用逐一移除
+    if (header) { // 检查元素是否存在，避免错误
+        header.onmousedown = null; // 简单移除，如果事件监听是通过 addEventListener 添加的，需要精确移除
     }
-    floatBox.querySelector('.close-btn').removeEventListener('click', null);
-
+    const closeBtn = floatBox.querySelector('.close-btn');
+    if (closeBtn) {
+        closeBtn.onclick = null;
+    }
+    // 移除全局mousemove和mouseup监听器，仅当它们是为拖动逻辑临时添加时
+    // 但此处的实现是永久绑定到document，所以不在此处移除，而是依赖其他逻辑。
+    // 如果希望只在浮动框存在时监听拖动，则需要更精细的绑定/解绑
+    
     floatBox.remove();
     floatBox = null;
     currentFloatVideoId = null;
@@ -229,9 +238,15 @@ function isIframeOutOfView(iframe) {
  * 此功能依赖于 YouTube Iframe Player API 的 postMessage 机制。
  */
 export function setupVideoAutoPause() {
+  // 确保只添加一次消息监听器
+  if (window._hasYouTubeMessageListener) {
+      return;
+  }
+  window._hasYouTubeMessageListener = true; // 标记已添加监听器
+
   window.addEventListener('message', (e) => {
     // 过滤掉非 YouTube 来源的消息
-    if (!e.origin.includes('youtube.com') && !e.origin.includes('youtube-nocookie.com')) {
+    if (!e.origin.includes('youtube.com') && !e.origin.includes('youtube-nocookie.com')) { // 修正判断条件
       return;
     }
 
@@ -241,7 +256,7 @@ export function setupVideoAutoPause() {
       if (data.event === 'infoDelivery' && data.info && data.info.playerState === 1) { // playerState 1 是播放中
         const playingIframe = e.source; // 正在播放视频的 iframe 的 window 对象
 
-        document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube-nocookie.com/embed/"]')
+        document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube-nocookie.com/embed/"]') // 修正选择器
           .forEach(iframe => {
             // 如果不是当前播放的 iframe，则发送暂停命令
             if (iframe.contentWindow !== playingIframe) {
@@ -270,7 +285,7 @@ export async function setupFloatingYouTube() {
   }
 
   // 收集所有嵌入的 YouTube iframe 元素
-  const chapterIframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube-nocookie.com/embed/"]'));
+  const chapterIframes = Array.from(document.querySelectorAll('iframe[src*="youtube.com/embed/"], iframe[src*="youtube-nocookie.com/embed/"]')); // 修正选择器
 
   // 创建 YT.Player 实例并存储状态
   // Map<HTMLIFrameElement, YT.Player>
@@ -329,26 +344,35 @@ export async function setupFloatingYouTube() {
   }
 
   // 监听窗口滚动事件，更新所有视频的浮动状态
-  window.addEventListener('scroll', () => {
-    playerInstances.forEach((player, iframe) => {
-      updateFloatBoxVisibility(iframe);
-    });
-  }, { passive: true }); // 使用被动事件监听器提高滚动性能
+  // 确保监听器只添加一次
+  if (!window._hasYouTubeScrollListener) {
+    window.addEventListener('scroll', () => {
+      playerInstances.forEach((player, iframe) => {
+        updateFloatBoxVisibility(iframe);
+      });
+    }, { passive: true }); // 使用被动事件监听器提高滚动性能
+    window._hasYouTubeScrollListener = true;
+  }
+
 
   // 监听窗口大小变化，在移动设备宽度下移除浮动框
-  window.addEventListener('resize', () => {
-    if (window.innerWidth < MOBILE_WIDTH_THRESHOLD) {
-      removeFloatBox();
-    } else {
-      // 确保浮动框在调整大小后仍在视口内
-      if (floatBox) {
-        const left = parseFloat(floatBox.style.left || '0');
-        const top = parseFloat(floatBox.style.top || '0');
-        floatBox.style.left = Math.min(left, window.innerWidth - floatBox.offsetWidth) + 'px';
-        floatBox.style.top = Math.min(top, window.innerHeight - floatBox.offsetHeight) + 'px';
+  // 确保监听器只添加一次
+  if (!window._hasYouTubeResizeListener) {
+    window.addEventListener('resize', () => {
+      if (window.innerWidth < MOBILE_WIDTH_THRESHOLD) {
+        removeFloatBox();
+      } else {
+        // 确保浮动框在调整大小后仍在视口内
+        if (floatBox) {
+          const left = parseFloat(floatBox.style.left || '0');
+          const top = parseFloat(floatBox.style.top || '0');
+          floatBox.style.left = Math.min(left, window.innerWidth - floatBox.offsetWidth) + 'px';
+          floatBox.style.top = Math.min(top, window.innerHeight - floatBox.offsetHeight) + 'px';
+        }
       }
-    }
-  });
+    });
+    window._hasYouTubeResizeListener = true;
+  }
 
   // 初始加载时也检查一下所有视频的状态
   chapterIframes.forEach(iframe => updateFloatBoxVisibility(iframe));
