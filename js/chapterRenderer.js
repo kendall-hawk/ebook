@@ -33,7 +33,7 @@ function normalizeTextForComparison(text) {
  * @returns {{html: string, lastUsedSubtitleIndex: number}} 包含处理后的HTML和最后一个使用的字幕索引。
  */
 function preTagSubtitles(rawTextOrMarkdown, subtitles, subtitleStartIndex) {
-  if (!rawTextOrMarkdown.trim() || subtitleStartIndex >= subtitles.length) {
+  if (!rawTextOrMarkdown.trim() || !subtitles || subtitles.length === 0 || subtitleStartIndex >= subtitles.length) {
     return { html: rawTextOrMarkdown, lastUsedSubtitleIndex: subtitleStartIndex };
   }
 
@@ -50,15 +50,46 @@ function preTagSubtitles(rawTextOrMarkdown, subtitles, subtitleStartIndex) {
   const walker = doc.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null, false);
   let node;
   while ((node = walker.nextNode())) {
-    textNodes.push(node);
+    if (node.nodeValue.trim().length > 0) { // 过滤掉空文本节点，提高效率
+        textNodes.push(node);
+    }
   }
 
   // 将所有文本节点的内容连接起来，形成段落的完整文本
-  const paragraphFullText = textNodes.map(n => n.nodeValue || '').join('');
+  // 同时保留原始文本节点和它们在连接后文本中的起始索引，用于后续精确映射
+  let paragraphFullText = '';
+  const textNodeCharOffsets = new Map(); // Map<TextNode, { start: number, end: number }>
+  let currentOffset = 0;
+  for (const tn of textNodes) {
+      const nodeValue = tn.nodeValue || '';
+      textNodeCharOffsets.set(tn, { start: currentOffset, end: currentOffset + nodeValue.length });
+      paragraphFullText += nodeValue;
+      currentOffset += nodeValue.length;
+  }
+  
   const normalizedParagraphText = normalizeTextForComparison(paragraphFullText);
 
   let currentSearchIndexInParagraph = 0; // 在段落规范化文本中的当前搜索位置
   let lastUsedSubtitleIndex = subtitleStartIndex; // 记录已成功匹配的最后一个字幕索引
+
+  // 优化：提前构建原始文本到规范化文本的字符映射
+  const originalToNormalizedMap = [];
+  let originalIdx = 0;
+  let normalizedIdx = 0;
+  while (originalIdx < paragraphFullText.length) {
+      const char = paragraphFullText[originalIdx];
+      const normalizedChar = normalizeTextForComparison(char);
+      for (let i = 0; i < normalizedChar.length; i++) {
+          originalToNormalizedMap[normalizedIdx + i] = originalIdx;
+      }
+      if (normalizedChar.length === 0) { // 如果字符被规范化移除了，则它不对应任何规范化索引
+          // do nothing, originalIdx will just advance
+      } else {
+          normalizedIdx += normalizedChar.length;
+      }
+      originalIdx++;
+  }
+
 
   for (let i = subtitleStartIndex; i < subtitles.length; i++) {
     const subtitle = subtitles[i];
@@ -74,87 +105,76 @@ function preTagSubtitles(rawTextOrMarkdown, subtitles, subtitleStartIndex) {
 
     if (matchPos !== -1) {
       // 成功匹配，现在需要在原始DOM中找到对应的位置
-      let charCount = 0; // 原始文本中的字符计数 (基于规范化后的长度)
+      // 使用预计算的 originalToNormalizedMap 来转换索引
+      const originalMatchStart = originalToNormalizedMap[matchPos];
+      // 找到匹配的原始文本结束位置
+      let originalMatchEnd = originalToNormalizedMap[matchPos + normalizedSubtitleText.length - 1];
+      // 如果匹配的最后一个规范化字符对应多个原始字符，需要找到其在原始文本中的真实结束位置
+      // 简单的方法是取匹配的最后一个规范化字符对应的原始字符的下一个字符的索引
+      if (matchPos + normalizedSubtitleText.length < originalToNormalizedMap.length) {
+          originalMatchEnd = originalToNormalizedMap[matchPos + normalizedSubtitleText.length];
+      } else {
+          // 如果匹配到规范化文本的末尾，原始文本结束位置就是原始文本的长度
+          originalMatchEnd = paragraphFullText.length;
+      }
+
+
       let startNode = null, endNode = null;
       let startOffset = -1, endOffset = -1;
 
       // 寻找起始节点和偏移
-      for (let j = 0; j < textNodes.length; j++) {
-        const nodeValue = textNodes[j].nodeValue || '';
-        const normalizedNodeValue = normalizeTextForComparison(nodeValue);
-
-        if (startNode === null && charCount + normalizedNodeValue.length > matchPos) {
-          startNode = textNodes[j];
-          let cleanCharSeen = 0; // 已经匹配的规范化字符数
-          for (let k = 0; k < nodeValue.length; k++) {
-            const charNormalizedLength = normalizeTextForComparison(nodeValue[k]).length;
-            if (charNormalizedLength > 0) {
-              if (cleanCharSeen >= (matchPos - charCount)) {
-                startOffset = k;
-                break;
-              }
-              cleanCharSeen++;
-            }
-            if (k === nodeValue.length - 1) startOffset = k + 1; // 如果到节点末尾还没找到，就是末尾
-          }
+      for (const tn of textNodes) {
+        const { start, end } = textNodeCharOffsets.get(tn);
+        if (originalMatchStart >= start && originalMatchStart < end) {
+            startNode = tn;
+            startOffset = originalMatchStart - start;
         }
-        charCount += normalizedNodeValue.length;
-      }
-
-      charCount = 0; // 重置计数器，用于寻找结束位置
-      const matchEndPos = matchPos + normalizedSubtitleText.length;
-      // 寻找结束节点和偏移
-      for (let j = 0; j < textNodes.length; j++) {
-        const nodeValue = textNodes[j].nodeValue || '';
-        const normalizedNodeValue = normalizeTextForComparison(nodeValue);
-
-        if (charCount + normalizedNodeValue.length >= matchEndPos) {
-          endNode = textNodes[j];
-          let cleanCharSeen = 0;
-          for (let k = 0; k < nodeValue.length; k++) {
-            const charNormalizedLength = normalizeTextForComparison(nodeValue[k]).length;
-            if (charNormalizedLength > 0) {
-              cleanCharSeen++;
-              if (cleanCharSeen >= (matchEndPos - charCount)) {
-                endOffset = k + 1; // 结束偏移是匹配字符的后一位
-                break;
-              }
-            }
-            if (k === nodeValue.length - 1) endOffset = k + 1; // 如果到节点末尾还没找到，就是末尾
-          }
-          break; // 找到结束节点后就可以退出循环
+        if (originalMatchEnd > start && originalMatchEnd <= end) { // 结束点可能落在节点末尾，或在下一个节点的开头
+            endNode = tn;
+            endOffset = originalMatchEnd - start;
+            break; // 找到结束节点后就可以退出循环
+        } else if (originalMatchEnd <= start) { // 结束点在当前节点之前，表示起始节点已经是最后一个节点了
+            endNode = tn; // 理论上这不会发生，因为匹配是连续的
+            endOffset = 0; // 或者设置为起始节点末尾
+            break;
         }
-        charCount += normalizedNodeValue.length;
       }
+        // 如果结束点恰好是某个文本节点的起始点，那么它应该是上一个文本节点的末尾
+        // 或者，如果endOffset为0，且endNode不是startNode，则endNode应是前一个文本节点
+        if (startNode && endNode && startOffset !== -1 && endOffset !== -1) {
+            const range = doc.createRange();
+            try {
+                range.setStart(startNode, startOffset);
+                range.setEnd(endNode, endOffset);
 
-      if (startNode && endNode && startOffset !== -1 && endOffset !== -1) {
-        const range = doc.createRange();
-        try {
-            range.setStart(startNode, startOffset);
-            range.setEnd(endNode, endOffset);
+                // 再次检查范围是否为空或无效，尤其是在边界情况下
+                const rangeContent = range.toString().trim();
+                if (rangeContent.length === 0 && normalizedSubtitleText.length > 0) {
+                    console.warn(`Skipping empty or invalid range for subtitle ID ${subtitle.id} ("${subtitle.text}"). Range content: "${range.toString()}"`);
+                    lastUsedSubtitleIndex = i + 1;
+                    currentSearchIndexInParagraph = matchPos + normalizedSubtitleText.length; // 即使跳过，也要推进搜索位置
+                    continue;
+                }
 
-            if (range.toString().trim().length > 0) {
-              const span = doc.createElement('span');
-              span.className = 'subtitle-segment';
-              span.dataset.subtitleId = subtitle.id;
+                const span = doc.createElement('span');
+                span.className = 'subtitle-segment';
+                span.dataset.subtitleId = subtitle.id;
 
-              range.surroundContents(span);
-            } else {
-                console.warn('Skipping empty range for subtitle:', subtitle.text);
-                lastUsedSubtitleIndex = i + 1;
+                range.surroundContents(span);
+                
+            } catch (e) {
+                console.warn('Range.surroundContents failed for subtitle:', subtitle.text, 'Error:', e, 'StartNode:', startNode.nodeValue, 'StartOffset:', startOffset, 'EndNode:', endNode ? endNode.nodeValue : 'N/A', 'EndOffset:', endOffset);
+                lastUsedSubtitleIndex = i + 1; // 即使失败也推进索引，避免死循环
+                currentSearchIndexInParagraph = matchPos + normalizedSubtitleText.length;
                 continue;
             }
-
-        } catch (e) {
-            console.warn('Range.surroundContents failed for subtitle:', subtitle.text, 'Range:', range.toString(), 'Error:', e);
-            continue;
+            currentSearchIndexInParagraph = matchPos + normalizedSubtitleText.length;
+            lastUsedSubtitleIndex = i + 1;
+        } else {
+            console.warn(`Failed to find precise DOM position for subtitle ID ${subtitle.id} ("${subtitle.text}"). Skipping subsequent subtitles for this paragraph.`);
+            // 如果没有找到精确的 DOM 位置，则停止处理此段落的后续字幕
+            break;
         }
-        currentSearchIndexInParagraph = matchEndPos;
-        lastUsedSubtitleIndex = i + 1;
-      } else {
-          // 如果没有找到精确的 DOM 位置，则停止处理此段落的后续字幕
-          break;
-      }
     } else {
       // 如果当前字幕在段落中找不到匹配，则停止处理此段落的后续字幕
       break;
@@ -173,9 +193,9 @@ function preTagSubtitles(rawTextOrMarkdown, subtitles, subtitleStartIndex) {
  * @param {Object} currentChapterTooltips - 当前章节的工具提示数据。
  * @param {Map<string, number>} wordFrequenciesMap - 全局词频 Map。
  * @param {number} maxFreq - 全局最大词频。
- * @param {Array<Object>} subtitleData - SRT 字幕数据 (用于渲染字幕段)。
+ * @param {Array<Object>} allChapterSubtitles - 当前章节所有字幕的完整SRT数据 (外部传入)。
  */
-export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, subtitleData = []) {
+export function renderSingleChapterContent(chapterContent, currentChapterTooltips, wordFrequenciesMap, maxFreq, allChapterSubtitles = []) {
     const chaptersContainer = document.getElementById('chapters');
     if (!chaptersContainer) {
         console.error('Chapters container not found!');
@@ -203,7 +223,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
             //    这个返回的 HTML 字符串仍然包含 Markdown 语法，并且没有额外的 <p> 标签。
             const { html: markdownWithSubtitles, lastUsedSubtitleIndex } = preTagSubtitles(
                 item, // 传入原始的 Markdown 字符串
-                subtitleData,
+                allChapterSubtitles, // 传入当前章节的所有字幕数据
                 subtitleTracker
             );
             subtitleTracker = lastUsedSubtitleIndex; // 更新字幕追踪器
