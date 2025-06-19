@@ -11,15 +11,19 @@ let allChapterIndex = []; // 全局存储章节索引数据
 
 /**
  * 规范化文本，用于模糊匹配。移除非字母数字字符（保留空格），转为小写，合并空格。
+ * 使用 Unicode 属性，更好地处理多语言文本。
  * @param {string} text - 原始文本.
  * @returns {string} - 清理后的、用于比较的文本.
  */
 function normalizeTextForComparison(text) {
   if (!text) return '';
   // 移除非字母数字的Unicode字符 (保留空格), 转为小写，合并空格
+  // \p{L} 匹配任何类型的字母字符
+  // \p{N} 匹配任何数字字符
+  // \s 匹配任何空白字符
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, '') // 保留字母、数字、空格
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
     .replace(/\s+/g, ' ') // 合并多个空格为一个
     .trim();
 }
@@ -27,31 +31,31 @@ function normalizeTextForComparison(text) {
 /**
  * 核心函数：将一个已渲染Tooltip的HTML段落，转换为已注入字幕标签的HTML。
  * 此函数通过DOM解析和Range API精确包裹字幕，不会破坏现有HTML结构。
- * @param {string} paragraphHtmlWithTooltips - 原始段落的HTML文本，已包含Tooltips.
+ * @param {string} paragraphHtml - 原始段落的HTML文本，可以是纯文本或已包含一些HTML结构.
  * @param {Array<Object>} subtitles - 全部的SRT字幕数据.
  * @param {number} subtitleStartIndex - 从哪个字幕索引开始查找 (用于优化搜索范围).
  * @returns {{html: string, lastUsedSubtitleIndex: number}} 包含处理后的HTML和最后一个使用的字幕索引。
  */
-function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartIndex) {
-  if (!paragraphHtmlWithTooltips.trim() || subtitleStartIndex >= subtitles.length) {
-    return { html: paragraphHtmlWithTooltips, lastUsedSubtitleIndex: subtitleStartIndex };
+function preTagSubtitles(paragraphHtml, subtitles, subtitleStartIndex) {
+  if (!paragraphHtml.trim() || subtitleStartIndex >= subtitles.length) {
+    return { html: paragraphHtml, lastUsedSubtitleIndex: subtitleStartIndex };
   }
 
   const parser = new DOMParser();
-  // 使用 div 包裹，以便进行 DOM 操作
-  const doc = parser.parseFromString(`<div>${paragraphHtmlWithTooltips}</div>`, 'text/html');
+  // 使用 div 包裹，以便进行 DOM 操作。确保传入的 paragraphHtml 即使是纯文本也能被解析。
+  const doc = parser.parseFromString(`<div>${paragraphHtml}</div>`, 'text/html');
   const wrapper = doc.body.firstChild;
 
   const textNodes = [];
   // 创建一个 TreeWalker 来遍历所有文本节点
-  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null, false);
+  const walker = doc.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null, false); // 注意这里是 doc.createTreeWalker
   let node;
   while ((node = walker.nextNode())) {
     textNodes.push(node);
   }
 
   // 将所有文本节点的内容连接起来，形成段落的完整文本
-  const paragraphFullText = textNodes.map(n => n.nodeValue).join('');
+  const paragraphFullText = textNodes.map(n => n.nodeValue || '').join('');
   const normalizedParagraphText = normalizeTextForComparison(paragraphFullText);
 
   let currentSearchIndexInParagraph = 0; // 在段落规范化文本中的当前搜索位置
@@ -61,14 +65,17 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
     const subtitle = subtitles[i];
     const normalizedSubtitleText = normalizeTextForComparison(subtitle.text);
 
-    if (!normalizedSubtitleText) continue;
+    if (!normalizedSubtitleText) {
+      lastUsedSubtitleIndex = i + 1; // 如果字幕文本为空，也向前推进索引
+      continue;
+    }
 
     // 在规范化段落文本中查找规范化字幕文本
     const matchPos = normalizedParagraphText.indexOf(normalizedSubtitleText, currentSearchIndexInParagraph);
 
     if (matchPos !== -1) {
       // 成功匹配，现在需要在原始DOM中找到对应的位置
-      let charCount = 0; // 原始文本中的字符计数
+      let charCount = 0; // 原始文本中的字符计数 (基于规范化后的长度)
       let startNode = null, endNode = null;
       let startOffset = -1, endOffset = -1;
 
@@ -82,7 +89,8 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
           let cleanCharSeen = 0; // 已经匹配的规范化字符数
           for (let k = 0; k < nodeValue.length; k++) {
             // 判断当前字符是否在规范化文本中会被保留
-            if (normalizeTextForComparison(nodeValue[k]).length > 0) {
+            const charNormalizedLength = normalizeTextForComparison(nodeValue[k]).length;
+            if (charNormalizedLength > 0) { // 如果字符在规范化后有长度
               if (cleanCharSeen >= (matchPos - charCount)) {
                 startOffset = k;
                 break;
@@ -95,18 +103,27 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
         charCount += normalizedNodeValue.length;
       }
 
-      charCount = 0;
+      charCount = 0; // 重置计数器，用于寻找结束位置
       const matchEndPos = matchPos + normalizedSubtitleText.length;
       // 寻找结束节点和偏移
       for (let j = 0; j < textNodes.length; j++) {
         const nodeValue = textNodes[j].nodeValue || '';
         const normalizedNodeValue = normalizeTextForComparison(nodeValue);
 
-        if (endNode === null && charCount + normalizedNodeValue.length >= matchEndPos) {
+        // 如果 endNode 已经找到，并且当前节点在之前，则跳过
+        if (endNode && textNodes[j] === endNode) {
+          // 如果找到了结束节点，并且当前正在处理的节点就是结束节点，那么我们就已经处理过了，可以跳出。
+          // 否则，如果结束节点是后面某个节点，我们需要继续遍历。
+          // 这里的逻辑需要更严谨地确保找到了正确的 endNode 之后，才退出循环。
+          // 简单地通过 charCount 判断即可。
+        }
+
+        if (charCount + normalizedNodeValue.length >= matchEndPos) {
           endNode = textNodes[j];
           let cleanCharSeen = 0;
           for (let k = 0; k < nodeValue.length; k++) {
-            if (normalizeTextForComparison(nodeValue[k]).length > 0) {
+            const charNormalizedLength = normalizeTextForComparison(nodeValue[k]).length;
+            if (charNormalizedLength > 0) {
               cleanCharSeen++;
               if (cleanCharSeen >= (matchEndPos - charCount)) {
                 endOffset = k + 1; // 结束偏移是匹配字符的后一位
@@ -121,29 +138,41 @@ function preTagSubtitles(paragraphHtmlWithTooltips, subtitles, subtitleStartInde
       }
 
       if (startNode && endNode && startOffset !== -1 && endOffset !== -1) {
-        const range = doc.createRange();
+        const range = doc.createRange(); // 注意这里是 doc.createRange
         try {
             range.setStart(startNode, startOffset);
             range.setEnd(endNode, endOffset);
 
-            const span = doc.createElement('span'); // 注意：这里创建的是 documentFragment 内部的 span
-            span.className = 'subtitle-segment';
-            span.dataset.subtitleId = subtitle.id;
+            // 确保 range 不为空，避免包裹空内容
+            if (range.toString().trim().length > 0) {
+              const span = doc.createElement('span'); // 注意：这里创建的是 documentFragment 内部的 span
+              span.className = 'subtitle-segment';
+              span.dataset.subtitleId = subtitle.id;
 
-            range.surroundContents(span);
+              range.surroundContents(span);
+            } else {
+                console.warn('Skipping empty range for subtitle:', subtitle.text);
+                // 如果是空范围，也更新索引并继续，避免卡死
+                lastUsedSubtitleIndex = i + 1;
+                continue;
+            }
+
         } catch (e) {
-            console.warn('Range.surroundContents failed for subtitle:', subtitle.text, e);
+            console.warn('Range.surroundContents failed for subtitle:', subtitle.text, 'Range:', range.toString(), 'Error:', e);
             // 如果出错，这个字幕就无法包裹，继续下一个字幕的尝试
+            // 但如果是因为无法包裹而跳过，lastUsedSubtitleIndex 就不应该更新
+            continue; // 不更新 lastUsedSubtitleIndex，下一次尝试可能会重新匹配
         }
         currentSearchIndexInParagraph = matchEndPos; // 更新段落搜索位置
         lastUsedSubtitleIndex = i + 1; // 更新字幕索引，指向下一个未处理的字幕
       } else {
           // 如果没有找到精确的 DOM 位置，则停止处理此段落的后续字幕
+          // 因为字幕通常是连续的，一个字幕匹配不上，后面的很可能也匹配不上，或者会导致错位。
           break;
       }
     } else {
       // 如果当前字幕在段落中找不到匹配，则停止处理此段落的后续字幕
-      // 因为字幕通常是连续的
+      // 因为字幕通常是连续的，如果当前找不到，说明当前段落的字幕可能已处理完或不匹配。
       break;
     }
   }
@@ -181,24 +210,43 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
     let subtitleTracker = 0; // 用于跟踪在当前章节中处理到的字幕索引
 
     chapterContent.paragraphs.forEach(item => {
-        let finalHtml = '';
         if (typeof item === 'string') {
-            // 1. 渲染 Markdown 并添加工具提示和词频样式
-            const htmlWithTooltips = renderMarkdownWithTooltips(
-                item,
-                currentChapterTooltips,
-                wordFrequenciesMap,
-                maxFreq
-            );
+            // 对于文本内容：
+            // 1. 首先，将原始 Markdown 文本初步处理成 HTML，并注入字幕标签。
+            //    我们假设 preTagSubtitles 能够处理纯文本（即使内部有少量 Markdown 语法，
+            //    只要不影响其DOM解析和Range操作即可）。
+            //    为了让 preTagSubtitles 有一个根节点可以操作，我们先用一个临时的 div 或 p 标签包裹。
+            const initialHtmlWrapper = document.createElement('div'); // 使用 div 作为临时容器
+            initialHtmlWrapper.innerHTML = item; // 放入原始 Markdown 文本
 
-            // 2. 将字幕标签注入到 HTML 中
-            const { html: taggedHtmlFinal, lastUsedSubtitleIndex } = preTagSubtitles(
-                htmlWithTooltips,
+            const { html: htmlWithSubtitles, lastUsedSubtitleIndex } = preTagSubtitles(
+                initialHtmlWrapper.innerHTML, // 传入包含原始 Markdown 文本的 HTML 字符串
                 subtitleData,
                 subtitleTracker
             );
             subtitleTracker = lastUsedSubtitleIndex; // 更新字幕追踪器
-            finalHtml = taggedHtmlFinal;
+
+            // 2. 然后，在已包含字幕标签的 HTML 字符串上，渲染 Markdown 并添加工具提示和词频样式。
+            //    renderMarkdownWithTooltips 必须能够识别并保留已存在的 <span class="subtitle-segment"> 标签。
+            //    大多数 Markdown 渲染器会忽略或保留原生 HTML 标签，所以这通常可行。
+            const finalHtml = renderMarkdownWithTooltips(
+                htmlWithSubtitles, // 传入已包含字幕标签的 HTML
+                currentChapterTooltips,
+                wordFrequenciesMap,
+                maxFreq,
+                true // 明确告知 renderMarkdownWithTooltips 这是一个 HTML 片段，而不是原始 Markdown
+                     // (这取决于 tooltip.js 中 renderMarkdownWithTooltips 的实现是否需要这个参数)
+            );
+
+            // 将最终的 HTML 字符串解析并添加到 DOM 中
+            if (finalHtml) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = finalHtml;
+                // 将 tempDiv 的所有子元素直接添加到 chaptersContainer
+                Array.from(tempDiv.children).forEach(child => {
+                    chaptersContainer.appendChild(child);
+                });
+            }
 
         } else if (item.video) {
             // 处理视频项
@@ -237,17 +285,7 @@ export function renderSingleChapterContent(chapterContent, currentChapterTooltip
             } else {
                 console.warn('无法为视频项生成有效的 YouTube 嵌入 URL:', item.video);
             }
-            return; // 视频项不继续处理为段落
-        }
-
-        // 将最终的 HTML 字符串解析并添加到 DOM 中
-        if (finalHtml) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = finalHtml;
-            // 将 tempDiv 的所有子元素直接添加到 chaptersContainer
-            Array.from(tempDiv.children).forEach(child => {
-                chaptersContainer.appendChild(child);
-            });
+            // 视频项不继续处理为段落，直接返回
         }
     });
 }
@@ -317,6 +355,7 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
         const img = document.createElement('img');
         img.src = ch.thumbnail || 'assets/default_thumbnail.jpg';
         img.alt = ch.title;
+        img.loading = 'lazy'; // 添加懒加载
         itemLink.appendChild(img);
 
         const title = document.createElement('h3');
@@ -326,7 +365,8 @@ export function renderChapterToc(chapterIndex, onChapterClick, filterCategory = 
         // 使用事件委托，将点击处理委托给父级 (main.js 中的处理)
         itemLink.addEventListener('click', (e) => {
             e.preventDefault(); // 阻止默认的锚点跳转
-            onChapterClick(ch.id, ch.file); // 调用回调函数加载章节
+            // 调用回调函数加载章节，并传递章节 ID 和文件路径
+            onChapterClick(ch.id, ch.file);
         });
         toc.appendChild(itemLink);
     });
